@@ -54,7 +54,7 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 				objId := object.GetObjectId()
 				index, err := getObjectIndexById(objectsFromDB, objId)
 				if err != nil { // object not found in the db table
-					if err = s.db.InsertManagedCluster(s.dbTableName, objId, leafHubId, object.GetObject(),
+					if err = s.db.InsertManagedCluster(s.dbTableName, string(objId), leafHubId, object.GetObject(),
 						object.GetLeafHubLastUpdateTimestamp()); err != nil {
 						log.Println(err) // failed to insert object to DB // TODO retry
 					}
@@ -66,7 +66,7 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 				if !object.GetLeafHubLastUpdateTimestamp().After(objectFromDB.LastUpdateTimestamp) {
 					continue // sync object to db only if something has changed, object hasn't changed...
 				}
-				if err = s.db.UpdateManagedCluster(s.dbTableName, objId, leafHubId, object.GetObject(),
+				if err = s.db.UpdateManagedCluster(s.dbTableName, string(objId), leafHubId, object.GetObject(),
 					object.GetLeafHubLastUpdateTimestamp()); err != nil {
 					log.Println(err) // TODO retry
 				}
