@@ -1,4 +1,4 @@
-package bundle
+package object
 
 import (
 	clusterv1 "github.com/open-cluster-management/api/cluster/v1"

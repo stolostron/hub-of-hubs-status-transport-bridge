@@ -1,19 +1,10 @@
 package bundle
 
-import (
-	"k8s.io/apimachinery/pkg/types"
-	"time"
-)
+import "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle/object"
 
 type CreateBundleFunction func() Bundle
 
-type Object interface {
-	GetObjectId() types.UID
-	GetObject() interface{}
-	GetLeafHubLastUpdateTimestamp() *time.Time
-}
-
 type Bundle interface {
 	GetLeafHubId() string
-	GetObjects() []Object
+	GetObjects() []object.Object
 }
