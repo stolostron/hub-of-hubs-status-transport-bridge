@@ -24,7 +24,7 @@ vendor:
 clean-vendor:
 	-@rm -rf vendor
 
-.PHONY: hoh-status-transport-bridge		##builds hub-of-hubs-transport-bridge as an executable and puts it under build/bin
+.PHONY: hoh-status-transport-bridge	##builds hub-of-hubs-transport-bridge as an executable and puts it under build/bin
 hoh-status-transport-bridge:
 	@go build -o build/bin/hoh-status-transport-bridge cmd/main.go
 
