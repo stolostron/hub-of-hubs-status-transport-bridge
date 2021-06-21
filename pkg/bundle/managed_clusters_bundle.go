@@ -2,13 +2,13 @@ package bundle
 
 func NewManagedClustersStatusBundle() *ManagedClustersStatusBundle {
 	return &ManagedClustersStatusBundle{
-		Objects: make([]Object, 0),
+		Objects: make([]*TimestampedManagedCluster, 0),
 	}
 }
 
 type ManagedClustersStatusBundle struct {
-	Objects   []Object `json:"objects"`
-	LeafHubId string   `json:"leafHubId"`
+	Objects   []*TimestampedManagedCluster `json:"objects"`
+	LeafHubId string                       `json:"leafHubId"`
 }
 
 func (bundle *ManagedClustersStatusBundle) GetLeafHubId() string {
@@ -16,5 +16,9 @@ func (bundle *ManagedClustersStatusBundle) GetLeafHubId() string {
 }
 
 func (bundle *ManagedClustersStatusBundle) GetObjects() []Object {
-	return bundle.Objects
+	result := make([]Object, len(bundle.Objects))
+	for i, obj := range bundle.Objects {
+		result[i] = obj
+	}
+	return result
 }

@@ -41,6 +41,12 @@ func (b *StatusTransportBridge) Start() {
 		for _, syncer := range b.transportToDBSyncers {
 			syncer.Start()
 		}
+		for {
+			select { // make sure the program doesn't exist
+			case <-b.stopChan:
+				return
+			}
+		}
 	})
 }
 

@@ -50,6 +50,7 @@ func (p *PostgreSQL) GetObjectsByLeafHub(tableName string, leafHubId string) ([]
 		}
 		result = append(result, &object)
 	}
+
 	return result, nil
 }
 
