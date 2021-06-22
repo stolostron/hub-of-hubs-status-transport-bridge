@@ -42,7 +42,7 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 		case <-s.stopChan:
 			return
 		case receivedBundle := <-s.bundleUpdatesChan:
-			log.Println(fmt.Sprintf("received bundle '%s' from leaf hub %s",s.transportBundleKey,
+			log.Println(fmt.Sprintf("received bundle '%s' from leaf hub %s", s.transportBundleKey,
 				receivedBundle.GetLeafHubId()))
 			leafHubId := receivedBundle.GetLeafHubId()
 			objectsFromDB, err := s.db.GetObjectsByLeafHub(s.dbTableName, leafHubId)
