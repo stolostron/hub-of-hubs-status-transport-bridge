@@ -6,7 +6,6 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	hohDb "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
-	"k8s.io/apimachinery/pkg/types"
 	"log"
 )
 
@@ -28,7 +27,7 @@ func (s *genericTransportToDBSyncer) Start() {
 func (s *genericTransportToDBSyncer) init() {
 	s.bundleUpdatesChan = make(chan bundle.Bundle)
 	s.transport.Register(s.transportBundleKey, s.bundleUpdatesChan, s.createBundleFunc)
-	log.Println(fmt.Sprintf("initialzed syncer for table status.%s", s.dbTableName))
+	log.Println(fmt.Sprintf("initialized syncer for table status.%s", s.dbTableName))
 }
 
 // need to do "diff" between objects received in the bundle and the objects in db.
@@ -38,12 +37,13 @@ func (s *genericTransportToDBSyncer) init() {
 // for the objects that appear in both, need to check if something has changed using timestamp comparison and if the
 // object was changed, update the db with the current object.
 func (s *genericTransportToDBSyncer) syncBundles() {
-	log.Println("start syncing...")
 	for {
 		select { // wait for incoming bundles to handle
 		case <-s.stopChan:
 			return
 		case receivedBundle := <-s.bundleUpdatesChan:
+			log.Println(fmt.Sprintf("received bundle '%s' from leaf hub %s",s.transportBundleKey,
+				receivedBundle.GetLeafHubId()))
 			leafHubId := receivedBundle.GetLeafHubId()
 			objectsFromDB, err := s.db.GetObjectsByLeafHub(s.dbTableName, leafHubId)
 			if err != nil {
@@ -52,7 +52,7 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 			}
 			for _, object := range receivedBundle.GetObjects() {
 				objId := object.GetObjectId()
-				index, err := getObjectIndexById(objectsFromDB, objId)
+				index, err := getObjectIndexById(objectsFromDB, string(objId))
 				if err != nil { // object not found in the db table
 					if err = s.db.InsertManagedCluster(s.dbTableName, string(objId), leafHubId, object.GetObject(),
 						object.GetLeafHubLastUpdateTimestamp()); err != nil {
@@ -69,13 +69,14 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 				if err = s.db.UpdateManagedCluster(s.dbTableName, string(objId), leafHubId, object.GetObject(),
 					object.GetLeafHubLastUpdateTimestamp()); err != nil {
 					log.Println(err) // TODO retry
+					continue
 				}
 			}
 		}
 	}
 }
 
-func getObjectIndexById(objects []*hohDb.ObjectIdAndTimestamp, objId types.UID) (int, error) {
+func getObjectIndexById(objects []*hohDb.ObjectIdAndTimestamp, objId string) (int, error) {
 	for i, object := range objects {
 		if object.ObjectId == objId {
 			return i, nil

@@ -39,7 +39,7 @@ func (p *PostgreSQL) Stop() {
 func (p *PostgreSQL) GetObjectsByLeafHub(tableName string, leafHubId string) ([]*db.ObjectIdAndTimestamp, error) {
 	result := make([]*db.ObjectIdAndTimestamp, 0)
 	rows, _ := p.conn.Query(context.Background(),
-		`SELECT id,leaf_hub_updated_at FROM status.$1 WHERE leaf_hub_id = $2`, tableName, leafHubId)
+		fmt.Sprintf(`SELECT id,leaf_hub_updated_at FROM status.%s WHERE leaf_hub_id='%s'`, tableName, leafHubId))
 	for rows.Next() {
 		object := db.ObjectIdAndTimestamp{}
 		err := rows.Scan(&object.ObjectId, &object.LastUpdateTimestamp)
@@ -68,8 +68,9 @@ func (p *PostgreSQL) InsertManagedCluster(tableName string, objId string, leafHu
 func (p *PostgreSQL) UpdateManagedCluster(tableName string, objId string, leafHubId string, status interface{},
 	leafHuhLastUpdate *time.Time) error {
 	_, err := p.conn.Exec(context.Background(),
-		fmt.Sprintf(`UPDATE status.%s SET status = $1 AND leaf_hub_updated_at = $2 WHERE id = $3 AND
-			     leaf_hub_id = $4 `, tableName), status, leafHuhLastUpdate, objId, leafHubId)
+		fmt.Sprintf(`UPDATE status.%s SET status=$1,leaf_hub_updated_at=$2 WHERE id=$3 AND leaf_hub_id=$4`,
+			tableName), status, leafHuhLastUpdate, objId, leafHubId)
+
 	if err != nil {
 		return fmt.Errorf("failed to update obj in database: %s", err)
 	}

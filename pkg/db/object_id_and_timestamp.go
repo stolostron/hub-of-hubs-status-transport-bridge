@@ -1,11 +1,10 @@
 package db
 
 import (
-	"k8s.io/apimachinery/pkg/types"
 	"time"
 )
 
 type ObjectIdAndTimestamp struct {
-	ObjectId            types.UID
+	ObjectId            string
 	LastUpdateTimestamp time.Time
 }
