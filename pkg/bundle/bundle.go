@@ -1,10 +1,18 @@
 package bundle
 
-import "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle/object"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
 
 type CreateBundleFunction func() Bundle
 
+type Object interface {
+	metav1.Object
+	runtime.Object
+}
+
 type Bundle interface {
 	GetLeafHubId() string
-	GetObjects() []object.Object
+	GetObjects() []Object
 }
