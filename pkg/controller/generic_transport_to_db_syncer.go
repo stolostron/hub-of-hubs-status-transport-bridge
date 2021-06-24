@@ -42,10 +42,9 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 		case <-s.stopChan:
 			return
 		case receivedBundle := <-s.bundleUpdatesChan:
-			log.Println(fmt.Sprintf("received bundle '%s' from leaf hub %s", s.transportBundleKey,
-				receivedBundle.GetLeafHubId()))
-			leafHubId := receivedBundle.GetLeafHubId()
-			objectsFromDB, err := s.db.GetObjectsByLeafHub(s.dbTableName, leafHubId)
+			leafHubName := receivedBundle.GetLeafHubName()
+			log.Println(fmt.Sprintf("received bundle '%s' from leaf hub %s", s.transportBundleKey, leafHubName))
+			objectsFromDB, err := s.db.GetObjectsByLeafHub(s.dbTableName, leafHubName)
 			if err != nil {
 				log.Println(err)
 				// TODO retry on error, not to lose updates. retry is relevant only if no other bundle received
@@ -55,10 +54,10 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 			// TODO future optimization suggestion - send bundle sorted by id, get objects from db also sorted by id.
 			// TODO then the search if object exists or not in the db should be O(1) instead of the existing state.
 			for _, object := range receivedBundle.GetObjects() {
-				objId := object.GetUID()
-				index, err := getObjectIndexById(objectsFromDB, string(objId))
+				objName := object.GetName()
+				index, err := getObjectIndexByName(objectsFromDB, objName)
 				if err != nil { // object not found in the db table
-					if err = s.db.InsertManagedCluster(s.dbTableName, string(objId), leafHubId, object,
+					if err = s.db.InsertManagedCluster(s.dbTableName, objName, leafHubName, object,
 						object.GetResourceVersion()); err != nil {
 						log.Println(err) // failed to insert object to DB // TODO retry
 					}
@@ -70,7 +69,7 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 				if object.GetResourceVersion() <= objectFromDB.ResourceVersion {
 					continue // sync object to db only if what we got is a newer version of the resource
 				}
-				if err = s.db.UpdateManagedCluster(s.dbTableName, string(objId), leafHubId, object,
+				if err = s.db.UpdateManagedCluster(s.dbTableName, objName, leafHubName, object,
 					object.GetResourceVersion()); err != nil {
 					log.Println(err) // TODO retry
 					continue
@@ -81,8 +80,8 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 				if obj == nil {
 					continue
 				}
-				if err = s.db.DeleteManagedCluster(s.dbTableName, obj.ObjectId, leafHubId); err != nil {
-					log.Println(fmt.Sprintf("error removing object with id %s from table status.%s",obj.ObjectId,
+				if err = s.db.DeleteManagedCluster(s.dbTableName, obj.ObjectName, leafHubName); err != nil {
+					log.Println(fmt.Sprintf("error removing object %s from table status.%s", obj.ObjectName,
 						s.dbTableName))
 				}
 			}
@@ -90,11 +89,11 @@ func (s *genericTransportToDBSyncer) syncBundles() {
 	}
 }
 
-func getObjectIndexById(objects []*hohDb.ObjectIdAndVersion, objId string) (int, error) {
+func getObjectIndexByName(objects []*hohDb.ObjectNameAndVersion, objName string) (int, error) {
 	for i, object := range objects {
-		if object.ObjectId == objId {
+		if object.ObjectName == objName {
 			return i, nil
 		}
 	}
-	return -1, errors.New("object id not found")
+	return -1, errors.New("object not found")
 }

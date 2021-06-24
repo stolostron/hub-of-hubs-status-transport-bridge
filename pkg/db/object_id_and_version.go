@@ -1,6 +1,6 @@
 package db
 
-type ObjectIdAndVersion struct {
-	ObjectId        string
+type ObjectNameAndVersion struct {
+	ObjectName      string
 	ResourceVersion string
 }

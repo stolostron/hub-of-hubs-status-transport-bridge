@@ -11,12 +11,12 @@ func NewManagedClustersStatusBundle() *ManagedClustersStatusBundle {
 }
 
 type ManagedClustersStatusBundle struct {
-	Objects   []*clusterv1.ManagedCluster `json:"objects"`
-	LeafHubId string                      `json:"leafHubId"`
+	Objects     []*clusterv1.ManagedCluster `json:"objects"`
+	LeafHubName string                      `json:"leafHubName"`
 }
 
-func (bundle *ManagedClustersStatusBundle) GetLeafHubId() string {
-	return bundle.LeafHubId
+func (bundle *ManagedClustersStatusBundle) GetLeafHubName() string {
+	return bundle.LeafHubName
 }
 
 func (bundle *ManagedClustersStatusBundle) GetObjects() []Object {

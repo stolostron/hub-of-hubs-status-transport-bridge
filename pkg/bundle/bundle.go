@@ -13,6 +13,6 @@ type Object interface {
 }
 
 type Bundle interface {
-	GetLeafHubId() string
+	GetLeafHubName() string
 	GetObjects() []Object
 }
