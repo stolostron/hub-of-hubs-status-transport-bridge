@@ -758,6 +758,10 @@ github.com/open-cluster-management/governance-policy-propagator v0.0.0-202105202
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26/go.mod h1:7gzDyC7PddcuInXS+kLrfYmto/ImSORibXwy8RGjNM8=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210616085705-e9f16fdd33b2 h1:7IbmFz7YW/bxw6vhkqsnOxXXJYgELCEesLSbz/kwi94=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210616085705-e9f16fdd33b2/go.mod h1:cShrBqccdSjQWBd0L9n+Gd2aNYSwRVIgPOgztWA/abQ=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210630095119-c9f971ecba55 h1:WgmJV/gUAYwG5Wvj6SsQcA1jS2y9k79ZEE5n6xawA0o=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210630095119-c9f971ecba55/go.mod h1:oSaZKMECTTGCEluPqqv2NORuD2GFKIhvFeP4rvg+asY=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210701200818-6e5b89947b76 h1:Mo7R6B5sOlFzb0Umj0iOal5yrhRBBdKPtaXt/jHyskw=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.0.0-20210701200818-6e5b89947b76/go.mod h1:Th2t5lukBfvPb5tvNCMROedinKR4s64sK5hgMt8Er7w=
 github.com/open-cluster-management/hub-of-hubs-status-transport-bridge v0.0.0-20210617101147-c1ea81f79b62 h1:vaKf6YzI1y4V5hjl2I5dXpln5tpuovcyDubohD6/y+o=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2/go.mod h1:rKW01VtqwtwaUQ+zkJ80X5EeGqsTblQE4J9HxPUtTAQ=

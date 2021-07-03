@@ -109,6 +109,9 @@ func (s *SyncService) handleBundles() {
 				continue
 			}
 			msgId := strings.Split(objectMetaData.ObjectID, ".")[1] // object id is LH_ID.MSG_ID
+			if _, found := s.msgIdToCreateBundleFuncMap[msgId]; !found {
+				continue // no one registered for this msg id
+			}
 			receivedBundle := s.msgIdToCreateBundleFuncMap[msgId]()
 			err := json.Unmarshal(buffer.Bytes(), receivedBundle)
 			if err != nil {
