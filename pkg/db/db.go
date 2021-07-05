@@ -23,8 +23,8 @@ type PoliciesStatusDB interface {
 	UpdateResourceVersion(tableName string, policyId string, leafHubName string, version string) error
 	UpdateComplianceRow(tableName string, policyId string, clusterName string, leafHubName string, compliance string,
 		enforcement string, version string) error
-	UpdateComplianceRowsWithLowerVersion(tableName string, policyId string, leafHubName string, compliance string,
-		enforcement string, version string) error
+	//UpdateComplianceRowsWithLowerVersion(tableName string, policyId string, leafHubName string, compliance string,
+	//	enforcement string, version string) error
 	DeleteComplianceRow(tableName string, policyId string, clusterName string, leafHubName string) error
 	DeleteAllComplianceRows(tableName string, policyId string, leafHubName string) error
 }

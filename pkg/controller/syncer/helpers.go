@@ -1,7 +1,7 @@
 package syncer
 
 import (
-	"errors"
+	"fmt"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
@@ -32,5 +32,5 @@ func getObjectIndex(slice []string, toBeFound string) (int, error) {
 			return i, nil
 		}
 	}
-	return -1, errors.New("object not found")
+	return -1, fmt.Errorf("object %s was not found", toBeFound)
 }

@@ -8,28 +8,39 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
+	"time"
 )
 
 func NewClustersTransportToDBSyncer(db hohDb.StatusTransportBridgeDB, transport transport.Transport, dbTableName string,
 	bundleRegistration *BundleRegistration, stopChan chan struct{}) *ClustersTransportToDBSyncer {
 	syncer := &ClustersTransportToDBSyncer{
-		db:                          db,
-		dbTableName:                 dbTableName,
-		bundleUpdatesChan:           make(chan bundle.Bundle),
-		lastBundleGenerationHandled: 0,
-		stopChan:                    stopChan,
+		db:                             db,
+		dbTableName:                    dbTableName,
+		bundleUpdatesChan:              make(chan bundle.Bundle),
+		bundlesGenerationLogPerLeafHub: make(map[string]*clusterBundlesGenerationLog),
+		stopChan:                       stopChan,
 	}
 	registerToBundleUpdates(transport, bundleRegistration, syncer.bundleUpdatesChan)
 	log.Println(fmt.Sprintf("initialized syncer for table status.%s", dbTableName))
 	return syncer
 }
 
+func newClusterBundlesGenerationLog() *clusterBundlesGenerationLog {
+	return &clusterBundlesGenerationLog{
+		lastBundleGeneration: 0,
+	}
+}
+
+type clusterBundlesGenerationLog struct {
+	lastBundleGeneration uint64
+}
+
 type ClustersTransportToDBSyncer struct {
-	db                          hohDb.StatusTransportBridgeDB
-	dbTableName                 string
-	bundleUpdatesChan           chan bundle.Bundle
-	lastBundleGenerationHandled uint64
-	stopChan                    chan struct{}
+	db                             hohDb.StatusTransportBridgeDB
+	dbTableName                    string
+	bundleUpdatesChan              chan bundle.Bundle
+	bundlesGenerationLogPerLeafHub map[string]*clusterBundlesGenerationLog
+	stopChan                       chan struct{}
 }
 
 func (s *ClustersTransportToDBSyncer) StartSync() {
@@ -48,17 +59,33 @@ func (s *ClustersTransportToDBSyncer) syncBundles() {
 		case <-s.stopChan:
 			return
 		case receivedBundle := <-s.bundleUpdatesChan:
-			if err := handleBundle(receivedBundle, &s.lastBundleGenerationHandled, s.handleBundle); err != nil {
-				log.Println(err)
-				// TODO schedule a retry, use exponential backoff
-			}
+			leafHubName := receivedBundle.GetLeafHubName()
+			s.createBundleGenerationLogIfNotExist(leafHubName)
+			go func() {
+				if err := handleBundle(receivedBundle,
+					&s.bundlesGenerationLogPerLeafHub[leafHubName].lastBundleGeneration, s.handleBundle); err != nil {
+					log.Println(err) // TODO schedule a retry, use exponential backoff
+					time.Sleep(time.Second)
+					s.bundleUpdatesChan <- receivedBundle
+				}
+			}()
 		}
+	}
+}
+
+// on the first time a new leaf hub connect, it needs to create bundle generation log, to manage the generation of
+// the bundles we get from that specific leaf hub
+func (s *ClustersTransportToDBSyncer) createBundleGenerationLogIfNotExist(leafHubName string) {
+	if _, found := s.bundlesGenerationLogPerLeafHub[leafHubName]; !found {
+		s.bundlesGenerationLogPerLeafHub[leafHubName] = newClusterBundlesGenerationLog()
 	}
 }
 
 // if we got the the handler function, then the bundle generation is newer than what we have in memory
 func (s *ClustersTransportToDBSyncer) handleBundle(bundle bundle.Bundle) error {
 	leafHubName := bundle.GetLeafHubName()
+	log.Println(fmt.Sprintf("start handling 'ManagedClusters' bundle from leaf hub '%s', generation %d",
+		leafHubName, bundle.GetGeneration()))
 	clustersFromDB, err := s.db.GetManagedClustersByLeafHub(s.dbTableName, leafHubName)
 	if err != nil {
 		return err
