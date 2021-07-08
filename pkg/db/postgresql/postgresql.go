@@ -138,6 +138,26 @@ func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(tableName string, l
 	return result, nil
 }
 
+func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(tableName string, leafHubName string,
+	policyId string) ([]string, error) {
+	result := make([]string, 0)
+	rows, _ := p.conn.Query(context.Background(),
+		fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1 AND policy_id=$2 AND 
+			compliance!='compliant'`, tableName),
+		leafHubName, policyId)
+	for rows.Next() {
+		clusterName := ""
+		err := rows.Scan(&clusterName)
+		if err != nil {
+			log.Printf("error reading from table status.%s - %s", tableName, err)
+			return nil, err
+		}
+		result = append(result, clusterName)
+	}
+
+	return result, nil
+}
+
 // TODO remove usage of default values and put them here instead
 func (p *PostgreSQL) InsertPolicyCompliance(tableName string, policyId string, clusterName string, leafHubName string,
 	version string) error {

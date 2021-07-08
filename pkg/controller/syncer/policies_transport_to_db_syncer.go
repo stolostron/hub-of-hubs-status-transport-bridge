@@ -200,8 +200,8 @@ func (s *PoliciesTransportToDBSyncer) handleComplianceBundle(receivedBundle bund
 	}
 	for _, object := range receivedBundle.GetObjects() { // every object in bundle is policy compliance status
 		policyComplianceStatus := object.(*statusbundle.PolicyComplianceStatus)
-		clustersFromDB, err := s.db.GetComplianceClustersByLeafHubAndPolicy(s.complianceTableName, leafHubName,
-			policyComplianceStatus.PolicyId)
+		nonCompliantClustersFromDB, err := s.db.GetNonCompliantClustersByLeafHubAndPolicy(s.complianceTableName,
+			leafHubName, policyComplianceStatus.PolicyId) // includes both non_compliant and unknown
 		if err != nil {
 			return err
 		}
@@ -209,31 +209,25 @@ func (s *PoliciesTransportToDBSyncer) handleComplianceBundle(receivedBundle bund
 		// in this handler function, we handle only the existing clusters rows.
 
 		// update in db non compliant clusters
-		clustersFromDB = s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName,
+		nonCompliantClustersFromDB = s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName,
 			policyComplianceStatus.PolicyId, nonCompliant, s.getEnforcement(policyComplianceStatus.RemediationAction),
-			policyComplianceStatus.ResourceVersion, policyComplianceStatus.NonCompliantClusters, clustersFromDB)
+			policyComplianceStatus.ResourceVersion, policyComplianceStatus.NonCompliantClusters,
+			nonCompliantClustersFromDB)
 
 		// update in db unknown compliance clusters
-		clustersFromDB = s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName,
+		nonCompliantClustersFromDB = s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName,
 			policyComplianceStatus.PolicyId, unknown, s.getEnforcement(policyComplianceStatus.RemediationAction),
-			policyComplianceStatus.ResourceVersion, policyComplianceStatus.UnknownComplianceClusters, clustersFromDB)
+			policyComplianceStatus.ResourceVersion, policyComplianceStatus.UnknownComplianceClusters,
+			nonCompliantClustersFromDB)
 
 		// other clusters are implicitly considered as compliant
-		for _, clusterName := range clustersFromDB { // go over the clusters from db that we didn't update previously
+		for _, clusterName := range nonCompliantClustersFromDB { // go over clusters from db that we didn't update yet
 			if err := s.db.UpdateComplianceRow(s.complianceTableName, policyComplianceStatus.PolicyId, clusterName,
 				leafHubName, compliant, s.getEnforcement(policyComplianceStatus.RemediationAction),
-				policyComplianceStatus.ResourceVersion); err != nil {
+				policyComplianceStatus.ResourceVersion); err != nil { // change them to compliant
 				log.Println(err)
 			}
 		}
-
-		// TODO not working due to resource version identical when connecting leaf hub in a later stage
-		// TODO should rewrite this part
-		//if err = s.db.UpdateComplianceRowsWithLowerVersion(s.complianceTableName, policyComplianceStatus.PolicyId,
-		//	leafHubName, compliant, s.getEnforcement(policyComplianceStatus.RemediationAction),
-		//	policyComplianceStatus.ResourceVersion); err != nil {
-		//	log.Println(err)
-		//}
 	}
 	log.Println(fmt.Sprintf("finished handling 'ComplianceStatus' bundle from leaf hub '%s', generation %d",
 		leafHubName, receivedBundle.GetGeneration()))

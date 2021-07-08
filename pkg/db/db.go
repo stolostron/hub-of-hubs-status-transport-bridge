@@ -18,6 +18,7 @@ type PoliciesStatusDB interface {
 	ManagedClusterExists(tableName string, leafHubName string, objName string) bool
 	GetPolicyIDsByLeafHub(tableName string, leafHubName string) ([]string, error)
 	GetComplianceClustersByLeafHubAndPolicy(tableName string, leafHubName string, policyId string) ([]string, error)
+	GetNonCompliantClustersByLeafHubAndPolicy(tableName string, leafHubName string, policyId string) ([]string, error)
 	InsertPolicyCompliance(tableName string, policyId string, clusterName string, leafHubName string,
 		version string) error
 	UpdateResourceVersion(tableName string, policyId string, leafHubName string, version string) error
