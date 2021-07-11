@@ -215,14 +215,14 @@ func (s *PoliciesTransportToDBSyncer) handleComplianceBundle(receivedBundle bund
 		// in this handler function, we handle only the existing clusters rows.
 
 		// update in db non compliant clusters
-		s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName, policyComplianceStatus.PolicyId, nonCompliant,
-			policyComplianceStatus.ResourceVersion, policyComplianceStatus.NonCompliantClusters,
-			nonCompliantClustersFromDB)
+		nonCompliantClustersFromDB = s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName,
+			policyComplianceStatus.PolicyId, nonCompliant, policyComplianceStatus.ResourceVersion,
+			policyComplianceStatus.NonCompliantClusters, nonCompliantClustersFromDB)
 
 		// update in db unknown compliance clusters
-		s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName, policyComplianceStatus.PolicyId, unknown,
-			policyComplianceStatus.ResourceVersion, policyComplianceStatus.UnknownComplianceClusters,
-			nonCompliantClustersFromDB)
+		nonCompliantClustersFromDB = s.updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName,
+			policyComplianceStatus.PolicyId, unknown, policyComplianceStatus.ResourceVersion,
+			policyComplianceStatus.UnknownComplianceClusters, nonCompliantClustersFromDB)
 
 		// other clusters are implicitly considered as compliant
 		for _, clusterName := range nonCompliantClustersFromDB { // clusters left in the non compliant from db list
@@ -251,7 +251,7 @@ func (s *PoliciesTransportToDBSyncer) handleComplianceBundle(receivedBundle bund
 }
 
 func (s *PoliciesTransportToDBSyncer) updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName string,
-	policyId string, compliance string, version string, targetClusterNames []string, clustersFromDB []string) {
+	policyId string, compliance string, version string, targetClusterNames []string, clustersFromDB []string) []string {
 	for _, clusterName := range targetClusterNames { // go over the target clusters
 		if err := s.db.UpdateComplianceRow(s.complianceTableName, policyId, clusterName, leafHubName, compliance,
 			version); err != nil {
@@ -263,6 +263,7 @@ func (s *PoliciesTransportToDBSyncer) updateSelectedComplianceRowsAndRemovedFrom
 		}
 		clustersFromDB = append(clustersFromDB[:clusterIndex], clustersFromDB[clusterIndex+1:]...) //mark ad handled
 	}
+	return clustersFromDB
 }
 
 func (s *PoliciesTransportToDBSyncer) getEnforcement(remediationAction v1.RemediationAction) string {
