@@ -253,14 +253,13 @@ func (s *PoliciesTransportToDBSyncer) handleComplianceBundle(receivedBundle bund
 func (s *PoliciesTransportToDBSyncer) updateSelectedComplianceRowsAndRemovedFromDBList(leafHubName string,
 	policyId string, compliance string, version string, targetClusterNames []string, clustersFromDB []string) {
 	for _, clusterName := range targetClusterNames { // go over the target clusters
-		clusterIndex, err := getObjectIndex(clustersFromDB, clusterName)
-		if err != nil {
-			log.Println(err)
-			continue // if cluster not found in the compliance table, cannot update it's compliance status
-		}
-		if err = s.db.UpdateComplianceRow(s.complianceTableName, policyId, clusterName, leafHubName, compliance,
+		if err := s.db.UpdateComplianceRow(s.complianceTableName, policyId, clusterName, leafHubName, compliance,
 			version); err != nil {
 			log.Println(err)
+		}
+		clusterIndex, err := getObjectIndex(clustersFromDB, clusterName)
+		if err != nil {
+			continue // if cluster not in the list, skip
 		}
 		clustersFromDB = append(clustersFromDB[:clusterIndex], clustersFromDB[clusterIndex+1:]...) //mark ad handled
 	}
