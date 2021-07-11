@@ -158,12 +158,12 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(tableName string,
 	return result, nil
 }
 
-// TODO remove usage of default values and put them here instead
 func (p *PostgreSQL) InsertPolicyCompliance(tableName string, policyId string, clusterName string, leafHubName string,
-	version string) error {
+	error string, compliance string, enforcement string, version string) error {
 	_, err := p.conn.Exec(context.Background(),
-		fmt.Sprintf(`INSERT INTO status.%s (policy_id,cluster_name,leaf_hub_name,resource_version) 
-			values($1, $2, $3, $4)`, tableName), policyId, clusterName, leafHubName, version)
+		fmt.Sprintf(`INSERT INTO status.%s (policy_id,cluster_name,leaf_hub_name,error,compliance,enforcement,
+			resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName), policyId, clusterName, leafHubName,
+		error, compliance, enforcement, version)
 	if err != nil {
 		return fmt.Errorf("failed to insert into database: %s", err)
 	}
@@ -171,12 +171,12 @@ func (p *PostgreSQL) InsertPolicyCompliance(tableName string, policyId string, c
 	return nil
 }
 
-func (p *PostgreSQL) UpdateResourceVersion(tableName string, policyId string, leafHubName string,
-	version string) error {
+func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(tableName string, policyId string, leafHubName string,
+	enforcement string, version string) error {
 	_, err := p.conn.Exec(context.Background(),
-		fmt.Sprintf(`UPDATE status.%s SET resource_version=$1 WHERE policy_id=$2 AND leaf_hub_name=$3 AND 
-			resource_version<$1`,
-			tableName), version, policyId, leafHubName)
+		fmt.Sprintf(`UPDATE status.%s SET enforcement=$1,resource_version=$2 WHERE policy_id=$3 AND 
+			leaf_hub_name=$4 AND resource_version<$2`,
+			tableName), enforcement, version, policyId, leafHubName)
 
 	if err != nil {
 		return fmt.Errorf("failed to update compliance resource_version in database: %s", err)
@@ -186,11 +186,10 @@ func (p *PostgreSQL) UpdateResourceVersion(tableName string, policyId string, le
 }
 
 func (p *PostgreSQL) UpdateComplianceRow(tableName string, policyId string, clusterName string, leafHubName string,
-	compliance string, enforcement string, version string) error {
+	compliance string, version string) error {
 	_, err := p.conn.Exec(context.Background(),
-		fmt.Sprintf(`UPDATE status.%s SET compliance=$1,enforcement=$2,resource_version=$3 WHERE policy_id=$4 
-			AND leaf_hub_name=$5 AND cluster_name=$6`, tableName), compliance, enforcement,
-		version, policyId, leafHubName, clusterName)
+		fmt.Sprintf(`UPDATE status.%s SET compliance=$1,resource_version=$2 WHERE policy_id=$3 AND 
+			leaf_hub_name=$4 AND cluster_name=$5`, tableName), compliance, version, policyId, leafHubName, clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to update compliance row in database: %s", err)
 	}
@@ -198,18 +197,17 @@ func (p *PostgreSQL) UpdateComplianceRow(tableName string, policyId string, clus
 	return nil
 }
 
-//func (p *PostgreSQL) UpdateComplianceRowsWithLowerVersion(tableName string, policyId string, leafHubName string,
-//	compliance string, enforcement string, version string) error {
-//	_, err := p.conn.Exec(context.Background(),
-//		fmt.Sprintf(`UPDATE status.%s SET compliance=$1,enforcement=$2,resource_version=$3 WHERE policy_id=$4
-//			AND leaf_hub_name=$5 AND resource_version<$3`, tableName), compliance, enforcement, version, policyId,
-//		leafHubName)
-//	if err != nil {
-//		return fmt.Errorf("failed to update compliance rows in database: %s", err)
-//	}
-//
-//	return nil
-//}
+func (p *PostgreSQL) UpdatePolicyCompliance(tableName string, policyId string, leafHubName string,
+	compliance string) error {
+	_, err := p.conn.Exec(context.Background(),
+		fmt.Sprintf(`UPDATE status.%s SET compliance=$1 WHERE policy_id=$2 AND leaf_hub_name=$3`, tableName),
+		compliance, policyId, leafHubName)
+	if err != nil {
+		return fmt.Errorf("failed to update policy compliance in database: %s", err)
+	}
+
+	return nil
+}
 
 func (p *PostgreSQL) DeleteComplianceRow(tableName string, policyId string, clusterName string,
 	leafHubName string) error {

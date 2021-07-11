@@ -20,12 +20,12 @@ type PoliciesStatusDB interface {
 	GetComplianceClustersByLeafHubAndPolicy(tableName string, leafHubName string, policyId string) ([]string, error)
 	GetNonCompliantClustersByLeafHubAndPolicy(tableName string, leafHubName string, policyId string) ([]string, error)
 	InsertPolicyCompliance(tableName string, policyId string, clusterName string, leafHubName string,
+		error string, compliance string, enforcement string, version string) error
+	UpdateEnforcementAndResourceVersion(tableName string, policyId string, leafHubName string, enforcement string,
 		version string) error
-	UpdateResourceVersion(tableName string, policyId string, leafHubName string, version string) error
 	UpdateComplianceRow(tableName string, policyId string, clusterName string, leafHubName string, compliance string,
-		enforcement string, version string) error
-	//UpdateComplianceRowsWithLowerVersion(tableName string, policyId string, leafHubName string, compliance string,
-	//	enforcement string, version string) error
+		version string) error
+	UpdatePolicyCompliance(tableName string, policyId string, leafHubName string, compliance string) error
 	DeleteComplianceRow(tableName string, policyId string, clusterName string, leafHubName string) error
 	DeleteAllComplianceRows(tableName string, policyId string, leafHubName string) error
 }
