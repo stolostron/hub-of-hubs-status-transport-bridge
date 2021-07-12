@@ -239,11 +239,6 @@ func (s *PoliciesTransportToDBSyncer) checkComplianceBundlePreConditions(receive
 			"bundle from leaf hub '%s', generation %d", complianceBundle.BaseBundleGeneration, leafHubName,
 			receivedBundle.GetGeneration())
 	}
-	// a newer base already processed, no need to process this compliance bundle
-	if complianceBundle.BaseBundleGeneration < s.bundlesGenerationLogPerLeafHub[leafHubName].
-		lastClustersPerPolicyBundleGeneration {
-		return false, nil // drop bundle
-	}
 
 	return true, nil
 }
