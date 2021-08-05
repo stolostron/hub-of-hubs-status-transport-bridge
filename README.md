@@ -2,6 +2,8 @@
 
 # Hub-of-Hubs Status Transport Bridge
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)](https://goreportcard.com/report/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
+
 The status transport bridge component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
 
 ## How it works
