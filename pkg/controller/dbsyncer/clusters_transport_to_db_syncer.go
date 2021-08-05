@@ -1,28 +1,37 @@
-package syncer
+package dbsyncer
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
+	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/helpers"
 	hohDb "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
-	"time"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func NewClustersTransportToDBSyncer(db hohDb.StatusTransportBridgeDB, transport transport.Transport, dbTableName string,
-	bundleRegistration *BundleRegistration, stopChan chan struct{}) *ClustersTransportToDBSyncer {
+// AddClustersTransportToDBSyncer adds clusters transport to db syncer to the manager.
+func AddClustersTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.StatusTransportBridgeDB,
+	transport transport.Transport, dbTableName string, bundleRegistration *transport.BundleRegistration) error {
 	syncer := &ClustersTransportToDBSyncer{
+		log:                            log,
 		db:                             db,
 		dbTableName:                    dbTableName,
 		bundleUpdatesChan:              make(chan bundle.Bundle),
 		bundlesGenerationLogPerLeafHub: make(map[string]*clusterBundlesGenerationLog),
-		stopChan:                       stopChan,
 	}
-	registerToBundleUpdates(transport, bundleRegistration, syncer.bundleUpdatesChan)
-	log.Println(fmt.Sprintf("initialized syncer for table status.%s", dbTableName))
-	return syncer
+
+	transport.Register(bundleRegistration, syncer.bundleUpdatesChan)
+
+	log.Info("initialized managed clusters syncer")
+
+	return mgr.Add(syncer)
 }
 
 func newClusterBundlesGenerationLog() *clusterBundlesGenerationLog {
@@ -35,16 +44,30 @@ type clusterBundlesGenerationLog struct {
 	lastBundleGeneration uint64
 }
 
+// ClustersTransportToDBSyncer implements managed clusters transport to db sync
 type ClustersTransportToDBSyncer struct {
+	log                            logr.Logger
 	db                             hohDb.StatusTransportBridgeDB
 	dbTableName                    string
 	bundleUpdatesChan              chan bundle.Bundle
 	bundlesGenerationLogPerLeafHub map[string]*clusterBundlesGenerationLog
-	stopChan                       chan struct{}
 }
 
-func (s *ClustersTransportToDBSyncer) StartSync() {
-	go s.syncBundles()
+// Start function starts the syncer.
+func (syncer *ClustersTransportToDBSyncer) Start(stopChannel <-chan struct{}) error {
+	ctx, cancelContext := context.WithCancel(context.Background())
+	defer cancelContext()
+
+	go syncer.syncBundles(ctx)
+
+	for {
+		<-stopChannel // blocking wait until getting stop event on the stop channel
+
+		syncer.log.Info("stopped managed clusters transport to db syncer")
+		cancelContext()
+
+		return nil
+	}
 }
 
 // need to do "diff" between objects received in the bundle and the objects in db.
@@ -53,43 +76,41 @@ func (s *ClustersTransportToDBSyncer) StartSync() {
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (s *ClustersTransportToDBSyncer) syncBundles() {
+func (syncer *ClustersTransportToDBSyncer) syncBundles(ctx context.Context) {
 	for {
-		select { // wait for incoming bundles to handle
-		case <-s.stopChan:
-			return
-		case receivedBundle := <-s.bundleUpdatesChan:
-			leafHubName := receivedBundle.GetLeafHubName()
-			s.createBundleGenerationLogIfNotExist(leafHubName)
-			go func() {
-				if err := handleBundle(receivedBundle,
-					&s.bundlesGenerationLogPerLeafHub[leafHubName].lastBundleGeneration, s.handleBundle); err != nil {
-					log.Println(err) // TODO schedule a retry, use exponential backoff
-					time.Sleep(time.Second)
-					s.bundleUpdatesChan <- receivedBundle
-				}
-			}()
-		}
+		receivedBundle := <-syncer.bundleUpdatesChan
+		leafHubName := receivedBundle.GetLeafHubName()
+		syncer.createBundleGenerationLogIfNotExist(leafHubName)
+		go func() {
+			if err := helpers.HandleBundle(ctx, receivedBundle, &syncer.bundlesGenerationLogPerLeafHub[leafHubName].
+				lastBundleGeneration, syncer.handleBundle); err != nil {
+				syncer.log.Error(err, "failed to handle bundle,rescheduling") // TODO retry,use exponential backoff
+				time.Sleep(time.Second)
+				syncer.bundleUpdatesChan <- receivedBundle
+			}
+		}()
 	}
 }
 
 // on the first time a new leaf hub connect, it needs to create bundle generation log, to manage the generation of
 // the bundles we get from that specific leaf hub
-func (s *ClustersTransportToDBSyncer) createBundleGenerationLogIfNotExist(leafHubName string) {
-	if _, found := s.bundlesGenerationLogPerLeafHub[leafHubName]; !found {
-		s.bundlesGenerationLogPerLeafHub[leafHubName] = newClusterBundlesGenerationLog()
+func (syncer *ClustersTransportToDBSyncer) createBundleGenerationLogIfNotExist(leafHubName string) {
+	if _, found := syncer.bundlesGenerationLogPerLeafHub[leafHubName]; !found {
+		syncer.bundlesGenerationLogPerLeafHub[leafHubName] = newClusterBundlesGenerationLog()
 	}
 }
 
 // if we got the the handler function, then the bundle generation is newer than what we have in memory
-func (s *ClustersTransportToDBSyncer) handleBundle(bundle bundle.Bundle) error {
+func (syncer *ClustersTransportToDBSyncer) handleBundle(ctx context.Context, bundle bundle.Bundle) error {
 	leafHubName := bundle.GetLeafHubName()
-	log.Println(fmt.Sprintf("start handling 'ManagedClusters' bundle from leaf hub '%s', generation %d",
-		leafHubName, bundle.GetGeneration()))
-	clustersFromDB, err := s.db.GetManagedClustersByLeafHub(s.dbTableName, leafHubName)
+	syncer.log.Info("start handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName, "Generation",
+		bundle.GetGeneration())
+
+	clustersFromDB, err := syncer.db.GetManagedClustersByLeafHub(ctx, syncer.dbTableName, leafHubName)
 	if err != nil {
 		return err
 	}
+
 	// TODO future optimization suggestion - send bundle sorted by id, get objects from db also sorted by id.
 	// TODO then the search if object exists or not in the db should be O(1) instead of the existing state.
 	for _, object := range bundle.GetObjects() {
@@ -97,19 +118,21 @@ func (s *ClustersTransportToDBSyncer) handleBundle(bundle bundle.Bundle) error {
 		clusterName := cluster.GetName()
 		index, err := getClusterIndexByName(clustersFromDB, clusterName)
 		if err != nil { // cluster not found in the db table
-			if err = s.db.InsertManagedCluster(s.dbTableName, clusterName, leafHubName, object,
+			if err = syncer.db.InsertManagedCluster(ctx, syncer.dbTableName, clusterName, leafHubName, object,
 				cluster.GetResourceVersion()); err != nil {
 				log.Println(err) // failed to insert cluster to DB // TODO retry
 			}
 			continue
 		}
+
 		// if we got here, the object exists both in db and in the received bundle.
 		clusterFromDB := clustersFromDB[index]
 		clustersFromDB = append(clustersFromDB[:index], clustersFromDB[index+1:]...) // remove from objectsFromDB
 		if cluster.GetResourceVersion() <= clusterFromDB.ResourceVersion {
 			continue // sync object to db only if what we got is a newer version of the resource
 		}
-		if err = s.db.UpdateManagedCluster(s.dbTableName, clusterName, leafHubName, object,
+
+		if err = syncer.db.UpdateManagedCluster(ctx, syncer.dbTableName, clusterName, leafHubName, object,
 			cluster.GetResourceVersion()); err != nil {
 			log.Println(err) // failed to update cluster in DB //TODO retry
 			continue
@@ -120,13 +143,15 @@ func (s *ClustersTransportToDBSyncer) handleBundle(bundle bundle.Bundle) error {
 		if obj == nil {
 			continue
 		}
-		if err = s.db.DeleteManagedCluster(s.dbTableName, obj.ClusterName, leafHubName); err != nil {
-			log.Println(fmt.Sprintf("error removing object %s from table status.%s", obj.ClusterName,
-				s.dbTableName)) // failed to delete cluster from DB //TODO retry
+
+		if err = syncer.db.DeleteManagedCluster(ctx, syncer.dbTableName, obj.ClusterName, leafHubName); err != nil {
+			syncer.log.Error(err, "error removing object", "ObjectName", obj.ClusterName, "table",
+				fmt.Sprintf("status.%s", syncer.dbTableName)) // TODO retry
 		}
 	}
-	log.Println(fmt.Sprintf("finished handling 'ManagedClusters' bundle from leaf hub '%s', generation %d",
-		leafHubName, bundle.GetGeneration()))
+
+	syncer.log.Info("finished handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName,
+		"Generation", bundle.GetGeneration())
 
 	return nil
 }

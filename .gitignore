@@ -1,4 +1,11 @@
+# IntelliJ settings files
 .idea/*
+
+# Dependency directories
 vendor
-build/bin
+
+# emacs backup files
 *~
+
+# build binary files
+bin

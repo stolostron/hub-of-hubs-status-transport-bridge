@@ -1,86 +1,109 @@
-package sync_service
+package syncservice
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-horizon/edge-sync-service-client/client"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/go-logr/logr"
+	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	"github.com/open-horizon/edge-sync-service-client/client"
+	"github.com/pkg/errors"
 )
 
 const (
-	syncServiceProtocol        = "SYNC_SERVICE_PROTOCOL"
-	syncServiceHost            = "SYNC_SERVICE_HOST"
-	syncServicePort            = "SYNC_SERVICE_PORT"
-	syncServicePollingInterval = "SYNC_SERVICE_POLLING_INTERVAL"
+	envVarSyncServiceProtocol        = "SYNC_SERVICE_PROTOCOL"
+	envVarSyncServiceHost            = "SYNC_SERVICE_HOST"
+	envVarSyncServicePort            = "SYNC_SERVICE_PORT"
+	envVarSyncServicePollingInterval = "SYNC_SERVICE_POLLING_INTERVAL"
 )
 
+// SyncService abstracts Sync Service client
 type SyncService struct {
-	client                     *client.SyncServiceClient
-	pollingInterval            int
-	objectsMetaDataChan        chan *client.ObjectMetaData
-	stopChan                   chan struct{}
-	msgIdToChanMap             map[string]chan bundle.Bundle
-	msgIdToCreateBundleFuncMap map[string]bundle.CreateBundleFunction
-	startOnce                  sync.Once
-	stopOnce                   sync.Once
+	log                    logr.Logger
+	client                 *client.SyncServiceClient
+	pollingInterval        int
+	objectsMetaDataChan    chan *client.ObjectMetaData
+	stopChan               chan struct{}
+	msgIDToChanMap         map[string]chan bundle.Bundle
+	msgIDToRegistrationMap map[string]*transport.BundleRegistration
+	startOnce              sync.Once
+	stopOnce               sync.Once
 }
 
-func NewSyncService() *SyncService {
-	serverProtocol, host, port, pollingInterval := readEnvVars()
+// NewSyncService creates a new instance of SyncService
+func NewSyncService(log logr.Logger) (*SyncService, error) {
+	serverProtocol, host, port, pollingInterval, err := readEnvVars()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
+	}
+
 	syncServiceClient := client.NewSyncServiceClient(serverProtocol, host, port)
+
 	syncServiceClient.SetOrgID("myorg")
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
+
 	return &SyncService{
-		client:                     syncServiceClient,
-		pollingInterval:            pollingInterval,
-		objectsMetaDataChan:        make(chan *client.ObjectMetaData),
-		msgIdToChanMap:             make(map[string]chan bundle.Bundle),
-		msgIdToCreateBundleFuncMap: make(map[string]bundle.CreateBundleFunction),
-		stopChan:                   make(chan struct{}, 1),
-	}
+		log:                    log,
+		client:                 syncServiceClient,
+		pollingInterval:        pollingInterval,
+		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
+		msgIDToChanMap:         make(map[string]chan bundle.Bundle),
+		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
+		stopChan:               make(chan struct{}, 1),
+	}, nil
 }
 
-func readEnvVars() (string, string, uint16, int) {
-	protocol := os.Getenv(syncServiceProtocol)
-	if protocol == "" {
-		log.Fatalf("the expected var %s is not set in environment variables", syncServiceProtocol)
+func readEnvVars() (string, string, uint16, int, error) {
+	protocol, found := os.LookupEnv(envVarSyncServiceProtocol)
+	if !found {
+		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServiceProtocol)
 	}
-	host := os.Getenv(syncServiceHost)
-	if host == "" {
-		log.Fatalf("the expected var %s is not set in environment variables", syncServiceHost)
+
+	host, found := os.LookupEnv(envVarSyncServiceHost)
+	if !found {
+		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServiceHost)
 	}
-	portStr := os.Getenv(syncServicePort)
-	if portStr == "" {
-		log.Fatalf("the expected env var %s is not set in environment variables", syncServicePort)
+
+	portString, found := os.LookupEnv(envVarSyncServicePort)
+	if !found {
+		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServicePort)
 	}
-	port, err := strconv.Atoi(portStr)
+
+	port, err := strconv.Atoi(portString)
 	if err != nil {
-		log.Fatalf("the expected env var %s is not from type int", syncServicePort)
+		return "", "", 0, 0, fmt.Errorf("the environment var %s is not valid port - %w", envVarSyncServicePort,
+			err)
 	}
-	pollingIntervalStr := os.Getenv(syncServicePollingInterval)
-	if pollingIntervalStr == "" {
-		log.Fatalf("the expected env var %s is not set in environment variables", syncServicePollingInterval)
+
+	pollingIntervalString, found := os.LookupEnv(envVarSyncServicePollingInterval)
+	if !found {
+		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServicePollingInterval)
 	}
-	pollingInterval, err := strconv.Atoi(pollingIntervalStr)
+
+	pollingInterval, err := strconv.Atoi(pollingIntervalString)
 	if err != nil {
-		log.Fatalf("the expected env var %s is not from type int", syncServicePollingInterval)
+		return "", "", 0, 0, fmt.Errorf("the environment var %s is not valid port - %w",
+			envVarSyncServicePollingInterval, err)
 	}
-	return protocol, host, uint16(port), pollingInterval
+
+	return protocol, host, uint16(port), pollingInterval, nil
 }
 
+// Start function starts sync service
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
 		go s.handleBundles()
 	})
 }
 
+// Stop function stops sync service
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
 		close(s.stopChan)
@@ -88,10 +111,10 @@ func (s *SyncService) Stop() {
 	})
 }
 
-func (s *SyncService) Register(msgId string, bundleUpdatesChan chan bundle.Bundle,
-	createBundleFunc bundle.CreateBundleFunction) {
-	s.msgIdToChanMap[msgId] = bundleUpdatesChan
-	s.msgIdToCreateBundleFuncMap[msgId] = createBundleFunc
+// Register function registers a msgID to the bundle updates channel
+func (s *SyncService) Register(registration *transport.BundleRegistration, bundleUpdatesChan chan bundle.Bundle) {
+	s.msgIDToChanMap[registration.MsgID] = bundleUpdatesChan
+	s.msgIDToRegistrationMap[registration.MsgID] = registration
 }
 
 func (s *SyncService) handleBundles() {
@@ -104,25 +127,31 @@ func (s *SyncService) handleBundles() {
 		case objectMetaData := <-s.objectsMetaDataChan:
 			var buffer bytes.Buffer
 			if !s.client.FetchObjectData(objectMetaData, &buffer) {
-				log.Println(fmt.Sprintf("failed to read bundle object with id %s from sync service",
-					objectMetaData.ObjectID))
+				s.log.Error(errors.New("sync service error"), "failed to read bundle from sync service",
+					"ObjectId", objectMetaData.ObjectID)
 				continue
 			}
-			msgId := strings.Split(objectMetaData.ObjectID, ".")[1] // object id is LH_ID.MSG_ID
-			if _, found := s.msgIdToCreateBundleFuncMap[msgId]; !found {
+
+			msgID := strings.Split(objectMetaData.ObjectID, ".")[1] // object id is LH_ID.MSG_ID
+			if _, found := s.msgIDToRegistrationMap[msgID]; !found {
 				continue // no one registered for this msg id
 			}
-			receivedBundle := s.msgIdToCreateBundleFuncMap[msgId]()
-			err := json.Unmarshal(buffer.Bytes(), receivedBundle)
-			if err != nil {
-				log.Println(fmt.Sprintf("failed to parse bundle object with id %s from sync service",
-					objectMetaData.ObjectID))
+
+			if !s.msgIDToRegistrationMap[msgID].Predicate() {
+				s.log.Info("Predicate is false, not sending bundle", "ObjectId",
+					objectMetaData.ObjectID)
+				continue // registration predicate is false, do not send the update in the channel
+			}
+
+			receivedBundle := s.msgIDToRegistrationMap[msgID].CreateBundleFunc()
+			if err := json.Unmarshal(buffer.Bytes(), receivedBundle); err != nil {
+				s.log.Error(err, "failed to parse bundle", "ObjectId", objectMetaData.ObjectID)
 				continue
 			}
-			s.msgIdToChanMap[msgId] <- receivedBundle
-			err = s.client.MarkObjectReceived(objectMetaData)
-			if err != nil {
-				log.Println("failed to report object received to sync service")
+
+			s.msgIDToChanMap[msgID] <- receivedBundle
+			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
+				s.log.Error(err, "failed to report object received to sync service")
 			}
 		}
 	}
