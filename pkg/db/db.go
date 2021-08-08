@@ -6,6 +6,7 @@ import "golang.org/x/net/context"
 type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
+	ManageStatusDB
 }
 
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status
@@ -40,4 +41,9 @@ type PoliciesStatusDB interface {
 	DeleteAllComplianceRows(ctx context.Context, tableName string, policyID string, leafHubName string) error
 	InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, policyID string, leafHubName string,
 		enforcement string, appliedClusters int, nonCompliantClusters int) error
+}
+
+// ManageStatusDB is the db interface required by status transport bridge to support db config handler
+type ManageStatusDB interface {
+	DeleteTableContent(ctx context.Context, tableName string) error
 }

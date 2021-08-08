@@ -267,3 +267,13 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 
 	return nil
 }
+
+// DeleteTableContent deletes the content of a table
+func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) error {
+	_, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s`, tableName))
+	if err != nil {
+		return fmt.Errorf("failed deleting table '%s' content from database: %w", tableName, err)
+	}
+
+	return nil
+}

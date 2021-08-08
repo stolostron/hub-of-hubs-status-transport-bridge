@@ -89,6 +89,8 @@ spec:
               value: "$SYNC_SERVICE_PORT"
             - name: SYNC_SERVICE_POLLING_INTERVAL
               value: "5"
+            - name: DB_SYNC_INTERVAL
+              value: 5s
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

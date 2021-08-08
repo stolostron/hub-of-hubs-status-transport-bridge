@@ -15,12 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-const (
-	managedClustersTableName   = "managed_clusters"
-	complianceTableName        = "compliance"
-	minimalComplianceTableName = "aggregated_compliance"
-)
-
 // AddToScheme adds all the resources to be processed to the Scheme.
 func AddToScheme(s *runtime.Scheme) error {
 	schemeBuilders := []*scheme.Builder{configv1.SchemeBuilder}
@@ -51,6 +45,11 @@ func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTra
 		}
 	}
 
+	err := dbsyncer.AddDBConfigHandler(mgr, ctrl.Log.WithName("db-config-handler"), statusDB, config)
+	if err != nil {
+		return fmt.Errorf("failed to add DB config handler: %w", err)
+	}
+
 	return nil
 }
 
@@ -61,7 +60,7 @@ func addClustersTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		ctrl.Log.WithName("managed-clusters-transport-to-db-syncer"),
 		statusDB,
 		statusTransport,
-		managedClustersTableName,
+		dbsyncer.ManagedClustersTableName,
 		&transport.BundleRegistration{
 			MsgID:            datatypes.ManagedClustersMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewManagedClustersStatusBundle() },
@@ -83,9 +82,9 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		ctrl.Log.WithName("policies-transport-to-db-syncer"),
 		statusDB,
 		statusTransport,
-		managedClustersTableName,
-		complianceTableName,
-		minimalComplianceTableName,
+		dbsyncer.ManagedClustersTableName,
+		dbsyncer.ComplianceTableName,
+		dbsyncer.MinimalComplianceTableName,
 		&transport.BundleRegistration{
 			MsgID:            datatypes.ClustersPerPolicyMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },

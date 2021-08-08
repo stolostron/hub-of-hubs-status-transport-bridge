@@ -134,6 +134,8 @@ func (s *SyncService) handleBundles() {
 
 			msgID := strings.Split(objectMetaData.ObjectID, ".")[1] // object id is LH_ID.MSG_ID
 			if _, found := s.msgIDToRegistrationMap[msgID]; !found {
+				s.log.Info("no registration available, not sending bundle", "ObjectId",
+					objectMetaData.ObjectID)
 				continue // no one registered for this msg id
 			}
 

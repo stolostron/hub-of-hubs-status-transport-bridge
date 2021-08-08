@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
@@ -17,7 +15,7 @@ import (
 )
 
 // AddClustersTransportToDBSyncer adds clusters transport to db syncer to the manager.
-func AddClustersTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.StatusTransportBridgeDB,
+func AddClustersTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.ManagedClustersStatusDB,
 	transport transport.Transport, dbTableName string, bundleRegistration *transport.BundleRegistration) error {
 	syncer := &ClustersTransportToDBSyncer{
 		log:                            log,
@@ -47,7 +45,7 @@ type clusterBundlesGenerationLog struct {
 // ClustersTransportToDBSyncer implements managed clusters transport to db sync
 type ClustersTransportToDBSyncer struct {
 	log                            logr.Logger
-	db                             hohDb.StatusTransportBridgeDB
+	db                             hohDb.ManagedClustersStatusDB
 	dbTableName                    string
 	bundleUpdatesChan              chan bundle.Bundle
 	bundlesGenerationLogPerLeafHub map[string]*clusterBundlesGenerationLog
@@ -84,9 +82,8 @@ func (syncer *ClustersTransportToDBSyncer) syncBundles(ctx context.Context) {
 		go func() {
 			if err := helpers.HandleBundle(ctx, receivedBundle, &syncer.bundlesGenerationLogPerLeafHub[leafHubName].
 				lastBundleGeneration, syncer.handleBundle); err != nil {
-				syncer.log.Error(err, "failed to handle bundle,rescheduling") // TODO retry,use exponential backoff
-				time.Sleep(time.Second)
-				syncer.bundleUpdatesChan <- receivedBundle
+				syncer.log.Error(err, "failed to handle bundle")
+				helpers.HandleRetry(receivedBundle, syncer.bundleUpdatesChan)
 			}
 		}()
 	}
@@ -108,7 +105,7 @@ func (syncer *ClustersTransportToDBSyncer) handleBundle(ctx context.Context, bun
 
 	clustersFromDB, err := syncer.db.GetManagedClustersByLeafHub(ctx, syncer.dbTableName, leafHubName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
 
 	// TODO future optimization suggestion - send bundle sorted by id, get objects from db also sorted by id.
@@ -120,22 +117,23 @@ func (syncer *ClustersTransportToDBSyncer) handleBundle(ctx context.Context, bun
 		if err != nil { // cluster not found in the db table
 			if err = syncer.db.InsertManagedCluster(ctx, syncer.dbTableName, clusterName, leafHubName, object,
 				cluster.GetResourceVersion()); err != nil {
-				log.Println(err) // failed to insert cluster to DB // TODO retry
+				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' to the DB - %w", clusterName,
+					leafHubName, err)
 			}
 			continue
 		}
-
 		// if we got here, the object exists both in db and in the received bundle.
 		clusterFromDB := clustersFromDB[index]
 		clustersFromDB = append(clustersFromDB[:index], clustersFromDB[index+1:]...) // remove from objectsFromDB
+
 		if cluster.GetResourceVersion() <= clusterFromDB.ResourceVersion {
 			continue // sync object to db only if what we got is a newer version of the resource
 		}
 
 		if err = syncer.db.UpdateManagedCluster(ctx, syncer.dbTableName, clusterName, leafHubName, object,
 			cluster.GetResourceVersion()); err != nil {
-			log.Println(err) // failed to update cluster in DB //TODO retry
-			continue
+			return fmt.Errorf("failed to update cluster '%s' from leaf hub '%s' in the DB - %w", clusterName,
+				leafHubName, err)
 		}
 	}
 	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources)
@@ -145,8 +143,8 @@ func (syncer *ClustersTransportToDBSyncer) handleBundle(ctx context.Context, bun
 		}
 
 		if err = syncer.db.DeleteManagedCluster(ctx, syncer.dbTableName, obj.ClusterName, leafHubName); err != nil {
-			syncer.log.Error(err, "error removing object", "ObjectName", obj.ClusterName, "table",
-				fmt.Sprintf("status.%s", syncer.dbTableName)) // TODO retry
+			return fmt.Errorf("failed to delete cluster '%s' from leaf hub '%s' from the DB - %w",
+				obj.ClusterName, leafHubName, err)
 		}
 	}
 

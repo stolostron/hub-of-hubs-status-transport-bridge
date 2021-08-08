@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 )
@@ -25,6 +26,12 @@ func HandleBundle(ctx context.Context, bundle bundle.Bundle, lastBundleGeneratio
 	// otherwise, bundle was handled successfully
 	*lastBundleGeneration = bundleGeneration
 	return nil
+}
+
+// HandleRetry function to handle retries.
+func HandleRetry(bundle bundle.Bundle, bundleChan chan bundle.Bundle) {
+	time.Sleep(time.Second) // TODO reschedule, should use exponential back off
+	bundleChan <- bundle
 }
 
 // GetObjectIndex return object index if exists, otherwise an error
