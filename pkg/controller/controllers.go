@@ -64,6 +64,7 @@ func addClustersTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		&transport.BundleRegistration{
 			MsgID:            datatypes.ManagedClustersMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewManagedClustersStatusBundle() },
+			Predicate: func() bool { return true }, // always get managed clusters bundles
 		})
 	if err != nil {
 		return fmt.Errorf("failed to add DB Syncer: %w", err)
