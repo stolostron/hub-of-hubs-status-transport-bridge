@@ -152,7 +152,7 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Conte
 	leafHubName string, policyID string) ([]string, error) {
 	result := make([]string, 0)
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1 AND 
-			policy_id=$2 ANDcompliance!='compliant'`, tableName),
+			policy_id=$2 AND compliance!='compliant'`, tableName),
 		leafHubName, policyID)
 
 	for rows.Next() {
