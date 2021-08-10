@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,8 @@ const (
 	envVarDatabaseURL = "DATABASE_URL"
 )
 
+var errEnvVarNotFound = errors.New("not found environment variable")
+
 // PostgreSQL abstracts manamanget of PostgreSQL client.
 type PostgreSQL struct {
 	conn *pgxpool.Pool
@@ -23,7 +26,7 @@ type PostgreSQL struct {
 func NewPostgreSQL() (*PostgreSQL, error) {
 	databaseURL, found := os.LookupEnv(envVarDatabaseURL)
 	if !found {
-		return nil, fmt.Errorf("not found: environment variable %s", envVarDatabaseURL)
+		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarDatabaseURL)
 	}
 
 	dbConnectionPool, err := pgxpool.Connect(context.Background(), databaseURL)
@@ -48,8 +51,7 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName 
 
 	for rows.Next() {
 		object := db.ClusterKeyAndVersion{}
-		err := rows.Scan(&object.ClusterName, &object.ResourceVersion)
-		if err != nil {
+		if err := rows.Scan(&object.ClusterName, &object.ResourceVersion); err != nil {
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
@@ -62,9 +64,9 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName 
 // InsertManagedCluster inserts managed cluster to the db.
 func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string,
 	payload interface{}, version string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (cluster_name,leaf_hub_name,payload,
-			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), objName, leafHubName, payload, version)
-	if err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (cluster_name,leaf_hub_name,payload,
+			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), objName, leafHubName, payload,
+		version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
 
@@ -74,9 +76,8 @@ func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string,
 // UpdateManagedCluster updates managed cluster row in the db.
 func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string,
 	payload interface{}, version string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET payload=$1,resource_version=$2 WHERE 
-			cluster_name=$3 AND leaf_hub_name=$4`, tableName), payload, version, objName, leafHubName)
-	if err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET payload=$1,resource_version=$2 WHERE 
+		cluster_name=$3 AND leaf_hub_name=$4`, tableName), payload, version, objName, leafHubName); err != nil {
 		return fmt.Errorf("failed to update obj in database: %w", err)
 	}
 
@@ -84,10 +85,10 @@ func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string,
 }
 
 // DeleteManagedCluster deletes a managed cluster from the db.
-func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE cluster_name=$1 AND leaf_hub_name=$2`,
-		tableName), objName, leafHubName)
-	if err != nil {
+func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string, objName string,
+	leafHubName string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE cluster_name=$1 AND leaf_hub_name=$2`,
+		tableName), objName, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete managed cluster from database: %w", err)
 	}
 
@@ -98,9 +99,8 @@ func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string,
 func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string, leafHubName string,
 	objName string) bool {
 	var exists bool
-	err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from status.%s WHERE leaf_hub_name=$1 AND 
-			cluster_name=$2)`, tableName), leafHubName, objName).Scan(&exists)
-	if err != nil {
+	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from status.%s WHERE leaf_hub_name=$1 AND 
+			cluster_name=$2)`, tableName), leafHubName, objName).Scan(&exists); err != nil {
 		log.Println(err)
 		return false
 	}
@@ -109,15 +109,15 @@ func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string,
 }
 
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
-func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
+func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string,
+	error) {
 	result := make([]string, 0)
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM status.%s WHERE leaf_hub_name=$1`,
 		tableName), leafHubName)
 
 	for rows.Next() {
 		policyID := ""
-		err := rows.Scan(&policyID)
-		if err != nil {
+		if err := rows.Scan(&policyID); err != nil {
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
@@ -136,8 +136,7 @@ func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context
 
 	for rows.Next() {
 		clusterName := ""
-		err := rows.Scan(&clusterName)
-		if err != nil {
+		if err := rows.Scan(&clusterName); err != nil {
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
@@ -157,10 +156,10 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Conte
 
 	for rows.Next() {
 		clusterName := ""
-		err := rows.Scan(&clusterName)
-		if err != nil {
+		if err := rows.Scan(&clusterName); err != nil {
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
+
 		result = append(result, clusterName)
 	}
 
@@ -169,11 +168,10 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Conte
 
 // InsertPolicyCompliance inserts a compliance row to the db.
 func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName string, policyID string, clusterName string,
-	leafHubName string, error string, compliance string, enforcement string, version string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (policy_id,cluster_name,leaf_hub_name,error,
+	leafHubName string, errorString string, compliance string, enforcement string, version string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (policy_id,cluster_name,leaf_hub_name,error,
 			compliance,enforcement,resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName), policyID,
-		clusterName, leafHubName, error, compliance, enforcement, version)
-	if err != nil {
+		clusterName, leafHubName, errorString, compliance, enforcement, version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
 
@@ -183,10 +181,9 @@ func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName strin
 // UpdateEnforcementAndResourceVersion updates enforcement and version by leaf hub and policy.
 func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, policyID string,
 	leafHubName string, enforcement string, version string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET enforcement=$1,resource_version=$2 WHERE 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET enforcement=$1,resource_version=$2 WHERE 
 			policy_id=$3 AND leaf_hub_name=$4 AND resource_version<$2`, tableName), enforcement, version, policyID,
-		leafHubName)
-	if err != nil {
+		leafHubName); err != nil {
 		return fmt.Errorf("failed to update compliance resource_version in database: %w", err)
 	}
 
@@ -196,10 +193,9 @@ func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(ctx context.Context, ta
 // UpdateComplianceRow updates a compliance status row in the db.
 func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string,
 	leafHubName string, compliance string, version string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET compliance=$1,resource_version=$2 WHERE 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET compliance=$1,resource_version=$2 WHERE 
 			policy_id=$3 AND leaf_hub_name=$4 AND cluster_name=$5`, tableName), compliance, version, policyID,
-		leafHubName, clusterName)
-	if err != nil {
+		leafHubName, clusterName); err != nil {
 		return fmt.Errorf("failed to update compliance row in database: %w", err)
 	}
 
@@ -209,9 +205,8 @@ func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, 
 // UpdatePolicyCompliance updates policy compliance in the db (to all clusters) by leaf hub and policy.
 func (p *PostgreSQL) UpdatePolicyCompliance(ctx context.Context, tableName string, policyID string, leafHubName string,
 	compliance string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET compliance=$1 WHERE policy_id=$2 AND 
-			leaf_hub_name=$3`, tableName), compliance, policyID, leafHubName)
-	if err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET compliance=$1 WHERE policy_id=$2 AND 
+			leaf_hub_name=$3`, tableName), compliance, policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to update policy compliance in database: %w", err)
 	}
 
@@ -221,9 +216,8 @@ func (p *PostgreSQL) UpdatePolicyCompliance(ctx context.Context, tableName strin
 // DeleteComplianceRow delets a compliance row from the db.
 func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string,
 	leafHubName string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE policy_id=$1 AND cluster_name=$2 AND 
-			leaf_hub_name=$3`, tableName), policyID, clusterName, leafHubName)
-	if err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE policy_id=$1 AND cluster_name=$2 AND 
+			leaf_hub_name=$3`, tableName), policyID, clusterName, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete compliance row from database: %w", err)
 	}
 
@@ -233,16 +227,15 @@ func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, 
 // DeleteAllComplianceRows delete all compliance rows from the db by leaf hub and policy.
 func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, tableName string, policyID string,
 	leafHubName string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE policy_id=$1 AND leaf_hub_name=$2`,
-		tableName), policyID, leafHubName)
-	if err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE policy_id=$1 AND leaf_hub_name=$2`,
+		tableName), policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete compliance rows from database: %w", err)
 	}
 
 	return nil
 }
 
-// InsertOrUpdateAggregatedPolicyCompliance inserts or updates aggregated policy compliance row in the db
+// InsertOrUpdateAggregatedPolicyCompliance inserts or updates aggregated policy compliance row in the db.
 func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, policyID string,
 	leafHubName string, enforcement string, appliedClusters int, nonCompliantClusters int) error {
 	var exists bool
@@ -268,10 +261,9 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 	return nil
 }
 
-// DeleteTableContent deletes the content of a table
+// DeleteTableContent deletes the content of a table.
 func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) error {
-	_, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s`, tableName))
-	if err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s`, tableName)); err != nil {
 		return fmt.Errorf("failed deleting table '%s' content from database: %w", tableName, err)
 	}
 

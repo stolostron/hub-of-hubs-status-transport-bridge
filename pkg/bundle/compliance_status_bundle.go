@@ -25,6 +25,7 @@ func (bundle *ComplianceStatusBundle) GetObjects() []interface{} {
 	for i, obj := range bundle.Objects {
 		result[i] = obj
 	}
+
 	return result
 }
 

@@ -3,6 +3,7 @@ package syncservice
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,7 +15,6 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -24,7 +24,12 @@ const (
 	envVarSyncServicePollingInterval = "SYNC_SERVICE_POLLING_INTERVAL"
 )
 
-// SyncService abstracts Sync Service client
+var (
+	errEnvVarNotFound        = errors.New("not found environment variable")
+	errSyncServiceReadFailed = errors.New("sync service error")
+)
+
+// SyncService abstracts Sync Service client.
 type SyncService struct {
 	log                    logr.Logger
 	client                 *client.SyncServiceClient
@@ -37,7 +42,7 @@ type SyncService struct {
 	stopOnce               sync.Once
 }
 
-// NewSyncService creates a new instance of SyncService
+// NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger) (*SyncService, error) {
 	serverProtocol, host, port, pollingInterval, err := readEnvVars()
 	if err != nil {
@@ -63,17 +68,17 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 func readEnvVars() (string, string, uint16, int, error) {
 	protocol, found := os.LookupEnv(envVarSyncServiceProtocol)
 	if !found {
-		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServiceProtocol)
+		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceProtocol)
 	}
 
 	host, found := os.LookupEnv(envVarSyncServiceHost)
 	if !found {
-		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServiceHost)
+		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServiceHost)
 	}
 
 	portString, found := os.LookupEnv(envVarSyncServicePort)
 	if !found {
-		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServicePort)
+		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServicePort)
 	}
 
 	port, err := strconv.Atoi(portString)
@@ -84,7 +89,7 @@ func readEnvVars() (string, string, uint16, int, error) {
 
 	pollingIntervalString, found := os.LookupEnv(envVarSyncServicePollingInterval)
 	if !found {
-		return "", "", 0, 0, fmt.Errorf("not found: environment variable %s", envVarSyncServicePollingInterval)
+		return "", "", 0, 0, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarSyncServicePollingInterval)
 	}
 
 	pollingInterval, err := strconv.Atoi(pollingIntervalString)
@@ -96,14 +101,14 @@ func readEnvVars() (string, string, uint16, int, error) {
 	return protocol, host, uint16(port), pollingInterval, nil
 }
 
-// Start function starts sync service
+// Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
 		go s.handleBundles()
 	})
 }
 
-// Stop function stops sync service
+// Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
 		close(s.stopChan)
@@ -111,7 +116,7 @@ func (s *SyncService) Stop() {
 	})
 }
 
-// Register function registers a msgID to the bundle updates channel
+// Register function registers a msgID to the bundle updates channel.
 func (s *SyncService) Register(registration *transport.BundleRegistration, bundleUpdatesChan chan bundle.Bundle) {
 	s.msgIDToChanMap[registration.MsgID] = bundleUpdatesChan
 	s.msgIDToRegistrationMap[registration.MsgID] = registration
@@ -120,6 +125,7 @@ func (s *SyncService) Register(registration *transport.BundleRegistration, bundl
 func (s *SyncService) handleBundles() {
 	// register for updates for spec bundles, this include all types of spec bundles each with a different id.
 	s.client.StartPollingForUpdates(datatypes.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
+
 	for {
 		select {
 		case <-s.stopChan:
@@ -127,7 +133,7 @@ func (s *SyncService) handleBundles() {
 		case objectMetaData := <-s.objectsMetaDataChan:
 			var buffer bytes.Buffer
 			if !s.client.FetchObjectData(objectMetaData, &buffer) {
-				s.log.Error(errors.New("sync service error"), "failed to read bundle from sync service",
+				s.log.Error(errSyncServiceReadFailed, "failed to read bundle from sync service",
 					"ObjectId", objectMetaData.ObjectID)
 				continue
 			}

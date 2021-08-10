@@ -30,12 +30,15 @@ func AddToScheme(s *runtime.Scheme) error {
 
 // AddSyncers adds the controllers to sync info from transport to DB to the Manager.
 func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTransport transport.Transport) error {
-	addDBSyncerFunctions := []func(ctrl.Manager, db.StatusTransportBridgeDB, transport.Transport, *configv1.Config) error{
+	addDBSyncerFunctions := []func(ctrl.Manager, db.StatusTransportBridgeDB, transport.Transport,
+		*configv1.Config) error{
 		addClustersTransportToDBSyncer, addPoliciesTransportToDBSyncer,
 	}
 
 	config := &configv1.Config{}
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
+	config.Spec.AggregationLevel = "not defined"
+
+	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", statusDB, config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
@@ -43,11 +46,6 @@ func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTra
 		if err := addDBSyncerFunction(mgr, statusDB, statusTransport, config); err != nil {
 			return fmt.Errorf("failed to add DB Syncer: %w", err)
 		}
-	}
-
-	err := dbsyncer.AddDBConfigHandler(mgr, ctrl.Log.WithName("db-config-handler"), statusDB, config)
-	if err != nil {
-		return fmt.Errorf("failed to add DB config handler: %w", err)
 	}
 
 	return nil

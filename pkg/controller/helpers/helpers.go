@@ -2,16 +2,19 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 )
 
-// BundleHandlerFunc is a function to handle incoming bundle
+// BundleHandlerFunc is a function to handle incoming bundle.
 type BundleHandlerFunc func(ctx context.Context, bundle bundle.Bundle) error
 
-// HandleBundle generic wrapper function to handle a bundle
+var errObjectNotFound = errors.New("object not found")
+
+// HandleBundle generic wrapper function to handle a bundle.
 func HandleBundle(ctx context.Context, bundle bundle.Bundle, lastBundleGeneration *uint64,
 	handlerFunc BundleHandlerFunc) error {
 	bundleGeneration := bundle.GetGeneration()
@@ -23,8 +26,9 @@ func HandleBundle(ctx context.Context, bundle bundle.Bundle, lastBundleGeneratio
 		return err
 	}
 
-	// otherwise, bundle was handled successfully
+	// otherwise, bundle was handled successfully.
 	*lastBundleGeneration = bundleGeneration
+
 	return nil
 }
 
@@ -34,12 +38,13 @@ func HandleRetry(bundle bundle.Bundle, bundleChan chan bundle.Bundle) {
 	bundleChan <- bundle
 }
 
-// GetObjectIndex return object index if exists, otherwise an error
+// GetObjectIndex return object index if exists, otherwise an error.
 func GetObjectIndex(slice []string, toBeFound string) (int, error) {
 	for i, object := range slice {
 		if object == toBeFound {
 			return i, nil
 		}
 	}
-	return -1, fmt.Errorf("object %s was not found", toBeFound)
+
+	return -1, fmt.Errorf("%w - %s", errObjectNotFound, toBeFound)
 }

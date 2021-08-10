@@ -2,14 +2,14 @@ package db
 
 import "golang.org/x/net/context"
 
-// StatusTransportBridgeDB is the db interface required by status transport bridge
+// StatusTransportBridgeDB is the db interface required by status transport bridge.
 type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	ManageStatusDB
 }
 
-// ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status
+// ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
 type ManagedClustersStatusDB interface {
 	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]*ClusterKeyAndVersion,
 		error)
@@ -20,7 +20,7 @@ type ManagedClustersStatusDB interface {
 	DeleteManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string) error
 }
 
-// PoliciesStatusDB is the db interface required by status transport bridge to manage policy status
+// PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
 type PoliciesStatusDB interface {
 	ManagedClusterExists(ctx context.Context, tableName string, leafHubName string, objName string) bool
 	GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string, error)
@@ -29,7 +29,7 @@ type PoliciesStatusDB interface {
 	GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
 		policyID string) ([]string, error)
 	InsertPolicyCompliance(ctx context.Context, tableName string, policyID string, clusterName string,
-		leafHubName string, error string, compliance string, enforcement string, version string) error
+		leafHubName string, errorString string, compliance string, enforcement string, version string) error
 	UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, policyID string, leafHubName string,
 		enforcement string, version string) error
 	UpdateComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string, leafHubName string,
@@ -43,7 +43,7 @@ type PoliciesStatusDB interface {
 		enforcement string, appliedClusters int, nonCompliantClusters int) error
 }
 
-// ManageStatusDB is the db interface required by status transport bridge to support db config handler
+// ManageStatusDB is the db interface required by status transport bridge to support db config handler.
 type ManageStatusDB interface {
 	DeleteTableContent(ctx context.Context, tableName string) error
 }
