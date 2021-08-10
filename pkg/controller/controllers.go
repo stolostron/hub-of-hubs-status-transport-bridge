@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
+const aggregationLevelUnset = "Unset"
+
 // AddToScheme adds all the resources to be processed to the Scheme.
 func AddToScheme(s *runtime.Scheme) error {
 	schemeBuilders := []*scheme.Builder{configv1.SchemeBuilder}
@@ -36,9 +38,9 @@ func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTra
 	}
 
 	config := &configv1.Config{}
-	config.Spec.AggregationLevel = "not defined"
+	config.Spec.AggregationLevel = aggregationLevelUnset
 
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", statusDB, config); err != nil {
+	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
 		return fmt.Errorf("failed to add controller: %w", err)
 	}
 
@@ -73,8 +75,12 @@ func addClustersTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 
 func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB,
 	statusTransport transport.Transport, config *configv1.Config) error {
-	fullStatusPredicate := func() bool { return config.Spec.AggregationLevel == configv1.Full }
-	minimalStatusPredicate := func() bool { return config.Spec.AggregationLevel == configv1.Minimal }
+	fullStatusPredicate := func() bool {
+		return config.Spec.AggregationLevel == configv1.Full || config.Spec.AggregationLevel == aggregationLevelUnset
+	}
+	minimalStatusPredicate := func() bool {
+		return config.Spec.AggregationLevel == configv1.Minimal || config.Spec.AggregationLevel == aggregationLevelUnset
+	}
 
 	err := dbsyncer.AddPoliciesTransportToDBSyncer(
 		mgr,
