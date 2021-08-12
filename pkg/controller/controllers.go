@@ -96,8 +96,13 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 			Predicate:        fullStatusPredicate,
 		},
 		&transport.BundleRegistration{
-			MsgID:            datatypes.PolicyComplianceMsgKey,
-			CreateBundleFunc: func() bundle.Bundle { return bundle.NewComplianceStatusBundle() },
+			MsgID:            datatypes.PolicyCompleteComplianceMsgKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewCompleteComplianceStatusBundle() },
+			Predicate:        fullStatusPredicate,
+		},
+		&transport.BundleRegistration{
+			MsgID:            datatypes.PolicyDeltaComplianceMsgKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewDeltaComplianceStatusBundle() },
 			Predicate:        fullStatusPredicate,
 		},
 		&transport.BundleRegistration{
