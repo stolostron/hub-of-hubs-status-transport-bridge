@@ -22,6 +22,7 @@ func AddClustersTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.
 	syncer := &ClustersTransportToDBSyncer{
 		log:                            log,
 		db:                             db,
+		transport:                      transport,
 		dbTableName:                    dbTableName,
 		bundleUpdatesChan:              make(chan bundle.Bundle),
 		bundlesGenerationLogPerLeafHub: make(map[string]*clusterBundlesGenerationLog),
@@ -52,6 +53,7 @@ type clusterBundlesGenerationLog struct {
 type ClustersTransportToDBSyncer struct {
 	log                            logr.Logger
 	db                             hohDb.ManagedClustersStatusDB
+	transport                      transport.Transport
 	dbTableName                    string
 	bundleUpdatesChan              chan bundle.Bundle
 	bundlesGenerationLogPerLeafHub map[string]*clusterBundlesGenerationLog
@@ -87,8 +89,9 @@ func (syncer *ClustersTransportToDBSyncer) syncBundles(ctx context.Context) {
 		syncer.createBundleGenerationLogIfNotExist(leafHubName)
 
 		go func() {
-			if err := helpers.HandleBundle(ctx, receivedBundle, &syncer.bundlesGenerationLogPerLeafHub[leafHubName].
-				lastBundleGeneration, syncer.handleBundle); err != nil {
+			if err := helpers.HandleBundle(ctx, syncer.transport, receivedBundle,
+				&syncer.bundlesGenerationLogPerLeafHub[leafHubName].lastBundleGeneration,
+				syncer.handleBundle); err != nil {
 				syncer.log.Error(err, "failed to handle bundle")
 				helpers.HandleRetry(receivedBundle, syncer.bundleUpdatesChan)
 			}

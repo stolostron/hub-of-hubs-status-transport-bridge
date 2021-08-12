@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 // BundleHandlerFunc is a function to handle incoming bundle.
@@ -15,8 +16,8 @@ type BundleHandlerFunc func(ctx context.Context, bundle bundle.Bundle) error
 var errObjectNotFound = errors.New("object not found")
 
 // HandleBundle generic wrapper function to handle a bundle.
-func HandleBundle(ctx context.Context, bundle bundle.Bundle, lastBundleGeneration *uint64,
-	handlerFunc BundleHandlerFunc) error {
+func HandleBundle(ctx context.Context, transport transport.Transport, bundle bundle.Bundle,
+	lastBundleGeneration *uint64, handlerFunc BundleHandlerFunc) error {
 	bundleGeneration := bundle.GetGeneration()
 	if bundleGeneration <= *lastBundleGeneration {
 		return nil // handle only if bundle is newer than what we've already handled
@@ -28,6 +29,8 @@ func HandleBundle(ctx context.Context, bundle bundle.Bundle, lastBundleGeneratio
 
 	// otherwise, bundle was handled successfully.
 	*lastBundleGeneration = bundleGeneration
+
+	transport.CommitAsync(bundle)
 
 	return nil
 }
