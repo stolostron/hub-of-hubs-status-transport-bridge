@@ -9,3 +9,4 @@ linters-settings:
   gomoddirectives:
     replace-allow-list:
       - k8s.io/client-go # Kuberentes client specific issue. See https://maelvls.dev/client-go-transitive-hell/.
+      - github.com/go-logr/logr # Confluent Kafka requires latest release which does not work.
