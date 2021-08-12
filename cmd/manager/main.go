@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	kafkaclient "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/kafka-client"
 	hohSyncService "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -22,16 +24,43 @@ import (
 )
 
 const (
-	metricsHost                     = "0.0.0.0"
-	metricsPort               int32 = 9392
-	envVarControllerNamespace       = "POD_NAMESPACE"
-	leaderElectionLockName          = "hub-of-hubs-status-transport-bridge-lock"
+	metricsHost                        = "0.0.0.0"
+	metricsPort                  int32 = 9392
+	kafkaTransportTypeName             = "kafka"
+	syncServiceTransportTypeName       = "syncservice"
+	envVarTransportComponent           = "HOH_TRANSPORT_TYPE"
+	envVarControllerNamespace          = "POD_NAMESPACE"
+	leaderElectionLockName             = "hub-of-hubs-status-transport-bridge-lock"
 )
+
+var errEnvVarIllegalValue = errors.New("environment variable illegal value")
 
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+}
+
+// function to choose transport type based on env var.
+func getTransport(transportType string) (transport.Transport, error) {
+	switch transportType {
+	case kafkaTransportTypeName:
+		kafkaProducer, err := kafkaclient.NewHOHConsumer(ctrl.Log.WithName("kafka-client"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hoh-kafka-producer: %w", err)
+		}
+
+		return kafkaProducer, nil
+	case syncServiceTransportTypeName:
+		syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+		}
+
+		return syncService, nil
+	default:
+		return nil, errEnvVarIllegalValue
+	}
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
@@ -51,6 +80,12 @@ func doMain() int {
 		return 1
 	}
 
+	transportType, found := os.LookupEnv(envVarTransportComponent)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarTransportComponent)
+		return 1
+	}
+
 	// db layer initialization
 	postgreSQL, err := postgresql.NewPostgreSQL()
 	if err != nil {
@@ -61,20 +96,20 @@ func doMain() int {
 	defer postgreSQL.Stop()
 
 	// transport layer initialization
-	syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
+	transportObj, err := getTransport(transportType)
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "SyncService")
+		log.Error(err, "initialization error", "failed to initialize", transportType)
 		return 1
 	}
 
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, postgreSQL, syncService)
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, postgreSQL, transportObj)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
 	}
 
-	syncService.Start()
-	defer syncService.Stop()
+	transportObj.Start()
+	defer transportObj.Stop()
 
 	log.Info("Starting the Cmd.")
 
@@ -87,7 +122,7 @@ func doMain() int {
 }
 
 func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32,
-	postgreSQL db.StatusTransportBridgeDB, syncService transport.Transport) (ctrl.Manager, error) {
+	postgreSQL db.StatusTransportBridgeDB, transport transport.Transport) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -104,7 +139,7 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddSyncers(mgr, postgreSQL, syncService); err != nil {
+	if err := controller.AddSyncers(mgr, postgreSQL, transport); err != nil {
 		return nil, fmt.Errorf("failed to add syncers: %w", err)
 	}
 
