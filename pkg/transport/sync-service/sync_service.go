@@ -29,19 +29,6 @@ var (
 	errSyncServiceReadFailed = errors.New("sync service error")
 )
 
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	log                    logr.Logger
-	client                 *client.SyncServiceClient
-	pollingInterval        int
-	objectsMetaDataChan    chan *client.ObjectMetaData
-	stopChan               chan struct{}
-	msgIDToChanMap         map[string]chan bundle.Bundle
-	msgIDToRegistrationMap map[string]*transport.BundleRegistration
-	startOnce              sync.Once
-	stopOnce               sync.Once
-}
-
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger) (*SyncService, error) {
 	serverProtocol, host, port, pollingInterval, err := readEnvVars()
@@ -63,6 +50,19 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 		stopChan:               make(chan struct{}, 1),
 	}, nil
+}
+
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	log                    logr.Logger
+	client                 *client.SyncServiceClient
+	pollingInterval        int
+	objectsMetaDataChan    chan *client.ObjectMetaData
+	stopChan               chan struct{}
+	msgIDToChanMap         map[string]chan bundle.Bundle
+	msgIDToRegistrationMap map[string]*transport.BundleRegistration
+	startOnce              sync.Once
+	stopOnce               sync.Once
 }
 
 func readEnvVars() (string, string, uint16, int, error) {
@@ -115,6 +115,9 @@ func (s *SyncService) Stop() {
 		close(s.objectsMetaDataChan)
 	})
 }
+
+// CommitAsync commits a transported message that was processed locally.
+func (s *SyncService) CommitAsync(bundle interface{}) {}
 
 // Register function registers a msgID to the bundle updates channel.
 func (s *SyncService) Register(registration *transport.BundleRegistration, bundleUpdatesChan chan bundle.Bundle) {
