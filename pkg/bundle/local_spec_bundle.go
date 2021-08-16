@@ -35,7 +35,6 @@ func (bundle *LocalSpecBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetGeneration returns the amount of times this bundle has been updated (its generation).
 func (bundle *LocalSpecBundle) GetGeneration() uint64 {
 	return bundle.Generation
 }
