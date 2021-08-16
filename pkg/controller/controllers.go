@@ -81,7 +81,8 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 	minimalStatusPredicate := func() bool {
 		return config.Spec.AggregationLevel == configv1.Minimal || config.Spec.AggregationLevel == aggregationLevelUnset
 	}
-
+	// TODO: check if local passes the LH name/ ID as well!!!
+	// TODO: check what to do about the local spec and local placement rules (bundle.something).
 	err := dbsyncer.AddPoliciesTransportToDBSyncer(
 		mgr,
 		ctrl.Log.WithName("policies-transport-to-db-syncer"),
@@ -90,6 +91,8 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		dbsyncer.ManagedClustersTableName,
 		dbsyncer.ComplianceTableName,
 		dbsyncer.MinimalComplianceTableName,
+		dbsyncer.LocalManagedClustersTableName,
+		dbsyncer.LocalComplianceTableName,
 		&transport.BundleRegistration{
 			MsgID:            datatypes.ClustersPerPolicyMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
@@ -104,6 +107,16 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 			MsgID:            datatypes.MinimalPolicyComplianceMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
 			Predicate:        minimalStatusPredicate,
+		},
+		&transport.BundleRegistration{
+			MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
+			Predicate:        fullStatusPredicate,
+		},
+		&transport.BundleRegistration{
+			MsgID:            datatypes.LocalPolicyComplianceMsgKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewComplianceStatusBundle() },
+			Predicate:        fullStatusPredicate,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to add DB Syncer: %w", err)

@@ -35,23 +35,32 @@ var (
 // AddPoliciesTransportToDBSyncer adds policies transport to db syncer to the manager.
 func AddPoliciesTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.PoliciesStatusDB,
 	transport transport.Transport, managedClustersTableName string, complianceTableName string,
-	minimalComplianceTableName string, clusterPerPolicyRegistration *transport.BundleRegistration,
-	complianceRegistration *transport.BundleRegistration, minComplianceRegistration *transport.BundleRegistration) error {
+	minimalComplianceTableName string, localManagedClustersTableName string, localComplianceTableName string,
+	clusterPerPolicyRegistration *transport.BundleRegistration, complianceRegistration *transport.BundleRegistration,
+	minComplianceRegistration *transport.BundleRegistration,
+	localClusterPerPolicyRegistration *transport.BundleRegistration,
+	localComplianceRegistration *transport.BundleRegistration) error {
 	syncer := &PoliciesTransportToDBSyncer{
-		log:                                log,
-		db:                                 db,
-		managedClustersTableName:           managedClustersTableName,
-		complianceTableName:                complianceTableName,
-		minimalComplianceTableName:         minimalComplianceTableName,
-		clustersPerPolicyBundleUpdatesChan: make(chan bundle.Bundle),
-		complianceBundleUpdatesChan:        make(chan bundle.Bundle),
-		minimalComplianceBundleUpdatesChan: make(chan bundle.Bundle),
-		bundlesGenerationLogPerLeafHub:     make(map[string]*policiesBundlesGenerationLog),
+		log:                                    log,
+		db:                                     db,
+		managedClustersTableName:               managedClustersTableName,
+		complianceTableName:                    complianceTableName,
+		minimalComplianceTableName:             minimalComplianceTableName,
+		localManagedClustersTableName:          localManagedClustersTableName,
+		localComplianceTableName:               localComplianceTableName,
+		clustersPerPolicyBundleUpdatesChan:     make(chan bundle.Bundle),
+		complianceBundleUpdatesChan:            make(chan bundle.Bundle),
+		minimalComplianceBundleUpdatesChan:     make(chan bundle.Bundle),
+		localClustersPerPolicyBundleUpdateChan: make(chan bundle.Bundle),
+		localComplianceBundleUpdatesChan:       make(chan bundle.Bundle),
+		bundlesGenerationLogPerLeafHub:         make(map[string]*policiesBundlesGenerationLog),
 	}
 	// register to bundle updates includes a predicate to filter updates when condition is false.
 	transport.Register(clusterPerPolicyRegistration, syncer.clustersPerPolicyBundleUpdatesChan)
 	transport.Register(complianceRegistration, syncer.complianceBundleUpdatesChan)
 	transport.Register(minComplianceRegistration, syncer.minimalComplianceBundleUpdatesChan)
+	transport.Register(localClusterPerPolicyRegistration, syncer.localClustersPerPolicyBundleUpdateChan)
+	transport.Register(localComplianceRegistration, syncer.localComplianceBundleUpdatesChan)
 
 	log.Info("initialized policies syncer")
 
@@ -78,15 +87,19 @@ type policiesBundlesGenerationLog struct {
 
 // PoliciesTransportToDBSyncer implements policies transport to db sync.
 type PoliciesTransportToDBSyncer struct {
-	log                                logr.Logger
-	db                                 hohDb.PoliciesStatusDB
-	managedClustersTableName           string
-	complianceTableName                string
-	minimalComplianceTableName         string
-	clustersPerPolicyBundleUpdatesChan chan bundle.Bundle
-	complianceBundleUpdatesChan        chan bundle.Bundle
-	minimalComplianceBundleUpdatesChan chan bundle.Bundle
-	bundlesGenerationLogPerLeafHub     map[string]*policiesBundlesGenerationLog
+	log                                    logr.Logger
+	db                                     hohDb.PoliciesStatusDB
+	managedClustersTableName               string
+	complianceTableName                    string
+	minimalComplianceTableName             string
+	localManagedClustersTableName          string
+	localComplianceTableName               string
+	clustersPerPolicyBundleUpdatesChan     chan bundle.Bundle
+	complianceBundleUpdatesChan            chan bundle.Bundle
+	minimalComplianceBundleUpdatesChan     chan bundle.Bundle
+	localClustersPerPolicyBundleUpdateChan chan bundle.Bundle
+	localComplianceBundleUpdatesChan       chan bundle.Bundle
+	bundlesGenerationLogPerLeafHub         map[string]*policiesBundlesGenerationLog
 }
 
 // Start function starts the syncer.
