@@ -80,9 +80,11 @@ func newPoliciesBundlesGenerationLog() *policiesBundlesGenerationLog {
 }
 
 type policiesBundlesGenerationLog struct {
-	lastClustersPerPolicyBundleGeneration uint64
-	lastComplianceBundleGeneration        uint64
-	lastMinimalComplianceBundleGeneration uint64
+	lastClustersPerPolicyBundleGeneration       uint64
+	lastComplianceBundleGeneration              uint64
+	lastMinimalComplianceBundleGeneration       uint64
+	lastLocallClustersPerPolicyBundleGeneration uint64
+	lastLocalComplianceBundleGeneration         uint64
 }
 
 // PoliciesTransportToDBSyncer implements policies transport to db sync.
@@ -166,6 +168,32 @@ func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 					helpers.HandleRetry(minimalComplianceBundle, syncer.minimalComplianceBundleUpdatesChan)
 				}
 			}()
+		// TODO: DOES NOT ADD LEAF HUB NAME INTO TABLE (YET).
+		case localClustersPerPolicyBundle := <-syncer.localClustersPerPolicyBundleUpdateChan:
+			leafHubName := localClustersPerPolicyBundle.GetLeafHubName()
+			syncer.createBundleGenerationLogIfNotExist(leafHubName)
+
+			go func() {
+				if err := helpers.HandleBundle(ctx, localClustersPerPolicyBundle,
+					&syncer.bundlesGenerationLogPerLeafHub[leafHubName].lastLocallClustersPerPolicyBundleGeneration,
+					syncer.handleClustersPerPolicyBundle); err != nil {
+					syncer.log.Error(err, "failed to handle bundle")
+					helpers.HandleRetry(localClustersPerPolicyBundle, syncer.localClustersPerPolicyBundleUpdateChan)
+				}
+			}()
+		case localComplianceBundle := <-syncer.localComplianceBundleUpdatesChan:
+			leafHubName := localComplianceBundle.GetLeafHubName()
+			syncer.createBundleGenerationLogIfNotExist(leafHubName)
+
+			go func() {
+				if err := helpers.HandleBundle(ctx, localComplianceBundle,
+					&syncer.bundlesGenerationLogPerLeafHub[leafHubName].lastLocalComplianceBundleGeneration,
+					syncer.handleComplianceBundle); err != nil {
+					syncer.log.Error(err, "failed to handle bundle")
+					helpers.HandleRetry(localComplianceBundle, syncer.localComplianceBundleUpdatesChan)
+				}
+			}()
+
 		}
 	}
 }
