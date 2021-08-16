@@ -6,4 +6,6 @@ import "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/p
 type Transport interface {
 	// Register function registers for the bundle updates channel.
 	Register(registration *BundleRegistration, bundleUpdatesChan chan bundle.Bundle)
+	// Start starts the transport (requirement for Runnable).
+	Start(stopChannel <-chan struct{}) error
 }

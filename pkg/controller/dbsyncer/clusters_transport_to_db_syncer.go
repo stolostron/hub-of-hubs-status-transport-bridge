@@ -82,17 +82,22 @@ func (syncer *ClustersTransportToDBSyncer) Start(stopChannel <-chan struct{}) er
 // and if the object was changed, update the db with the current object.
 func (syncer *ClustersTransportToDBSyncer) syncBundles(ctx context.Context) {
 	for {
-		receivedBundle := <-syncer.bundleUpdatesChan
-		leafHubName := receivedBundle.GetLeafHubName()
-		syncer.createBundleGenerationLogIfNotExist(leafHubName)
+		select {
+		case <-ctx.Done():
+			return
 
-		go func() {
-			if err := helpers.HandleBundle(ctx, receivedBundle, &syncer.bundlesGenerationLogPerLeafHub[leafHubName].
-				lastBundleGeneration, syncer.handleBundle); err != nil {
-				syncer.log.Error(err, "failed to handle bundle")
-				helpers.HandleRetry(receivedBundle, syncer.bundleUpdatesChan)
-			}
-		}()
+		case receivedBundle := <-syncer.bundleUpdatesChan:
+			leafHubName := receivedBundle.GetLeafHubName()
+			syncer.createBundleGenerationLogIfNotExist(leafHubName)
+
+			go func() {
+				if err := helpers.HandleBundle(ctx, receivedBundle, &syncer.bundlesGenerationLogPerLeafHub[leafHubName].
+					lastBundleGeneration, syncer.handleBundle); err != nil {
+					syncer.log.Error(err, "failed to handle bundle")
+					helpers.HandleRetry(receivedBundle, syncer.bundleUpdatesChan)
+				}
+			}()
+		}
 	}
 }
 

@@ -115,6 +115,9 @@ func (syncer *PoliciesTransportToDBSyncer) Start(stopChannel <-chan struct{}) er
 func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 	for {
 		select { // wait for incoming bundles to handle
+		case <-ctx.Done():
+			return
+
 		case clustersPerPolicyBundle := <-syncer.clustersPerPolicyBundleUpdatesChan:
 			leafHubName := clustersPerPolicyBundle.GetLeafHubName()
 			syncer.createBundleGenerationLogIfNotExist(leafHubName)

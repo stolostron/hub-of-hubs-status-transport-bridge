@@ -2,13 +2,13 @@ package syncservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -35,11 +35,8 @@ type SyncService struct {
 	client                 *client.SyncServiceClient
 	pollingInterval        int
 	objectsMetaDataChan    chan *client.ObjectMetaData
-	stopChan               chan struct{}
 	msgIDToChanMap         map[string]chan bundle.Bundle
 	msgIDToRegistrationMap map[string]*transport.BundleRegistration
-	startOnce              sync.Once
-	stopOnce               sync.Once
 }
 
 // NewSyncService creates a new instance of SyncService.
@@ -61,7 +58,6 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
 		msgIDToChanMap:         make(map[string]chan bundle.Bundle),
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
-		stopChan:               make(chan struct{}, 1),
 	}, nil
 }
 
@@ -102,18 +98,23 @@ func readEnvVars() (string, string, uint16, int, error) {
 }
 
 // Start function starts sync service.
-func (s *SyncService) Start() {
-	s.startOnce.Do(func() {
-		go s.handleBundles()
-	})
-}
+func (s *SyncService) Start(stopChannel <-chan struct{}) error {
+	ctx, cancelContext := context.WithCancel(context.Background())
+	defer cancelContext()
 
-// Stop function stops sync service.
-func (s *SyncService) Stop() {
-	s.stopOnce.Do(func() {
-		close(s.stopChan)
+	go s.handleBundles(ctx)
+
+	for {
+		<-stopChannel // blocking wait until getting stop event on the stop channel.
+
+		cancelContext()
+
 		close(s.objectsMetaDataChan)
-	})
+
+		s.log.Info("stopped sync service")
+
+		return nil
+	}
 }
 
 // Register function registers a msgID to the bundle updates channel.
@@ -122,14 +123,15 @@ func (s *SyncService) Register(registration *transport.BundleRegistration, bundl
 	s.msgIDToRegistrationMap[registration.MsgID] = registration
 }
 
-func (s *SyncService) handleBundles() {
+func (s *SyncService) handleBundles(ctx context.Context) {
 	// register for updates for spec bundles, this include all types of spec bundles each with a different id.
 	s.client.StartPollingForUpdates(datatypes.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
 
 	for {
 		select {
-		case <-s.stopChan:
+		case <-ctx.Done():
 			return
+
 		case objectMetaData := <-s.objectsMetaDataChan:
 			var buffer bytes.Buffer
 			if !s.client.FetchObjectData(objectMetaData, &buffer) {

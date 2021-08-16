@@ -73,9 +73,6 @@ func doMain() int {
 		return 1
 	}
 
-	syncService.Start()
-	defer syncService.Stop()
-
 	log.Info("Starting the Cmd.")
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
@@ -87,7 +84,7 @@ func doMain() int {
 }
 
 func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32,
-	postgreSQL db.StatusTransportBridgeDB, syncService transport.Transport) (ctrl.Manager, error) {
+	postgreSQL db.StatusTransportBridgeDB, transport transport.Transport) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -104,8 +101,13 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddSyncers(mgr, postgreSQL, syncService); err != nil {
+	if err := controller.AddSyncers(mgr, postgreSQL, transport); err != nil {
 		return nil, fmt.Errorf("failed to add syncers: %w", err)
+	}
+
+	err = mgr.Add(transport)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add transport: %w", err)
 	}
 
 	return mgr, nil
