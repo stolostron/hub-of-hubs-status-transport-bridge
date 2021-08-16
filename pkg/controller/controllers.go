@@ -93,6 +93,7 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		dbsyncer.MinimalComplianceTableName,
 		dbsyncer.LocalManagedClustersTableName,
 		dbsyncer.LocalComplianceTableName,
+		dbsyncer.LocalPolicySpecTableName,
 		&transport.BundleRegistration{
 			MsgID:            datatypes.ClustersPerPolicyMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
@@ -117,6 +118,11 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 			MsgID:            datatypes.LocalPolicyComplianceMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewComplianceStatusBundle() },
 			Predicate:        fullStatusPredicate,
+		},
+		&transport.BundleRegistration{
+			MsgID:            datatypes.LocalSpecPerPolicyMsgKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewLocalSpecBundle() },
+			Predicate:        func() bool { return true },
 		})
 	if err != nil {
 		return fmt.Errorf("failed to add DB Syncer: %w", err)

@@ -36,10 +36,12 @@ var (
 func AddPoliciesTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.PoliciesStatusDB,
 	transport transport.Transport, managedClustersTableName string, complianceTableName string,
 	minimalComplianceTableName string, localManagedClustersTableName string, localComplianceTableName string,
+	localPolicySpecTableName string,
 	clusterPerPolicyRegistration *transport.BundleRegistration, complianceRegistration *transport.BundleRegistration,
 	minComplianceRegistration *transport.BundleRegistration,
 	localClusterPerPolicyRegistration *transport.BundleRegistration,
-	localComplianceRegistration *transport.BundleRegistration) error {
+	localComplianceRegistration *transport.BundleRegistration,
+	localPolicySpecRegistration *transport.BundleRegistration) error {
 	syncer := &PoliciesTransportToDBSyncer{
 		log:                                    log,
 		db:                                     db,
@@ -48,11 +50,13 @@ func AddPoliciesTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.
 		minimalComplianceTableName:             minimalComplianceTableName,
 		localManagedClustersTableName:          localManagedClustersTableName,
 		localComplianceTableName:               localComplianceTableName,
+		localPolicySpecTableName:               localPolicySpecTableName,
 		clustersPerPolicyBundleUpdatesChan:     make(chan bundle.Bundle),
 		complianceBundleUpdatesChan:            make(chan bundle.Bundle),
 		minimalComplianceBundleUpdatesChan:     make(chan bundle.Bundle),
 		localClustersPerPolicyBundleUpdateChan: make(chan bundle.Bundle),
 		localComplianceBundleUpdatesChan:       make(chan bundle.Bundle),
+		localPolicySpecBundleUpdateChan:        make(chan bundle.Bundle),
 		bundlesGenerationLogPerLeafHub:         make(map[string]*policiesBundlesGenerationLog),
 	}
 	// register to bundle updates includes a predicate to filter updates when condition is false.
@@ -61,7 +65,7 @@ func AddPoliciesTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.
 	transport.Register(minComplianceRegistration, syncer.minimalComplianceBundleUpdatesChan)
 	transport.Register(localClusterPerPolicyRegistration, syncer.localClustersPerPolicyBundleUpdateChan)
 	transport.Register(localComplianceRegistration, syncer.localComplianceBundleUpdatesChan)
-
+	transport.Register(localPolicySpecRegistration, syncer.localPolicySpecBundleUpdateChan)
 	log.Info("initialized policies syncer")
 
 	if err := mgr.Add(syncer); err != nil {
@@ -85,6 +89,7 @@ type policiesBundlesGenerationLog struct {
 	lastMinimalComplianceBundleGeneration       uint64
 	lastLocallClustersPerPolicyBundleGeneration uint64
 	lastLocalComplianceBundleGeneration         uint64
+	lastLocalSpecBundleGeneration               uint64
 }
 
 // PoliciesTransportToDBSyncer implements policies transport to db sync.
@@ -96,11 +101,13 @@ type PoliciesTransportToDBSyncer struct {
 	minimalComplianceTableName             string
 	localManagedClustersTableName          string
 	localComplianceTableName               string
+	localPolicySpecTableName               string
 	clustersPerPolicyBundleUpdatesChan     chan bundle.Bundle
 	complianceBundleUpdatesChan            chan bundle.Bundle
 	minimalComplianceBundleUpdatesChan     chan bundle.Bundle
 	localClustersPerPolicyBundleUpdateChan chan bundle.Bundle
 	localComplianceBundleUpdatesChan       chan bundle.Bundle
+	localPolicySpecBundleUpdateChan        chan bundle.Bundle
 	bundlesGenerationLogPerLeafHub         map[string]*policiesBundlesGenerationLog
 }
 
@@ -193,7 +200,18 @@ func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 					helpers.HandleRetry(localComplianceBundle, syncer.localComplianceBundleUpdatesChan)
 				}
 			}()
+		case localSpecBundle := <-syncer.localPolicySpecBundleUpdateChan:
+			leafHubName := localSpecBundle.GetLeafHubName()
+			syncer.createBundleGenerationLogIfNotExist(leafHubName)
 
+			go func() {
+				if err := helpers.HandleBundle(ctx, localSpecBundle,
+					&syncer.bundlesGenerationLogPerLeafHub[leafHubName].lastLocalSpecBundleGeneration,
+					syncer.handleLocalSpecBundle); err != nil {
+					syncer.log.Error(err, "failed to handle bundle")
+					helpers.HandleRetry(localSpecBundle, syncer.localPolicySpecBundleUpdateChan)
+				}
+			}()
 		}
 	}
 }
@@ -318,6 +336,11 @@ func (syncer *PoliciesTransportToDBSyncer) deleteSelectedComplianceRows(ctx cont
 		}
 	}
 
+	return nil
+}
+
+//TODO: Implement handler
+func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle) error {
 	return nil
 }
 
