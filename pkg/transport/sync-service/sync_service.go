@@ -55,7 +55,6 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 		log:                    log,
 		client:                 syncServiceClient,
 		pollingInterval:        pollingInterval,
-		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
 		msgIDToChanMap:         make(map[string]chan bundle.Bundle),
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 	}, nil
@@ -102,6 +101,8 @@ func (s *SyncService) Start(stopChannel <-chan struct{}) error {
 	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
+	s.objectsMetaDataChan = make(chan *client.ObjectMetaData)
+	
 	go s.handleBundles(ctx)
 
 	for {
