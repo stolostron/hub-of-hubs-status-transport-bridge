@@ -111,9 +111,21 @@ func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string,
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
 func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string,
 	error) {
+	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "status")
+}
+
+// GetPolicyIDsByLeafHubSpec same as GetPolicyIDsByLeafHub but for spec and not status
+func (p *PostgreSQL) GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string, leafHubName string) ([]string,
+	error) {
+	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "spec")
+}
+
+// getPolicyIDsByLeafHubHelper helper to reduce code duplication by differentiating spec and status
+func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName string, leafHubName string,
+	typeTable string) ([]string, error) {
 	result := make([]string, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM status.%s WHERE leaf_hub_name=$1`,
-		tableName), leafHubName)
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s.%s WHERE leaf_hub_name=$1`,
+		typeTable, tableName), leafHubName)
 
 	for rows.Next() {
 		policyID := ""
@@ -176,6 +188,17 @@ func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName strin
 	}
 
 	return nil
+}
+
+func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string, policyID string, leafHubName string,
+	payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (policy_id,leaf_hub_name,payload
+							 ) values($1, $2, $3::jsonb)`, tableName), policyID, leafHubName, payload); err != nil {
+		return fmt.Errorf("failed to insert into database: %w", err)
+	}
+
+	return nil
+
 }
 
 // UpdateEnforcementAndResourceVersion updates enforcement and version by leaf hub and policy.
