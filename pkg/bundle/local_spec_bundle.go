@@ -4,21 +4,21 @@ import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 )
 
-func NewLocalSpecBundle() *localSpecBundle {
-	return &localSpecBundle{}
+func NewLocalSpecBundle() *LocalSpecBundle {
+	return &LocalSpecBundle{}
 }
 
-type localSpecBundle struct {
-	Objects     []policiesv1.Policy `json:"objects"`
-	LeafHubName string              `json:"leafHubName"`
-	Generation  uint64              `json:"generation"`
+type LocalSpecBundle struct {
+	Objects     []*policiesv1.Policy `json:"objects"`
+	LeafHubName string               `json:"leafHubName"`
+	Generation  uint64               `json:"generation"`
 }
 
-func (bundle *localSpecBundle) GetLeafHubName() string {
+func (bundle *LocalSpecBundle) GetLeafHubName() string {
 	return bundle.LeafHubName
 }
 
-func (bundle *localSpecBundle) GetObjects() []interface{} {
+func (bundle *LocalSpecBundle) GetObjects() []interface{} {
 	result := make([]interface{}, len(bundle.Objects))
 	for i, obj := range bundle.Objects {
 		result[i] = obj
@@ -27,6 +27,6 @@ func (bundle *localSpecBundle) GetObjects() []interface{} {
 	return result
 }
 
-func (bundle *localSpecBundle) GetGeneration() uint64 {
+func (bundle *LocalSpecBundle) GetGeneration() uint64 {
 	return bundle.Generation
 }
