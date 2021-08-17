@@ -92,6 +92,7 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		dbsyncer.MinimalComplianceTableName,
 		dbsyncer.LocalComplianceTableName,
 		dbsyncer.LocalPolicySpecTableName,
+		dbsyncer.LocalComplianceTableName,
 		&transport.BundleRegistration{
 			MsgID:            datatypes.ClustersPerPolicyMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
@@ -120,6 +121,11 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		&transport.BundleRegistration{
 			MsgID:            datatypes.LocalSpecPerPolicyMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewLocalSpecBundle() },
+			Predicate:        func() bool { return true },
+		},
+		&transport.BundleRegistration{
+			MsgID:            datatypes.LocalPolicyComplianceMsgKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewLocalPlacementRuleBundle() },
 			Predicate:        func() bool { return true },
 		})
 	if err != nil {

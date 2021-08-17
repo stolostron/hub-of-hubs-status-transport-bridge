@@ -114,9 +114,7 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string
 	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "status")
 }
 
-// GetPolicyIDsByLeafHubSpec same as GetPolicyIDsByLeafHub but for spec and not status
-func (p *PostgreSQL) GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string, leafHubName string) ([]string,
-	error) {
+func (p *PostgreSQL) GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
 	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "spec")
 }
 
@@ -130,7 +128,7 @@ func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName 
 	for rows.Next() {
 		policyID := ""
 		if err := rows.Scan(&policyID); err != nil {
-			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", typeTable, tableName, err)
 		}
 
 		result = append(result, policyID)
@@ -139,18 +137,19 @@ func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName 
 	return result, nil
 }
 
-func (p *PostgreSQL) InsertPolicySpec(ctx context.Context, policyID string, tableName string, leafHubName string, payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (policy_id,leaf_hub_name,payload) 
-										values($1, $2, $3::jsonb)`, tableName), policyID, leafHubName, payload); err != nil {
+// InsertIntoSpecTable inserts into one spec. table a row with id name IDType.
+func (p *PostgreSQL) InsertIntoSpecTable(ctx context.Context, IDType string, ID string, tableName string, leafHubName string, payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (%s,leaf_hub_name,payload) 
+										values($1, $2, $3::jsonb)`, tableName, IDType), ID, leafHubName, payload); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
 	return nil
 
 }
 
-func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string, policyID string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from spec.%s WHERE policy_id=$1 AND 
-			leaf_hub_name=$2`, tableName), policyID, leafHubName); err != nil {
+func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, IDType string, leafHubName string, tableName string, policyID string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from spec.%s WHERE %s=$1 AND 
+			leaf_hub_name=$2`, tableName, IDType), policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete policy row from database: %w", err)
 	}
 
@@ -220,9 +219,9 @@ func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string
 
 }
 
-func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, policyID string, leafHubName string, tableName string, payload interface{}) error {
+func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, IDType string, policyID string, leafHubName string, tableName string, payload interface{}) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE spec.%s SET payload=$1 WHERE 
-			policy_id=$2 AND leaf_hub_name=$3`, tableName), payload, policyID, leafHubName); err != nil {
+			%s=$2 AND leaf_hub_name=$3`, tableName, IDType), payload, policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to update local policy spec in database: %w", err)
 	}
 
@@ -320,4 +319,22 @@ func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) e
 	}
 
 	return nil
+}
+
+func (p *PostgreSQL) GetPlacementRuleIDs(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
+	result := make([]string, 0)
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(placement_rule_id) FROM spec.%s WHERE leaf_hub_name=$1`,
+		tableName), leafHubName)
+
+	for rows.Next() {
+		placementRuleID := ""
+		if err := rows.Scan(&placementRuleID); err != nil {
+			return nil, fmt.Errorf("error reading from table spec.%s - %w", tableName, err)
+		}
+
+		result = append(result, placementRuleID)
+	}
+
+	return result, nil
+
 }
