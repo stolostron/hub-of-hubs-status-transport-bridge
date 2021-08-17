@@ -139,6 +139,25 @@ func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName 
 	return result, nil
 }
 
+func (p *PostgreSQL) InsertPolicySpec(ctx context.Context, policyID string, tableName string, leafHubName string, payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (policy_id,leaf_hub_name,payload) 
+										values($1, $2, $3::jsonb)`, tableName), policyID, leafHubName, payload); err != nil {
+		return fmt.Errorf("failed to insert into database: %w", err)
+	}
+	return nil
+
+}
+
+func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string, policyID string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from spec.%s WHERE policy_id=$1 AND 
+			leaf_hub_name=$2`, tableName), policyID, leafHubName); err != nil {
+		return fmt.Errorf("failed to delete policy row from database: %w", err)
+	}
+
+	return nil
+
+}
+
 // GetComplianceClustersByLeafHubAndPolicy returns list of clusters by leaf hub and policy.
 func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
 	policyID string) ([]string, error) {
@@ -195,6 +214,16 @@ func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (policy_id,leaf_hub_name,payload
 							 ) values($1, $2, $3::jsonb)`, tableName), policyID, leafHubName, payload); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
+	}
+
+	return nil
+
+}
+
+func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, policyID string, leafHubName string, tableName string, payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE spec.%s SET payload=$1 WHERE 
+			policy_id=$2 AND leaf_hub_name=$3`, tableName), payload, policyID, leafHubName); err != nil {
+		return fmt.Errorf("failed to update local policy spec in database: %w", err)
 	}
 
 	return nil
