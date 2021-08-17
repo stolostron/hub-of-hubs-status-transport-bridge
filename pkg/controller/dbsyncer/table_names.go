@@ -8,8 +8,6 @@ const (
 	// MinimalComplianceTableName table for minimal policy compliance status.
 	MinimalComplianceTableName = "aggregated_compliance"
 
-	// LocalManagedClustersTableName the table name of managed clusters.
-	LocalManagedClustersTableName = "local_managed_clusters"
 	// LocalComplianceTableName table for policy compliance status.
 	LocalComplianceTableName = "local_compliance"
 	// LocalPolicySpecTableName the name of the local policy spec table.

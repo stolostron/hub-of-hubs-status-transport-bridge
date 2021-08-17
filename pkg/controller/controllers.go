@@ -82,7 +82,6 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		return config.Spec.AggregationLevel == configv1.Minimal || config.Spec.AggregationLevel == aggregationLevelUnset
 	}
 	// TODO: check if local passes the LH name/ ID as well!!!
-	// TODO: check what to do about the local spec and local placement rules (bundle.something).
 	err := dbsyncer.AddPoliciesTransportToDBSyncer(
 		mgr,
 		ctrl.Log.WithName("policies-transport-to-db-syncer"),
@@ -91,7 +90,6 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 		dbsyncer.ManagedClustersTableName,
 		dbsyncer.ComplianceTableName,
 		dbsyncer.MinimalComplianceTableName,
-		dbsyncer.LocalManagedClustersTableName,
 		dbsyncer.LocalComplianceTableName,
 		dbsyncer.LocalPolicySpecTableName,
 		&transport.BundleRegistration{
