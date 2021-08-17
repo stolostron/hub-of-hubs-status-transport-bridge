@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
@@ -175,7 +176,6 @@ func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 					helpers.HandleRetry(minimalComplianceBundle, syncer.minimalComplianceBundleUpdatesChan)
 				}
 			}()
-		// TODO: DOES NOT ADD LEAF HUB NAME INTO TABLE (YET).
 		case localClustersPerPolicyBundle := <-syncer.localClustersPerPolicyBundleUpdateChan:
 			leafHubName := localClustersPerPolicyBundle.GetLeafHubName()
 			syncer.createBundleGenerationLogIfNotExist(leafHubName)
@@ -229,6 +229,7 @@ func (syncer *PoliciesTransportToDBSyncer) createBundleGenerationLogIfNotExist(l
 // in case the row already exists (leafHubName, policyId, clusterName) -> then don't change anything since this bundle
 // don't have any information about the compliance status but only for the list of relevant clusters.
 // the compliance status will be handled in a different bundle and a different handler function.
+//TODO: add table name as arg
 func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundle(ctx context.Context,
 	bundle bundle.Bundle) error {
 	leafHubName := bundle.GetLeafHubName()
@@ -265,6 +266,62 @@ func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundle(ctx con
 	syncer.log.Info("finished handling 'ClustersPerPolicy' bundle", "Leaf Hub", leafHubName,
 		"Generation", bundleGeneration)
 
+	return nil
+}
+
+func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle) error {
+	leafHubName := b.GetLeafHubName()
+	bundleGen := b.GetGeneration()
+
+	syncer.log.Info("start handling 'LocalPolicySpec' bundle", "Leaf Hub", leafHubName,
+		"Generation", bundleGen)
+	policyIDsFromDB, err := syncer.db.GetPolicyIDsByLeafHubSpec(ctx, syncer.localPolicySpecTableName, leafHubName)
+	if err != nil {
+		return fmt.Errorf("failed fetching leaf hub '%s' policies from db - %w", leafHubName, err)
+	}
+	for _, object := range b.GetObjects() {
+		policy, ok := object.(*policiesv1.Policy)
+		if !ok {
+			continue
+		}
+		policyInd, err := helpers.GetObjectIndex(policyIDsFromDB, string(policy.UID))
+		if err != nil { // policy not found, new policy id
+			if err = syncer.db.InsertPolicySpec(ctx, string(policy.UID), syncer.localPolicySpecTableName, leafHubName, object); err != nil {
+				return fmt.Errorf("failed to insert policy '%s' from leaf hub '%s' compliance to DB - %w",
+					policy.Name, leafHubName, err)
+			}
+			// we can continue since its not in policyIDsFromDB anyway
+			continue
+		}
+		// since this already exists in the db and in the bundle we need to update it
+		err = syncer.db.UpdateSingleSpecRow(ctx, string(policy.UID), leafHubName, syncer.localPolicySpecTableName, object)
+		if err != nil {
+			return fmt.Errorf(`failed updating spec of local policy '%s', leaf hub '%s' 
+					in db - %w`, string(policy.UID), leafHubName, err)
+		}
+
+		// we dont want to delete it later
+		policyIDsFromDB = append(policyIDsFromDB[:policyInd], policyIDsFromDB[policyInd+1:]...)
+	}
+
+	err = syncer.deleteLocalSpecRows(ctx, leafHubName, syncer.localPolicySpecTableName, policyIDsFromDB)
+	if err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'LocalPolicySpec' bundle", "Leaf Hub", leafHubName,
+		"Generation", bundleGen)
+
+	return nil
+}
+
+func (syncer *PoliciesTransportToDBSyncer) deleteLocalSpecRows(ctx context.Context, leafHubName string, tableName string, policyIDToDelete []string) error {
+	for _, id := range policyIDToDelete {
+		err := syncer.db.DeleteSingleSpecRow(ctx, leafHubName, tableName, id)
+		if err != nil {
+			return fmt.Errorf("failed deleting policy with id %s from leaf hub %s from table %s", id, leafHubName, tableName)
+		}
+	}
 	return nil
 }
 
@@ -339,14 +396,10 @@ func (syncer *PoliciesTransportToDBSyncer) deleteSelectedComplianceRows(ctx cont
 	return nil
 }
 
-//TODO: Implement handler
-func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle) error {
-	return nil
-}
-
 // if we got the the handler function, then the bundle generation is newer than what we have in memory
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
+// TODO: add table name as arg
 func (syncer *PoliciesTransportToDBSyncer) handleComplianceBundle(ctx context.Context, bundle bundle.Bundle) error {
 	leafHubName := bundle.GetLeafHubName()
 	syncer.log.Info("start handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName, "Generation",
