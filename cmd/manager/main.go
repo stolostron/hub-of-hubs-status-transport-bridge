@@ -101,13 +101,12 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
+	if err = mgr.Add(transport); err != nil {
+		return nil, fmt.Errorf("failed to add transport: %w", err)
+	}
+	
 	if err := controller.AddSyncers(mgr, postgreSQL, transport); err != nil {
 		return nil, fmt.Errorf("failed to add syncers: %w", err)
-	}
-
-	err = mgr.Add(transport)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add transport: %w", err)
 	}
 
 	return mgr, nil
