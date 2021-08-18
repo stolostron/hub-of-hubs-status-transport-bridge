@@ -12,6 +12,9 @@ const (
 	LocalComplianceTableName = "local_compliance"
 	// LocalPolicySpecTableName the name of the local policy spec table.
 	LocalPolicySpecTableName = "local_spec"
+	// LocalPlacementRuleTableName the table for local Placement Rules
+	LocalPlacementRuleTableName = "local_placementrule"
+
 	//TODO: check actual local table name ^.
 
 )
