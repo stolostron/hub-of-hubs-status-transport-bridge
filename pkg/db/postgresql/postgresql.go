@@ -138,7 +138,7 @@ func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName 
 }
 
 // InsertIntoSpecTable inserts into one spec. table a row with id name IDType.
-func (p *PostgreSQL) InsertIntoSpecTable(ctx context.Context, IDType string, ID string, tableName string, leafHubName string, payload interface{}) error {
+func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, IDType string, ID string, tableName string, leafHubName string, payload interface{}) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (%s,leaf_hub_name,payload) 
 										values($1, $2, $3::jsonb)`, tableName, IDType), ID, leafHubName, payload); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
