@@ -114,11 +114,13 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string
 	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "status")
 }
 
-func (p *PostgreSQL) GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
+// GetPolicyIDsByLeafHubSpec this function returns the ID.
+func (p *PostgreSQL) GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string,
+	leafHubName string) ([]string, error) {
 	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "spec")
 }
 
-// getPolicyIDsByLeafHubHelper helper to reduce code duplication by differentiating spec and status
+// getPolicyIDsByLeafHubHelper helper to reduce code duplication by differentiating spec and status.
 func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName string, leafHubName string,
 	typeTable string) ([]string, error) {
 	result := make([]string, 0)
@@ -137,24 +139,27 @@ func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName 
 	return result, nil
 }
 
-// InsertIntoSpecTable inserts into one spec. table a row with id name IDType.
-func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, IDType string, ID string, tableName string, leafHubName string, payload interface{}) error {
+// InsertIntoSpecSchema inserts into one spec. table a row with id name IDType.
+func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, idType string, id string, tableName string,
+	leafHubName string, payload interface{}) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (%s,leaf_hub_name,payload) 
-										values($1, $2, $3::jsonb)`, tableName, IDType), ID, leafHubName, payload); err != nil {
+										values($1, $2, $3::jsonb)`, tableName, idType), id, leafHubName, payload); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
-	return nil
 
+	return nil
 }
 
-func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, IDType string, leafHubName string, tableName string, policyID string) error {
+// DeleteSingleSpecRow this function receives an idType (the name of the id column in table tableName) and deletes the
+// row that contains id.
+func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, idType string, leafHubName string, tableName string,
+	id string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from spec.%s WHERE %s=$1 AND 
-			leaf_hub_name=$2`, tableName, IDType), policyID, leafHubName); err != nil {
+			leaf_hub_name=$2`, tableName, idType), id, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete policy row from database: %w", err)
 	}
 
 	return nil
-
 }
 
 // GetComplianceClustersByLeafHubAndPolicy returns list of clusters by leaf hub and policy.
@@ -208,6 +213,8 @@ func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName strin
 	return nil
 }
 
+// InsertLocalPolicySpec this function puts adds a new row in table tableName with policyID, leafHubName and
+// the payload.
 func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string, policyID string, leafHubName string,
 	payload interface{}) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (policy_id,leaf_hub_name,payload
@@ -216,17 +223,17 @@ func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string
 	}
 
 	return nil
-
 }
 
-func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, IDType string, policyID string, leafHubName string, tableName string, payload interface{}) error {
+// UpdateSingleSpecRow this function updates the row whose idType column contains id.
+func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, idType string, id string, leafHubName string,
+	tableName string, payload interface{}) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE spec.%s SET payload=$1 WHERE 
-			%s=$2 AND leaf_hub_name=$3`, tableName, IDType), payload, policyID, leafHubName); err != nil {
+			%s=$2 AND leaf_hub_name=$3`, tableName, idType), payload, id, leafHubName); err != nil {
 		return fmt.Errorf("failed to update local policy spec in database: %w", err)
 	}
 
 	return nil
-
 }
 
 // UpdateEnforcementAndResourceVersion updates enforcement and version by leaf hub and policy.
@@ -321,6 +328,7 @@ func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) e
 	return nil
 }
 
+// GetPlacementRuleIDs this function returns all the ids of placement rules with leafHubName from the db.
 func (p *PostgreSQL) GetPlacementRuleIDs(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
 	result := make([]string, 0)
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(placement_rule_id) FROM spec.%s WHERE leaf_hub_name=$1`,
@@ -336,5 +344,4 @@ func (p *PostgreSQL) GetPlacementRuleIDs(ctx context.Context, tableName string, 
 	}
 
 	return result, nil
-
 }
