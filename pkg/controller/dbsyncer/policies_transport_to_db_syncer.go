@@ -124,6 +124,9 @@ func (syncer *PoliciesTransportToDBSyncer) Start(stopChannel <-chan struct{}) er
 func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 	for {
 		select { // wait for incoming bundles to handle
+		case <-ctx.Done():
+			return
+
 		case clustersPerPolicyBundle := <-syncer.clustersPerPolicyBundleUpdatesChan:
 			leafHubName := clustersPerPolicyBundle.GetLeafHubName()
 			syncer.createBundleGenerationLogIfNotExist(leafHubName)
@@ -303,7 +306,7 @@ func (syncer *PoliciesTransportToDBSyncer) deleteSelectedComplianceRows(ctx cont
 	return nil
 }
 
-// if we got the the handler function, then the bundle generation is newer than what we have in memory
+// if we got to the handler function, then the bundle generation is newer than what we have in memory
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
 func (syncer *PoliciesTransportToDBSyncer) handleCompleteComplianceBundle(ctx context.Context,

@@ -81,12 +81,12 @@ spec:
                 secretKeyRef:
                   name: hub-of-hubs-database-transport-bridge-secret
                   key: url
-            - name: HOH_TRANSPORT_TYPE
-              value: "$HOH_TRANSPORT_TYPE"
+            - name: TRANSPORT_TYPE
+              value: "$TRANSPORT_TYPE"
             - name: KAFKA_CONSUMER_ID
               value: "hoh-status-consumer"
             - name: KAFKA_CONSUMER_HOSTS
-              value: "$KAFKA_CONSUMER_HOSTS"
+              value: "my-cluster-kafka-bootstrap.kafka.svc:9092"
             - name: KAFKA_CONSUMER_TOPIC
               value: "status-path-topic"
             - name: SYNC_SERVICE_PROTOCOL
