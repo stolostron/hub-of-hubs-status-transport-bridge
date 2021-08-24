@@ -527,11 +527,13 @@ func (syncer *PoliciesTransportToDBSyncer) handleCompletePolicyComplianceStatus(
 // handleDeltaPolicyComplianceStatus updates db with leaf hub's given clusters with the given status as-is.
 func (syncer *PoliciesTransportToDBSyncer) handleDeltaPolicyComplianceStatus(ctx context.Context,
 	leafHubName string, policyID string, compliance string, version string, targetClusterNames []string) error {
-	for _, cluster := range targetClusterNames {
-		if err := syncer.db.UpdateComplianceRow(ctx, syncer.complianceTableName, policyID, cluster,
-			leafHubName, compliance, version); err != nil {
-			return fmt.Errorf("failed updating compliance rows in db - %w", err)
-		}
+	if len(targetClusterNames) == 0 {
+		return nil
+	}
+
+	if err := syncer.db.UpdateComplianceSet(ctx, syncer.complianceTableName, policyID, targetClusterNames,
+		leafHubName, compliance, version); err != nil {
+		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
 
 	return nil
