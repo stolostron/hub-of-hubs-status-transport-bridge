@@ -8,6 +8,6 @@ type Transport interface {
 	Register(registration *BundleRegistration, bundleUpdatesChan chan bundle.Bundle)
 	// CommitAsync function commits a bundle message in transport platform.
 	CommitAsync(interface{})
-	Start()
-	Stop()
+	// Start starts the transport and implements Runnable.
+	Start(stopChannel <-chan struct{}) error
 }
