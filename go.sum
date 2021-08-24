@@ -309,6 +309,7 @@ github.com/go-logr/logr v0.1.0/go.mod h1:ixOQHD9gLJUVQQ2ZOR7zLEifBX6tGkNJF4QyIY7
 github.com/go-logr/logr v0.2.0/go.mod h1:z6/tIYblkpsD+a4lm/fGIIU9mZ+XfAiaFtq7xTgseGU=
 github.com/go-logr/logr v0.2.1 h1:fV3MLmabKIZ383XifUjFSwcoGee0v9qgPp8wy5svibE=
 github.com/go-logr/logr v0.2.1/go.mod h1:z6/tIYblkpsD+a4lm/fGIIU9mZ+XfAiaFtq7xTgseGU=
+github.com/go-logr/logr v1.0.0/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/zapr v0.1.0/go.mod h1:tabnROwaDl0UNxkVeFRbY8bwB37GwRv0P8lg6aAiEnk=
 github.com/go-logr/zapr v0.1.1/go.mod h1:tabnROwaDl0UNxkVeFRbY8bwB37GwRv0P8lg6aAiEnk=
 github.com/go-logr/zapr v0.2.0 h1:v6Ji8yBW77pva6NkJKQdHLAJKrIJKRHz0RXwPqCHSR4=
@@ -783,6 +784,12 @@ github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0 h1:
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210812092416-d58848afca24 h1:2tqUV/EE2m/L3XRAlQGaTfBP9DH1JWBPiLrdzAILdyg=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210812092416-d58848afca24/go.mod h1:Fstxg0yugd2JLhldov/yt6tbBZX8bMn9HagX8QFK43Q=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210823122243-9e117a5f4f16 h1:9cVPD0yIljdYoclZKfUh7QIOKImZM4SptkDnNWL3/KA=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210823122243-9e117a5f4f16/go.mod h1:TX1FA25p8R4kydlUONq4CGlBXcHRFxNL9GZQ8Wc19HI=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210823185234-9a20ec8f50db h1:oy9S89wpIpxc94d4eNGAIhBKzYoVWBzHhj06cRV2ISE=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210823185234-9a20ec8f50db/go.mod h1:TX1FA25p8R4kydlUONq4CGlBXcHRFxNL9GZQ8Wc19HI=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210824074349-e242cd2180d1 h1:ByY12CLVjUFwhvngBO6s8P6rQe4rNxzwNthfRh8leuY=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210824074349-e242cd2180d1/go.mod h1:TX1FA25p8R4kydlUONq4CGlBXcHRFxNL9GZQ8Wc19HI=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2/go.mod h1:rKW01VtqwtwaUQ+zkJ80X5EeGqsTblQE4J9HxPUtTAQ=
 github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 h1:YEvNOMo3ANOQ3AwsU0cCcBA4nKHDLUlyUCRWk5rBf68=
