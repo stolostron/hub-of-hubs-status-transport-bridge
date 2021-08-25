@@ -46,13 +46,13 @@ func (p *PostgreSQL) Stop() {
 func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName string,
 	leafHubName string) ([]*db.ClusterKeyAndVersion, error) {
 	result := make([]*db.ClusterKeyAndVersion, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name,resource_version FROM status.%s WHERE 
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name,resource_version FROM %s WHERE 
 			leaf_hub_name=$1`, tableName), leafHubName)
 
 	for rows.Next() {
 		object := db.ClusterKeyAndVersion{}
 		if err := rows.Scan(&object.ClusterName, &object.ResourceVersion); err != nil {
-			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
+			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
 		}
 
 		result = append(result, &object)
@@ -64,7 +64,7 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName 
 // InsertManagedCluster inserts managed cluster to the db.
 func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string,
 	payload interface{}, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (cluster_name,leaf_hub_name,payload,
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (cluster_name,leaf_hub_name,payload,
 			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), objName, leafHubName, payload,
 		version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
@@ -76,7 +76,7 @@ func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string,
 // UpdateManagedCluster updates managed cluster row in the db.
 func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string,
 	payload interface{}, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET payload=$1,resource_version=$2 WHERE 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1,resource_version=$2 WHERE 
 		cluster_name=$3 AND leaf_hub_name=$4`, tableName), payload, version, objName, leafHubName); err != nil {
 		return fmt.Errorf("failed to update obj in database: %w", err)
 	}
@@ -87,7 +87,7 @@ func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string,
 // DeleteManagedCluster deletes a managed cluster from the db.
 func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string, objName string,
 	leafHubName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE cluster_name=$1 AND leaf_hub_name=$2`,
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE cluster_name=$1 AND leaf_hub_name=$2`,
 		tableName), objName, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete managed cluster from database: %w", err)
 	}
@@ -99,7 +99,7 @@ func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string,
 func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string, leafHubName string,
 	objName string) bool {
 	var exists bool
-	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from status.%s WHERE leaf_hub_name=$1 AND 
+	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from %s WHERE leaf_hub_name=$1 AND 
 			cluster_name=$2)`, tableName), leafHubName, objName).Scan(&exists); err != nil {
 		log.Println(err)
 		return false
@@ -111,26 +111,14 @@ func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string,
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
 func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string,
 	error) {
-	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "status")
-}
-
-// GetPolicyIDsByLeafHubSpec this function returns the ID.
-func (p *PostgreSQL) GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string,
-	leafHubName string) ([]string, error) {
-	return p.getPolicyIDsByLeafHubHelper(ctx, tableName, leafHubName, "spec")
-}
-
-// getPolicyIDsByLeafHubHelper helper to reduce code duplication by differentiating spec and status.
-func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName string, leafHubName string,
-	typeTable string) ([]string, error) {
 	result := make([]string, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s.%s WHERE leaf_hub_name=$1`,
-		typeTable, tableName), leafHubName)
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s WHERE leaf_hub_name=$1`,
+		tableName), leafHubName)
 
 	for rows.Next() {
 		policyID := ""
 		if err := rows.Scan(&policyID); err != nil {
-			return nil, fmt.Errorf("error reading from table %s.%s - %w", typeTable, tableName, err)
+			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
 		}
 
 		result = append(result, policyID)
@@ -139,40 +127,17 @@ func (p *PostgreSQL) getPolicyIDsByLeafHubHelper(ctx context.Context, tableName 
 	return result, nil
 }
 
-// InsertIntoSpecSchema inserts into one spec. table a row with id name IDType.
-func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, idType string, id string, tableName string,
-	leafHubName string, payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (%s,leaf_hub_name,payload) 
-										values($1, $2, $3::jsonb)`, tableName, idType), id, leafHubName, payload); err != nil {
-		return fmt.Errorf("failed to insert into database: %w", err)
-	}
-
-	return nil
-}
-
-// DeleteSingleSpecRow this function receives an idType (the name of the id column in table tableName) and deletes the
-// row that contains id.
-func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, idType string, leafHubName string, tableName string,
-	id string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from spec.%s WHERE %s=$1 AND 
-			leaf_hub_name=$2`, tableName, idType), id, leafHubName); err != nil {
-		return fmt.Errorf("failed to delete policy row from database: %w", err)
-	}
-
-	return nil
-}
-
 // GetComplianceClustersByLeafHubAndPolicy returns list of clusters by leaf hub and policy.
 func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
 	policyID string) ([]string, error) {
 	result := make([]string, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1 AND 
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM %s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2`, tableName), leafHubName, policyID)
 
 	for rows.Next() {
 		clusterName := ""
 		if err := rows.Scan(&clusterName); err != nil {
-			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
+			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
 		}
 
 		result = append(result, clusterName)
@@ -185,14 +150,14 @@ func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string,
 	leafHubName string, policyID string) ([]string, error) {
 	result := make([]string, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1 AND 
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM %s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2 AND compliance!='compliant'`, tableName),
 		leafHubName, policyID)
 
 	for rows.Next() {
 		clusterName := ""
 		if err := rows.Scan(&clusterName); err != nil {
-			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
+			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
 		}
 
 		result = append(result, clusterName)
@@ -204,9 +169,9 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Conte
 // InsertPolicyCompliance inserts a compliance row to the db.
 func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName string, policyID string, clusterName string,
 	leafHubName string, errorString string, compliance string, enforcement string, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (policy_id,cluster_name,leaf_hub_name,error,
-			compliance,enforcement,resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName), policyID,
-		clusterName, leafHubName, errorString, compliance, enforcement, version); err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,cluster_name,leaf_hub_name,error,
+			compliance,enforcement,resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName),
+		policyID, clusterName, leafHubName, errorString, compliance, enforcement, version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
 
@@ -217,7 +182,7 @@ func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName strin
 // the payload.
 func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string, policyID string, leafHubName string,
 	payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO spec.%s (policy_id,leaf_hub_name,payload
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,leaf_hub_name,payload
 							 ) values($1, $2, $3::jsonb)`, tableName), policyID, leafHubName, payload); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
@@ -226,11 +191,11 @@ func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string
 }
 
 // UpdateSingleSpecRow this function updates the row whose idType column contains id.
-func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, idType string, id string, leafHubName string,
+func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, id string, leafHubName string,
 	tableName string, payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE spec.%s SET payload=$1 WHERE 
-			%s=$2 AND leaf_hub_name=$3`, tableName, idType), payload, id, leafHubName); err != nil {
-		return fmt.Errorf("failed to update local policy spec in database: %w", err)
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1 WHERE 
+			id=$2 AND leaf_hub_name=$3`, tableName), payload, id, leafHubName); err != nil {
+		return fmt.Errorf("failed to update row with id %s in table %s in database: %w", id, tableName, err)
 	}
 
 	return nil
@@ -239,7 +204,7 @@ func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, idType string, id 
 // UpdateEnforcementAndResourceVersion updates enforcement and version by leaf hub and policy.
 func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, policyID string,
 	leafHubName string, enforcement string, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET enforcement=$1,resource_version=$2 WHERE 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET enforcement=$1,resource_version=$2 WHERE 
 			policy_id=$3 AND leaf_hub_name=$4 AND resource_version<$2`, tableName), enforcement, version, policyID,
 		leafHubName); err != nil {
 		return fmt.Errorf("failed to update compliance resource_version in database: %w", err)
@@ -251,7 +216,7 @@ func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(ctx context.Context, ta
 // UpdateComplianceRow updates a compliance status row in the db.
 func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string,
 	leafHubName string, compliance string, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET compliance=$1,resource_version=$2 WHERE 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET compliance=$1,resource_version=$2 WHERE 
 			policy_id=$3 AND leaf_hub_name=$4 AND cluster_name=$5`, tableName), compliance, version, policyID,
 		leafHubName, clusterName); err != nil {
 		return fmt.Errorf("failed to update compliance row in database: %w", err)
@@ -263,7 +228,7 @@ func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, 
 // UpdatePolicyCompliance updates policy compliance in the db (to all clusters) by leaf hub and policy.
 func (p *PostgreSQL) UpdatePolicyCompliance(ctx context.Context, tableName string, policyID string, leafHubName string,
 	compliance string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET compliance=$1 WHERE policy_id=$2 AND 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET compliance=$1 WHERE policy_id=$2 AND 
 			leaf_hub_name=$3`, tableName), compliance, policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to update policy compliance in database: %w", err)
 	}
@@ -271,10 +236,10 @@ func (p *PostgreSQL) UpdatePolicyCompliance(ctx context.Context, tableName strin
 	return nil
 }
 
-// DeleteComplianceRow delets a compliance row from the db.
+// DeleteComplianceRow deletes a compliance row from the db.
 func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string,
 	leafHubName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE policy_id=$1 AND cluster_name=$2 AND 
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE policy_id=$1 AND cluster_name=$2 AND 
 			leaf_hub_name=$3`, tableName), policyID, clusterName, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete compliance row from database: %w", err)
 	}
@@ -285,7 +250,7 @@ func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, 
 // DeleteAllComplianceRows delete all compliance rows from the db by leaf hub and policy.
 func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, tableName string, policyID string,
 	leafHubName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s WHERE policy_id=$1 AND leaf_hub_name=$2`,
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE policy_id=$1 AND leaf_hub_name=$2`,
 		tableName), policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete compliance rows from database: %w", err)
 	}
@@ -297,19 +262,19 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, tableName stri
 func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, policyID string,
 	leafHubName string, enforcement string, appliedClusters int, nonCompliantClusters int) error {
 	var exists bool
-	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from status.%s WHERE leaf_hub_name=$1 AND 
+	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from %s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2)`, tableName), leafHubName, policyID).Scan(&exists); err != nil {
 		return fmt.Errorf("failed to read from database: %w", err)
 	}
 
 	if exists { // row for (policy_id,leaf hub) tuple exists, update to the db.
-		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE status.%s SET enforcement=$1,applied_clusters=$2,
+		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET enforcement=$1,applied_clusters=$2,
 			non_compliant_clusters=$3 WHERE policy_id=$4 AND leaf_hub_name=$5`, tableName), enforcement,
 			appliedClusters, nonCompliantClusters, policyID, leafHubName); err != nil {
 			return fmt.Errorf("failed to update compliance row in database: %w", err)
 		}
 	} else { // row for (policy_id,leaf hub) tuple doesn't exist, insert to the db.
-		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (policy_id,leaf_hub_name,enforcement,
+		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,leaf_hub_name,enforcement,
 			applied_clusters,non_compliant_clusters) values($1, $2, $3, $4, $5)`, tableName), policyID, leafHubName,
 			enforcement, appliedClusters, nonCompliantClusters); err != nil {
 			return fmt.Errorf("failed to insert into database: %w", err)
@@ -321,27 +286,50 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 
 // DeleteTableContent deletes the content of a table.
 func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from status.%s`, tableName)); err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s`, tableName)); err != nil {
 		return fmt.Errorf("failed deleting table '%s' content from database: %w", tableName, err)
 	}
 
 	return nil
 }
 
-// GetPlacementRuleIDs this function returns all the ids of placement rules with leafHubName from the db.
-func (p *PostgreSQL) GetPlacementRuleIDs(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
+// GetFromSpecByID this function returns distinct id entries in the local_spec schema.
+func (p *PostgreSQL) GetFromSpecByID(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
 	result := make([]string, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(placement_rule_id) FROM spec.%s WHERE leaf_hub_name=$1`,
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s WHERE leaf_hub_name=$1`,
 		tableName), leafHubName)
 
 	for rows.Next() {
-		placementRuleID := ""
-		if err := rows.Scan(&placementRuleID); err != nil {
-			return nil, fmt.Errorf("error reading from table spec.%s - %w", tableName, err)
+		nextID := ""
+		if err := rows.Scan(&nextID); err != nil {
+			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
 		}
 
-		result = append(result, placementRuleID)
+		result = append(result, nextID)
 	}
 
 	return result, nil
+}
+
+// InsertIntoSpecSchema inserts into one spec. table a row with id name IDType.
+func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, id string, tableName string,
+	leafHubName string, payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (id,leaf_hub_name,payload) 
+										values($1, $2, $3::jsonb)`, tableName), id, leafHubName, payload); err != nil {
+		return fmt.Errorf("failed inserting %s into %s database: %w", id, tableName, err)
+	}
+
+	return nil
+}
+
+// DeleteSingleSpecRow this function receives an idType (the name of the id column in table tableName) and deletes the
+// row that contains id.
+func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string,
+	id string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE id=$1 AND 
+			leaf_hub_name=$2`, tableName), id, leafHubName); err != nil {
+		return fmt.Errorf("failed to delete policy row from database: %w", err)
+	}
+
+	return nil
 }

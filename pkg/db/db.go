@@ -46,11 +46,10 @@ type PoliciesStatusDB interface {
 
 // LocalPolicySpecDB is the db interface required to implement local policies as well as global ones.
 type LocalPolicySpecDB interface {
-	GetPolicyIDsByLeafHubSpec(ctx context.Context, tableName string, leafHubName string) ([]string, error)
-	InsertIntoSpecSchema(ctx context.Context, IDType string, ID string, tableName string, leafHubName string,
+	InsertIntoSpecSchema(ctx context.Context, ID string, tableName string, leafHubName string,
 		payload interface{}) error
-	DeleteSingleSpecRow(ctx context.Context, IDType string, leafHubName string, tableName string, policyID string) error
-	UpdateSingleSpecRow(ctx context.Context, IDType string, policyID string, leafHubName string, tableName string,
-		ayload interface{}) error
-	GetPlacementRuleIDs(ctx context.Context, tableName string, leafHubName string) ([]string, error)
+	DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string, policyID string) error
+	UpdateSingleSpecRow(ctx context.Context, policyID string, leafHubName string, tableName string,
+		payload interface{}) error
+	GetFromSpecByID(ctx context.Context, tableName string, leafHubName string) ([]string, error)
 }
