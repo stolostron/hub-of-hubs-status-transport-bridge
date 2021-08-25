@@ -81,9 +81,13 @@ func AddPoliciesTransportToDBSyncer(mgr ctrl.Manager, log logr.Logger, db hohDb.
 
 func newPoliciesBundlesGenerationLog() *policiesBundlesGenerationLog {
 	return &policiesBundlesGenerationLog{
-		lastClustersPerPolicyBundleGeneration: 0,
-		lastComplianceBundleGeneration:        0,
-		lastMinimalComplianceBundleGeneration: 0,
+		lastClustersPerPolicyBundleGeneration:      0,
+		lastComplianceBundleGeneration:             0,
+		lastMinimalComplianceBundleGeneration:      0,
+		lastLocalPlacementRuleBundleGeneration:     0,
+		lastLocalSpecBundleGeneration:              0,
+		lastLocalComplianceBundleGeneration:        0,
+		lastLocalClustersPerPolicyBundleGeneration: 0,
 	}
 }
 
@@ -144,40 +148,47 @@ func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 	for {
 		select { // wait for incoming bundles to handle
 		case clustersPerPolicyBundle := <-syncer.clustersPerPolicyBundleUpdatesChan:
+			syncer.createBundleGenerationLogIfNotExist(clustersPerPolicyBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, clustersPerPolicyBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[clustersPerPolicyBundle.GetLeafHubName()].
 					lastClustersPerPolicyBundleGeneration, syncer.handleClustersPerPolicyBundle,
 				syncer.clustersPerPolicyBundleUpdatesChan)
 
 		case complianceBundle := <-syncer.complianceBundleUpdatesChan:
+			syncer.createBundleGenerationLogIfNotExist(complianceBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, complianceBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[complianceBundle.GetLeafHubName()].lastComplianceBundleGeneration,
 				syncer.handleComplianceBundle, syncer.complianceBundleUpdatesChan)
 
 		case minimalComplianceBundle := <-syncer.minimalComplianceBundleUpdatesChan:
+			syncer.createBundleGenerationLogIfNotExist(minimalComplianceBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, minimalComplianceBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[minimalComplianceBundle.GetLeafHubName()].
 					lastMinimalComplianceBundleGeneration, syncer.handleMinimalComplianceBundle,
 				syncer.minimalComplianceBundleUpdatesChan)
 
 		case localClustersPerPolicyBundle := <-syncer.localClustersPerPolicyBundleUpdateChan:
+			syncer.createBundleGenerationLogIfNotExist(localClustersPerPolicyBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, localClustersPerPolicyBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[localClustersPerPolicyBundle.GetLeafHubName()].
 					lastLocalClustersPerPolicyBundleGeneration, syncer.handleLocalClustersPerPolicyBundle,
 				syncer.localClustersPerPolicyBundleUpdateChan)
 
 		case localComplianceBundle := <-syncer.localComplianceBundleUpdatesChan:
+			syncer.createBundleGenerationLogIfNotExist(localComplianceBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, localComplianceBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[localComplianceBundle.GetLeafHubName()].
 					lastLocalComplianceBundleGeneration, syncer.handleLocalComplianceBundle,
 				syncer.localComplianceBundleUpdatesChan)
 
 		case localSpecBundle := <-syncer.localPolicySpecBundleUpdateChan:
+			syncer.createBundleGenerationLogIfNotExist(localSpecBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, localSpecBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[localSpecBundle.GetLeafHubName()].lastLocalSpecBundleGeneration,
 				syncer.handleLocalSpecBundle, syncer.localPolicySpecBundleUpdateChan)
 
 		case localPlacementRuleBundle := <-syncer.localPlacementRuleBundleUpdateChan:
+			syncer.createBundleGenerationLogIfNotExist(localPlacementRuleBundle.GetLeafHubName())
 			syncer.syncBundle(ctx, localPlacementRuleBundle,
 				&syncer.bundlesGenerationLogPerLeafHub[localPlacementRuleBundle.GetLeafHubName()].
 					lastLocalPlacementRuleBundleGeneration, syncer.handleLocalPlacementRule,
@@ -188,13 +199,8 @@ func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 
 func (syncer *PoliciesTransportToDBSyncer) syncBundle(ctx context.Context, clustersPerPolicyBundle bundle.Bundle,
 	bundleGeneration *uint64, handler helpers.BundleHandlerFunc, bundleChan chan bundle.Bundle) {
-	leafHubName := clustersPerPolicyBundle.GetLeafHubName()
-	syncer.createBundleGenerationLogIfNotExist(leafHubName)
-
 	go func() {
-		if err := helpers.HandleBundle(ctx, clustersPerPolicyBundle,
-			bundleGeneration,
-			handler); err != nil {
+		if err := helpers.HandleBundle(ctx, clustersPerPolicyBundle, bundleGeneration, handler); err != nil {
 			syncer.log.Error(err, "failed to handle bundle")
 			helpers.HandleRetry(clustersPerPolicyBundle, bundleChan)
 		}
@@ -265,9 +271,9 @@ func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundleHelper(c
 	return nil
 }
 
-// if the row doesn't exist than add it.
-// if the row exists than update it.
-// if the row isn't in the bundle than delete it.
+// if the row doesn't exist then add it.
+// if the row exists then update it.
+// if the row isn't in the bundle then delete it.
 // saves the json file in the DB.
 func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle) error {
 	leafHubName := b.GetLeafHubName()
@@ -276,7 +282,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Con
 	syncer.log.Info("start handling 'LocalPolicySpec' bundle", "Leaf Hub", leafHubName,
 		"Generation", bundleGen)
 
-	policyIDsFromDB, err := syncer.db.GetPolicyIDsByLeafHubSpec(ctx, syncer.localPolicySpecTableName, leafHubName)
+	policyIDsFromDB, err := syncer.db.GetFromSpecByID(ctx, syncer.localPolicySpecTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s' policies from db - %w", leafHubName, err)
 	}
@@ -289,7 +295,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Con
 
 		policyInd, err := helpers.GetObjectIndex(policyIDsFromDB, string(policy.UID))
 		if err != nil { // policy not found, new policy id
-			if err = syncer.db.InsertIntoSpecSchema(ctx, "policy_id", string(policy.UID),
+			if err = syncer.db.InsertIntoSpecSchema(ctx, string(policy.UID),
 				syncer.localPolicySpecTableName, leafHubName, object); err != nil {
 				return fmt.Errorf("failed to insert policy '%s' from leaf hub '%s' - %w",
 					policy.Name, leafHubName, err)
@@ -298,7 +304,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Con
 			continue
 		}
 		// since this already exists in the db and in the bundle we need to update it
-		err = syncer.db.UpdateSingleSpecRow(ctx, "policy_id", string(policy.UID), leafHubName,
+		err = syncer.db.UpdateSingleSpecRow(ctx, string(policy.UID), leafHubName,
 			syncer.localPolicySpecTableName, object)
 		if err != nil {
 			return fmt.Errorf(`failed updating spec of local policy '%s', leaf hub '%s' 
@@ -309,7 +315,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Con
 		policyIDsFromDB = append(policyIDsFromDB[:policyInd], policyIDsFromDB[policyInd+1:]...)
 	}
 
-	err = syncer.deleteLocalSpecRows(ctx, "policy_id", leafHubName, syncer.localPolicySpecTableName, policyIDsFromDB)
+	err = syncer.deleteLocalSpecRows(ctx, leafHubName, syncer.localPolicySpecTableName, policyIDsFromDB)
 	if err != nil {
 		return err
 	}
@@ -330,7 +336,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalPlacementRule(ctx context.
 	syncer.log.Info("start handling 'LocalPlacementRule' bundle", "Leaf Hub", leafHubName,
 		"Generation", bundleGen)
 
-	placementRuleIDsFromDB, err := syncer.db.GetPlacementRuleIDs(ctx, syncer.localPlacementRuleTableName, leafHubName)
+	placementRuleIDsFromDB, err := syncer.db.GetFromSpecByID(ctx, syncer.localPlacementRuleTableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s' placement rules from db - %w", leafHubName, err)
 	}
@@ -345,13 +351,13 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalPlacementRule(ctx context.
 
 		placementInd, err := helpers.GetObjectIndex(placementRuleIDsFromDB, string(placementRule.UID))
 		if err != nil {
-			if err = syncer.db.InsertIntoSpecSchema(ctx, "placementrule_id", string(placementRule.UID),
+			if err = syncer.db.InsertIntoSpecSchema(ctx, string(placementRule.UID),
 				syncer.localPlacementRuleTableName, leafHubName, object); err != nil {
 				return fmt.Errorf("failed to insert placement rule '%s' from leaf hub '%s' - %w",
 					placementRule.Name, leafHubName, err)
 			}
 		} else {
-			err = syncer.db.UpdateSingleSpecRow(ctx, "placementrule_id", string(placementRule.UID), leafHubName,
+			err = syncer.db.UpdateSingleSpecRow(ctx, string(placementRule.UID), leafHubName,
 				syncer.localPlacementRuleTableName, object)
 
 			if err != nil {
@@ -364,7 +370,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalPlacementRule(ctx context.
 		}
 	}
 
-	err = syncer.deleteLocalSpecRows(ctx, "placementrule_id", leafHubName, syncer.localPolicySpecTableName,
+	err = syncer.deleteLocalSpecRows(ctx, leafHubName, syncer.localPolicySpecTableName,
 		placementRuleIDsFromDB)
 	if err != nil {
 		return err
@@ -376,10 +382,10 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalPlacementRule(ctx context.
 	return nil
 }
 
-func (syncer *PoliciesTransportToDBSyncer) deleteLocalSpecRows(ctx context.Context, idType, leafHubName string,
+func (syncer *PoliciesTransportToDBSyncer) deleteLocalSpecRows(ctx context.Context, leafHubName string,
 	tableName string, policyIDToDelete []string) error {
 	for _, id := range policyIDToDelete {
-		err := syncer.db.DeleteSingleSpecRow(ctx, idType, leafHubName, tableName, id)
+		err := syncer.db.DeleteSingleSpecRow(ctx, leafHubName, tableName, id)
 		if err != nil {
 			return fmt.Errorf("failed deleting policy with id %s from leaf hub %s from table %s - %w", id,
 				leafHubName, tableName, err)
