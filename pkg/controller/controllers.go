@@ -124,7 +124,7 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 			Predicate:        func() bool { return true },
 		},
 		&transport.BundleRegistration{
-			MsgID:            datatypes.LocalPolicyComplianceMsgKey,
+			MsgID:            datatypes.LocalPlacementRulesMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewLocalPlacementRuleBundle() },
 			Predicate:        func() bool { return true },
 		})
