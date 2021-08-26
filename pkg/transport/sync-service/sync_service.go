@@ -139,15 +139,18 @@ func (s *SyncService) handleBundles() {
 			}
 
 			msgID := strings.Split(objectMetaData.ObjectID, ".")[1] // object id is LH_ID.MSG_ID
+
 			if _, found := s.msgIDToRegistrationMap[msgID]; !found {
 				s.log.Info("no registration available, not sending bundle", "ObjectId",
 					objectMetaData.ObjectID)
+
 				continue // no one registered for this msg id
 			}
 
 			if !s.msgIDToRegistrationMap[msgID].Predicate() {
 				s.log.Info("Predicate is false, not sending bundle", "ObjectId",
 					objectMetaData.ObjectID)
+
 				continue // registration predicate is false, do not send the update in the channel
 			}
 
@@ -158,6 +161,7 @@ func (s *SyncService) handleBundles() {
 			}
 
 			s.msgIDToChanMap[msgID] <- receivedBundle
+
 			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
 				s.log.Error(err, "failed to report object received to sync service")
 			}
