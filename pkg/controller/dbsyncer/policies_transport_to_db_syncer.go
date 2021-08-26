@@ -218,12 +218,32 @@ func (syncer *PoliciesTransportToDBSyncer) createBundleGenerationLogIfNotExist(l
 // a decorating function to reuse code in local versions.
 func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundle(ctx context.Context,
 	bundle bundle.Bundle) error {
-	return syncer.handleClustersPerPolicyBundleHelper(ctx, bundle, syncer.complianceTableName)
+	syncer.log.Info("start handling 'ClustersPerPolicy' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleClustersPerPolicyBundleHelper(ctx, bundle, syncer.complianceTableName); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'ClustersPerPolicy' bundle", "Leaf Hub", bundle.GetLeafHubName(),
+		"Generation", bundle.GetGeneration())
+
+	return nil
 }
 
 func (syncer *PoliciesTransportToDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.Context,
 	bundle bundle.Bundle) error {
-	return syncer.handleClustersPerPolicyBundleHelper(ctx, bundle, syncer.localComplianceTableName)
+	syncer.log.Info("start handling 'LocalClustersPerPolicy' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleClustersPerPolicyBundleHelper(ctx, bundle, syncer.localComplianceTableName); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'LocalClustersPerPolicy' bundle", "Leaf Hub", bundle.GetLeafHubName(),
+		"Generation", bundle.GetGeneration())
+
+	return nil
 }
 
 // if we got inside the handler function, then the bundle generation is newer than what we have in memory
@@ -235,9 +255,6 @@ func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundleHelper(c
 	bundle bundle.Bundle, tableName string) error {
 	leafHubName := bundle.GetLeafHubName()
 	bundleGeneration := bundle.GetGeneration()
-
-	syncer.log.Info("start handling 'ClustersPerPolicy' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGeneration)
 
 	policyIDsFromDB, err := syncer.db.GetPolicyIDsByLeafHub(ctx, tableName, leafHubName)
 	if err != nil {
@@ -264,9 +281,6 @@ func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundleHelper(c
 	if err := syncer.deletePoliciesFromDB(ctx, leafHubName, policyIDsFromDB, tableName); err != nil {
 		return fmt.Errorf("failed deleting policies from db - %w", err)
 	}
-
-	syncer.log.Info("finished handling 'ClustersPerPolicy' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGeneration)
 
 	return nil
 }
@@ -468,24 +482,42 @@ func (syncer *PoliciesTransportToDBSyncer) deleteSelectedComplianceRows(ctx cont
 
 func (syncer *PoliciesTransportToDBSyncer) handleLocalComplianceBundle(ctx context.Context,
 	bundle bundle.Bundle) error {
-	return syncer.handleComplianceBundleHelper(ctx, bundle, syncer.localComplianceTableName)
+	syncer.log.Info("start handling 'LocalComplianceStatus' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleComplianceBundleHelper(ctx, bundle, syncer.localComplianceTableName, true); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'LocalComplianceStatus' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	return nil
 }
 
 // a decorating function to reuse code in local versions.
 func (syncer *PoliciesTransportToDBSyncer) handleComplianceBundle(ctx context.Context, bundle bundle.Bundle) error {
-	return syncer.handleComplianceBundleHelper(ctx, bundle, syncer.complianceTableName)
+	syncer.log.Info("start handling 'ComplianceStatus' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleComplianceBundleHelper(ctx, bundle, syncer.complianceTableName, false); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'ComplianceStatus' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	return nil
 }
 
 // if we got the the handler function, then the bundle generation is newer than what we have in memory
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
 func (syncer *PoliciesTransportToDBSyncer) handleComplianceBundleHelper(ctx context.Context, bundle bundle.Bundle,
-	tableName string) error {
+	tableName string, isLocal bool) error {
 	leafHubName := bundle.GetLeafHubName()
-	syncer.log.Info("start handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName, "Generation",
-		bundle.GetGeneration())
 
-	if shouldProcessBundle, err := syncer.checkComplianceBundlePreConditions(bundle); !shouldProcessBundle {
+	if shouldProcessBundle, err := syncer.checkComplianceBundlePreConditions(bundle, isLocal); !shouldProcessBundle {
 		return err // in case the bundle has to be rescheduled returns an error, otherwise returns nil (bundle dropped)
 	}
 
@@ -508,6 +540,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleComplianceBundleHelper(ctx cont
 			policyIDsFromDB = append(policyIDsFromDB[:policyIndex], policyIDsFromDB[policyIndex+1:]...)
 		}
 	}
+
 	// update policies not in the bundle - all is compliant
 	for _, policyID := range policyIDsFromDB {
 		err := syncer.db.UpdatePolicyCompliance(ctx, tableName, policyID, leafHubName, compliant)
@@ -516,9 +549,6 @@ func (syncer *PoliciesTransportToDBSyncer) handleComplianceBundleHelper(ctx cont
 				leafHubName, err)
 		}
 	}
-
-	syncer.log.Info("finished handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundle.GetGeneration())
 
 	return nil
 }
@@ -573,8 +603,8 @@ func (syncer *PoliciesTransportToDBSyncer) handleMinimalComplianceBundle(ctx con
 // return bool,err
 // bool - if this bundle should be processed or not
 // error - in case of an error the bundle will be rescheduled.
-func (syncer *PoliciesTransportToDBSyncer) checkComplianceBundlePreConditions(receivedBundle bundle.Bundle) (bool,
-	error) {
+func (syncer *PoliciesTransportToDBSyncer) checkComplianceBundlePreConditions(receivedBundle bundle.Bundle,
+	isLocal bool) (bool, error) {
 	leafHubName := receivedBundle.GetLeafHubName()
 
 	complianceBundle, ok := receivedBundle.(*bundle.ComplianceStatusBundle)
@@ -582,9 +612,15 @@ func (syncer *PoliciesTransportToDBSyncer) checkComplianceBundlePreConditions(re
 		return false, errBundleWrongType // do not handle objects other than ComplianceStatusBundle
 	}
 
+	var perPolicyGen uint64
+
+	if !isLocal {
+		perPolicyGen = syncer.bundlesGenerationLogPerLeafHub[leafHubName].lastClustersPerPolicyBundleGeneration
+	} else {
+		perPolicyGen = syncer.bundlesGenerationLogPerLeafHub[leafHubName].lastLocalClustersPerPolicyBundleGeneration
+	}
 	// if the base wasn't handled yet
-	if complianceBundle.BaseBundleGeneration > syncer.bundlesGenerationLogPerLeafHub[leafHubName].
-		lastClustersPerPolicyBundleGeneration {
+	if complianceBundle.BaseBundleGeneration > perPolicyGen {
 		return false, fmt.Errorf(`%w 'ComplianceStatus' from leaf hub '%s', generation %d - waiting for base 
 			bundle %d to be handled`, errRescheduleBundle, leafHubName, receivedBundle.GetGeneration(),
 			complianceBundle.BaseBundleGeneration)
