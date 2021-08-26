@@ -6,7 +6,6 @@ import "golang.org/x/net/context"
 type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
-	LocalPolicySpecDB
 }
 
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
@@ -20,7 +19,7 @@ type ManagedClustersStatusDB interface {
 	DeleteManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string) error
 }
 
-// PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
+// PoliciesStatusDB is the db interface required by status transport bridge to manage local and global policies.
 type PoliciesStatusDB interface {
 	ManagedClusterExists(ctx context.Context, tableName string, leafHubName string, objName string) bool
 	GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string, error)
@@ -41,11 +40,6 @@ type PoliciesStatusDB interface {
 	DeleteAllComplianceRows(ctx context.Context, tableName string, policyID string, leafHubName string) error
 	InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, policyID string, leafHubName string,
 		enforcement string, appliedClusters int, nonCompliantClusters int) error
-	LocalPolicySpecDB
-}
-
-// LocalPolicySpecDB is the db interface required to implement local policies as well as global ones.
-type LocalPolicySpecDB interface {
 	InsertIntoSpecSchema(ctx context.Context, ID string, tableName string, leafHubName string,
 		payload interface{}) error
 	DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string, policyID string) error
