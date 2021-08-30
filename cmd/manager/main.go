@@ -8,8 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql"
+	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	hohSyncService "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -52,13 +51,18 @@ func doMain() int {
 	}
 
 	// db layer initialization
-	postgreSQL, err := postgresql.NewPostgreSQL()
+	dbWorkerPool, err := workerpool.NewDBWorkerPool()
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "PostgreSQL")
+		log.Error(err, "initialization error", "failed to initialize", "DBWorkerPool")
 		return 1
 	}
 
-	defer postgreSQL.Stop()
+	if err = dbWorkerPool.Start(); err != nil {
+		log.Error(err, "initialization error", "failed to start", "DBWorkerPool")
+		return 1
+	}
+
+	defer dbWorkerPool.Stop()
 
 	// transport layer initialization
 	syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
@@ -67,7 +71,7 @@ func doMain() int {
 		return 1
 	}
 
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, postgreSQL, syncService)
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, syncService)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -86,8 +90,8 @@ func doMain() int {
 	return 0
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32,
-	postgreSQL db.StatusTransportBridgeDB, syncService transport.Transport) (ctrl.Manager, error) {
+func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
+	syncService transport.Transport) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -104,7 +108,7 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddSyncers(mgr, postgreSQL, syncService); err != nil {
+	if err := controller.AddSyncers(mgr, workersPool, syncService); err != nil {
 		return nil, fmt.Errorf("failed to add syncers: %w", err)
 	}
 

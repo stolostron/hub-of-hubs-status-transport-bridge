@@ -8,7 +8,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	configCtrl "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/config"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/dbsyncer"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,8 +31,8 @@ func AddToScheme(s *runtime.Scheme) error {
 }
 
 // AddSyncers adds the controllers to sync info from transport to DB to the Manager.
-func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTransport transport.Transport) error {
-	addDBSyncerFunctions := []func(ctrl.Manager, db.StatusTransportBridgeDB, transport.Transport,
+func AddSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, statusTransport transport.Transport) error {
+	addDBSyncerFunctions := []func(ctrl.Manager, *workerpool.DBWorkerPool, transport.Transport,
 		*configv1.Config) error{
 		addClustersTransportToDBSyncer, addPoliciesTransportToDBSyncer,
 	}
@@ -45,7 +45,7 @@ func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTra
 	}
 
 	for _, addDBSyncerFunction := range addDBSyncerFunctions {
-		if err := addDBSyncerFunction(mgr, statusDB, statusTransport, config); err != nil {
+		if err := addDBSyncerFunction(mgr, dbWorkerPool, statusTransport, config); err != nil {
 			return fmt.Errorf("failed to add DB Syncer: %w", err)
 		}
 	}
@@ -53,12 +53,12 @@ func AddSyncers(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB, statusTra
 	return nil
 }
 
-func addClustersTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB,
+func addClustersTransportToDBSyncer(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	statusTransport transport.Transport, _ *configv1.Config) error {
 	err := dbsyncer.AddClustersTransportToDBSyncer(
 		mgr,
 		ctrl.Log.WithName("managed-clusters-transport-to-db-syncer"),
-		statusDB,
+		dbWorkerPool,
 		statusTransport,
 		dbsyncer.ManagedClustersTableName,
 		&transport.BundleRegistration{
@@ -73,7 +73,7 @@ func addClustersTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 	return nil
 }
 
-func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTransportBridgeDB,
+func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	statusTransport transport.Transport, config *configv1.Config) error {
 	fullStatusPredicate := func() bool {
 		return config.Spec.AggregationLevel == configv1.Full || config.Spec.AggregationLevel == aggregationLevelUnset
@@ -85,7 +85,7 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, statusDB db.StatusTranspor
 	err := dbsyncer.AddPoliciesTransportToDBSyncer(
 		mgr,
 		ctrl.Log.WithName("policies-transport-to-db-syncer"),
-		statusDB,
+		dbWorkerPool,
 		statusTransport,
 		dbsyncer.ManagedClustersTableName,
 		dbsyncer.ComplianceTableName,
