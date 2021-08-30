@@ -82,10 +82,10 @@ func (syncer *ClustersTransportToDBSyncer) syncBundles(ctx context.Context) {
 			syncer.leafHubsLocks.lockLeafHub(receivedBundle.GetLeafHubName())
 			handleBundle(receivedBundle, syncer.bundlesAttempedGenerationLog, syncer.handleBundle, syncer.dbWorkerPool,
 				func(bundle bundle.Bundle) { syncer.leafHubsLocks.unlockLeafHub(bundle.GetLeafHubName()) }, // success
-				func(err error) { // error
-					syncer.leafHubsLocks.unlockLeafHub(receivedBundle.GetLeafHubName())
+				func(bundle bundle.Bundle, err error) { // error
+					syncer.leafHubsLocks.unlockLeafHub(bundle.GetLeafHubName())
 					syncer.log.Error(err, "failed to handle bundle")
-					handleRetry(receivedBundle, syncer.bundleUpdatesChan)
+					handleRetry(bundle, syncer.bundleUpdatesChan)
 				})
 		}
 	}

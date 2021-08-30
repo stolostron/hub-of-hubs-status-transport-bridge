@@ -13,7 +13,7 @@ type (
 	// bundleHandlerFunc is a function to handle incoming bundle.
 	bundleHandlerFunc func(ctx context.Context, dbConn db.StatusTransportBridgeDB, bundle bundle.Bundle) error
 	successFunc       func(bundle bundle.Bundle)
-	errorFunc         func(err error)
+	errorFunc         func(bundle bundle.Bundle, err error)
 )
 
 const (
@@ -32,7 +32,7 @@ func handleBundle(bundle bundle.Bundle, bundlesAttemptedGenerationLog *bundlesGe
 	dbWorkerPool.QueueDBJob(&workerpool.DBJob{
 		HandlerFunc: func(ctx context.Context, dbConn db.StatusTransportBridgeDB) {
 			if err := handlerFunc(ctx, dbConn, bundle); err != nil {
-				errorFunc(err)
+				errorFunc(bundle, err)
 			} else {
 				successFunc(bundle)
 			}

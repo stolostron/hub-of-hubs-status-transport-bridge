@@ -111,14 +111,13 @@ func (syncer *PoliciesTransportToDBSyncer) syncBundles(ctx context.Context) {
 
 		case clustersPerPolicyBundle := <-syncer.clustersPerPolicyBundleUpdatesChan:
 			syncer.handleBundleWrapper(clustersPerPolicyBundle, syncer.clustersPerPolicyBundleUpdatesChan,
-				syncer.handleClustersPerPolicyBundle, func(bundle bundle.Bundle) {})
+				syncer.handleClustersPerPolicyBundle, func(bundle bundle.Bundle) {
+					syncer.clusterPerPolicySucceededGenerationLog[bundle.GetLeafHubName()] = bundle.GetGeneration()
+				})
 
 		case complianceBundle := <-syncer.complianceBundleUpdatesChan:
 			syncer.handleBundleWrapper(complianceBundle, syncer.complianceBundleUpdatesChan,
-				syncer.handleComplianceBundle, func(bundle bundle.Bundle) {
-					syncer.clusterPerPolicySucceededGenerationLog[bundle.GetLeafHubName()] = bundle.GetGeneration()
-				},
-			)
+				syncer.handleComplianceBundle, func(bundle bundle.Bundle) {})
 
 		case minimalComplianceBundle := <-syncer.minimalComplianceBundleUpdatesChan:
 			syncer.handleBundleWrapper(minimalComplianceBundle, syncer.minimalComplianceBundleUpdatesChan,
@@ -131,10 +130,10 @@ func (syncer *PoliciesTransportToDBSyncer) handleBundleWrapper(bundleToHandle bu
 	bundleUpdatesChan chan bundle.Bundle, handlerFunc bundleHandlerFunc, successFunc successFunc) {
 	syncer.leafHubsLocks.lockLeafHub(bundleToHandle.GetLeafHubName())
 
-	errorFunc := func(err error) {
-		syncer.leafHubsLocks.unlockLeafHub(bundleToHandle.GetLeafHubName())
+	errorFunc := func(bundle bundle.Bundle, err error) {
+		syncer.leafHubsLocks.unlockLeafHub(bundle.GetLeafHubName())
 		syncer.log.Error(err, "failed to handle bundle")
-		handleRetry(bundleToHandle, bundleUpdatesChan)
+		handleRetry(bundle, bundleUpdatesChan)
 	}
 
 	handleBundle(bundleToHandle, syncer.bundlesAttemptedGenerationLog, handlerFunc, syncer.dbWorkerPool,
