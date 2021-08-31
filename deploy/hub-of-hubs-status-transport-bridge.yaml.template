@@ -84,11 +84,11 @@ spec:
             - name: TRANSPORT_TYPE
               value: "$TRANSPORT_TYPE"
             - name: KAFKA_CONSUMER_ID
-              value: "hoh-status-consumer"
+              value: "hub-of-hubs"
             - name: KAFKA_CONSUMER_HOSTS
-              value: "my-cluster-kafka-bootstrap.kafka.svc:9092"
+              value: "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092"
             - name: KAFKA_CONSUMER_TOPIC
-              value: "status-path-topic"
+              value: "status"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
