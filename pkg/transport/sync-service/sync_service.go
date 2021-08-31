@@ -2,13 +2,13 @@ package syncservice
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -46,6 +46,7 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 		client:                 syncServiceClient,
 		pollingInterval:        pollingInterval,
 		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
+		stopChan:               make(chan struct{}),
 		msgIDToChanMap:         make(map[string]chan bundle.Bundle),
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 	}, nil
@@ -57,8 +58,11 @@ type SyncService struct {
 	client                 *client.SyncServiceClient
 	pollingInterval        int
 	objectsMetaDataChan    chan *client.ObjectMetaData
+	stopChan               chan struct{}
 	msgIDToChanMap         map[string]chan bundle.Bundle
 	msgIDToRegistrationMap map[string]*transport.BundleRegistration
+	startOnce              sync.Once
+	stopOnce               sync.Once
 }
 
 func readEnvVars() (string, string, uint16, int, error) {
@@ -98,20 +102,20 @@ func readEnvVars() (string, string, uint16, int, error) {
 }
 
 // Start function starts sync service.
-func (s *SyncService) Start(stopChannel <-chan struct{}) error {
-	ctx, cancelContext := context.WithCancel(context.Background())
-	defer cancelContext()
+func (s *SyncService) Start() error {
+	s.startOnce.Do(func() {
+		go s.handleBundles()
+	})
 
-	go s.handleBundles(ctx)
+	return nil
+}
 
-	for {
-		<-stopChannel // blocking wait until getting stop event on the stop channel.
-		cancelContext()
+// Stop function stops sync service.
+func (s *SyncService) Stop() {
+	s.stopOnce.Do(func() {
+		close(s.stopChan)
 		close(s.objectsMetaDataChan)
-		s.log.Info("stopped sync service")
-
-		return nil
-	}
+	})
 }
 
 // CommitAsync commits a transported message that was processed locally.
@@ -123,13 +127,13 @@ func (s *SyncService) Register(registration *transport.BundleRegistration, bundl
 	s.msgIDToRegistrationMap[registration.MsgID] = registration
 }
 
-func (s *SyncService) handleBundles(ctx context.Context) {
+func (s *SyncService) handleBundles() {
 	// register for updates for spec bundles, this includes all types of spec bundles each with a different id.
 	s.client.StartPollingForUpdates(datatypes.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-s.stopChan:
 			return
 
 		case objectMetaData := <-s.objectsMetaDataChan:
