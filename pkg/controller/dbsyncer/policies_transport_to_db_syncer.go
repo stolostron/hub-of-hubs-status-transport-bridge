@@ -479,12 +479,22 @@ func (syncer *PoliciesTransportToDBSyncer) checkDeltaComplianceBundlePreConditio
 		return false, errBundleWrongType // do not handle objects other than DeltaComplianceStatusBundle
 	}
 
-	// if the base wasn't handled yet
-	if complianceBundle.BaseBundleGeneration > syncer.bundlesGenerationLogPerLeafHub[leafHubName].
+	// if the clusters per policy base wasn't handled
+	if complianceBundle.ClustersPerPolicyBaseBundleGeneration > syncer.bundlesGenerationLogPerLeafHub[leafHubName].
+		lastClustersPerPolicyBundleGeneration {
+		return false, fmt.Errorf(`%w 'DeltaComplianceStatus' from leaf hub '%s', generation %d - waiting for base 
+			bundle 'ClustersPerPolicy' generation %d to be handled`, errRescheduleBundle, leafHubName,
+			receivedBundle.GetGeneration(), syncer.bundlesGenerationLogPerLeafHub[leafHubName].
+				lastClustersPerPolicyBundleGeneration)
+	}
+
+	// if the complete compliance base wasn't handled
+	if complianceBundle.ComplianceBaseBundleGeneration > syncer.bundlesGenerationLogPerLeafHub[leafHubName].
 		lastCompleteComplianceBundleGeneration {
 		return false, fmt.Errorf(`%w 'DeltaComplianceStatus' from leaf hub '%s', generation %d - waiting for base 
-			bundle %d to be handled`, errRescheduleBundle, leafHubName, receivedBundle.GetGeneration(),
-			complianceBundle.BaseBundleGeneration)
+			bundle 'CompleteComplianceStatus' generation %d to be handled`, errRescheduleBundle, leafHubName,
+			receivedBundle.GetGeneration(), syncer.bundlesGenerationLogPerLeafHub[leafHubName].
+				lastCompleteComplianceBundleGeneration)
 	}
 
 	return true, nil
