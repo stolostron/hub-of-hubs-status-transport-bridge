@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	placementv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/helpers"
 	hohDb "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -27,6 +27,11 @@ const (
 	inform  = "inform"
 	enforce = "enforce"
 )
+
+type specDBObj interface {
+	GetName() string
+	GetUID() types.UID
+}
 
 var (
 	errBundleWrongType  = errors.New("wrong type of bundle")
@@ -285,10 +290,6 @@ func (syncer *PoliciesTransportToDBSyncer) handleClustersPerPolicyBundleHelper(c
 	return nil
 }
 
-// if the row doesn't exist then add it.
-// if the row exists then update it.
-// if the row isn't in the bundle then delete it.
-// saves the json file in the DB.
 func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle) error {
 	leafHubName := b.GetLeafHubName()
 	bundleGen := b.GetGeneration()
@@ -296,41 +297,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Con
 	syncer.log.Info("start handling 'LocalPolicySpec' bundle", "Leaf Hub", leafHubName,
 		"Generation", bundleGen)
 
-	policyIDsFromDB, err := syncer.db.GetFromSpecByID(ctx, syncer.localPolicySpecTableName, leafHubName)
-	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s' policies from db - %w", leafHubName, err)
-	}
-
-	for _, object := range b.GetObjects() {
-		policy, ok := object.(*policiesv1.Policy)
-		if !ok {
-			continue
-		}
-
-		policyInd, err := helpers.GetObjectIndex(policyIDsFromDB, string(policy.UID))
-		if err != nil { // policy not found, new policy id
-			if err = syncer.db.InsertIntoSpecSchema(ctx, string(policy.UID),
-				syncer.localPolicySpecTableName, leafHubName, object); err != nil {
-				return fmt.Errorf("failed to insert policy '%s' from leaf hub '%s' - %w",
-					policy.Name, leafHubName, err)
-			}
-			// we can continue since its not in policyIDsFromDB anyway
-			continue
-		}
-		// since this already exists in the db and in the bundle we need to update it
-		err = syncer.db.UpdateSingleSpecRow(ctx, string(policy.UID), leafHubName,
-			syncer.localPolicySpecTableName, object)
-		if err != nil {
-			return fmt.Errorf(`failed updating spec of local policy '%s', leaf hub '%s' 
-					in db - %w`, string(policy.UID), leafHubName, err)
-		}
-
-		// we dont want to delete it later
-		policyIDsFromDB = append(policyIDsFromDB[:policyInd], policyIDsFromDB[policyInd+1:]...)
-	}
-
-	err = syncer.deleteLocalSpecRows(ctx, leafHubName, syncer.localPolicySpecTableName, policyIDsFromDB)
-	if err != nil {
+	if err := syncer.handleLocalSpecBundleHelper(ctx, b, syncer.localPolicySpecTableName); err != nil {
 		return err
 	}
 
@@ -340,58 +307,68 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundle(ctx context.Con
 	return nil
 }
 
-// handleLocalPlacementRule this function receives a bundle and context and updates the LocalPlacementRuleTable
-// according to it.
-func (syncer *PoliciesTransportToDBSyncer) handleLocalPlacementRule(ctx context.Context,
-	bundle bundle.Bundle) error {
-	leafHubName := bundle.GetLeafHubName()
-	bundleGen := bundle.GetGeneration()
+func (syncer *PoliciesTransportToDBSyncer) handleLocalPlacementRule(ctx context.Context, b bundle.Bundle) error {
+	leafHubName := b.GetLeafHubName()
+	bundleGen := b.GetGeneration()
 
 	syncer.log.Info("start handling 'LocalPlacementRule' bundle", "Leaf Hub", leafHubName,
 		"Generation", bundleGen)
 
-	placementRuleIDsFromDB, err := syncer.db.GetFromSpecByID(ctx, syncer.localPlacementRuleTableName, leafHubName)
-	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s' placement rules from db - %w", leafHubName, err)
+	if err := syncer.handleLocalSpecBundleHelper(ctx, b, syncer.localPlacementRuleTableName); err != nil {
+		return err
 	}
 
-	for _, object := range bundle.GetObjects() {
-		placementRule, ok := object.(*placementv1.PlacementRule)
+	syncer.log.Info("finished handling 'LocalPlacementRule' bundle", "Leaf Hub", leafHubName,
+		"Generation", bundleGen)
 
-		// not interested in objects that aren't placement rule
+	return nil
+}
+
+// if the row doesn't exist then add it.
+// if the row exists then update it.
+// if the row isn't in the bundle then delete it.
+// saves the json file in the DB.
+func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundleHelper(ctx context.Context, b bundle.Bundle,
+	tableName string) error {
+	leafHubName := b.GetLeafHubName()
+
+	objectIDsFromDB, err := syncer.db.GetFromSpecByID(ctx, tableName, leafHubName)
+	if err != nil {
+		return fmt.Errorf("failed fetching leaf hub '%s' IDs from db - %w", leafHubName, err)
+	}
+
+	for _, object := range b.GetObjects() {
+		usefulObj, ok := object.(specDBObj)
 		if !ok {
 			continue
 		}
 
-		placementInd, err := helpers.GetObjectIndex(placementRuleIDsFromDB, string(placementRule.UID))
-		if err != nil {
-			if err = syncer.db.InsertIntoSpecSchema(ctx, string(placementRule.UID),
-				syncer.localPlacementRuleTableName, leafHubName, object); err != nil {
-				return fmt.Errorf("failed to insert placement rule '%s' from leaf hub '%s' - %w",
-					placementRule.Name, leafHubName, err)
+		usefulObjInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(usefulObj.GetUID()))
+		if err != nil { // usefulObj not found, new usefulObj id
+			if err = syncer.db.InsertIntoSpecSchema(ctx, string(usefulObj.GetUID()),
+				tableName, leafHubName, object); err != nil {
+				return fmt.Errorf("failed inserting '%s' from leaf hub '%s' - %w",
+					usefulObj.GetName(), leafHubName, err)
 			}
-		} else {
-			err = syncer.db.UpdateSingleSpecRow(ctx, string(placementRule.UID), leafHubName,
-				syncer.localPlacementRuleTableName, object)
-
-			if err != nil {
-				return fmt.Errorf(`failed updating spec of placement rule '%s', leaf hub '%s' 
-					in db - %w`, string(placementRule.UID), leafHubName, err)
-			}
-
-			// we dont want to delete it later
-			placementRuleIDsFromDB = append(placementRuleIDsFromDB[:placementInd], placementRuleIDsFromDB[placementInd+1:]...)
+			// we can continue since its not in objectIDsFromDB anyway
+			continue
 		}
+		// since this already exists in the db and in the bundle we need to update it
+		err = syncer.db.UpdateSingleSpecRow(ctx, string(usefulObj.GetUID()), leafHubName,
+			tableName, object)
+		if err != nil {
+			return fmt.Errorf(`failed updating spec '%s' in leaf hub '%s' 
+					in db - %w`, string(usefulObj.GetUID()), leafHubName, err)
+		}
+
+		// we dont want to delete it later
+		objectIDsFromDB = append(objectIDsFromDB[:usefulObjInd], objectIDsFromDB[usefulObjInd+1:]...)
 	}
 
-	err = syncer.deleteLocalSpecRows(ctx, leafHubName, syncer.localPolicySpecTableName,
-		placementRuleIDsFromDB)
+	err = syncer.deleteLocalSpecRows(ctx, leafHubName, tableName, objectIDsFromDB)
 	if err != nil {
 		return err
 	}
-
-	syncer.log.Info("finished handling 'LocalPlacementRules' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGen)
 
 	return nil
 }
