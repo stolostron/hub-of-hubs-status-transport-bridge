@@ -12,41 +12,36 @@ import (
 func NewDBWorkerPool() (*DBWorkerPool, error) {
 	ctx, cancelContext := context.WithCancel(context.Background())
 
-	dbConnectionPool, err := postgresql.NewPostgreSQLConnectionPool(ctx)
+	dbConnPool, err := postgresql.NewPostgreSQL(ctx)
 	if err != nil {
 		cancelContext()
 		return nil, fmt.Errorf("failed to initialize db worker pool - %w", err)
 	}
 
 	return &DBWorkerPool{
-		ctx:              ctx,
-		cancelContext:    cancelContext,
-		dbConnectionPool: dbConnectionPool,
-		dbWorkers:        make(chan chan *DBJob, dbConnectionPool.GetPoolSize()),
-		jobsQueue:        make(chan *DBJob),
+		ctx:           ctx,
+		cancelContext: cancelContext,
+		dbConnPool:    dbConnPool,
+		dbWorkers:     make(chan chan *DBJob, dbConnPool.GetPoolSize()),
+		jobsQueue:     make(chan *DBJob),
 	}, nil
 }
 
 // DBWorkerPool pool that registers all db workers and the assigns db jobs to available workers.
 type DBWorkerPool struct {
-	ctx              context.Context
-	cancelContext    context.CancelFunc
-	dbConnectionPool db.DatabaseConnectionPool
-	dbWorkers        chan chan *DBJob // A pool of workers channels that are registered with the db workers pool
-	jobsQueue        chan *DBJob
+	ctx           context.Context
+	cancelContext context.CancelFunc
+	dbConnPool    db.StatusTransportBridgeDB
+	dbWorkers     chan chan *DBJob // A pool of workers channels that are registered with the db workers pool
+	jobsQueue     chan *DBJob
 }
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start() error {
 	var i int32
 	// start workers and register them within the pool
-	for i = 1; i <= pool.dbConnectionPool.GetPoolSize(); i++ {
-		dbConnection, err := pool.dbConnectionPool.AcquireConnection()
-		if err != nil {
-			return fmt.Errorf("failed to start db worker pool - %w", err)
-		}
-
-		worker := newDBWorker(i, pool.dbWorkers, dbConnection)
+	for i = 1; i <= pool.dbConnPool.GetPoolSize(); i++ {
+		worker := newDBWorker(i, pool.dbWorkers, pool.dbConnPool)
 		// register the db worker within the pool
 		worker.start(pool.ctx)
 	}
@@ -59,7 +54,7 @@ func (pool *DBWorkerPool) Start() error {
 // Stop function stops the dbWorker queue.
 func (pool *DBWorkerPool) Stop() {
 	pool.cancelContext()
-	pool.dbConnectionPool.Stop()
+	pool.dbConnPool.Stop()
 	close(pool.dbWorkers)
 }
 

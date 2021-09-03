@@ -6,17 +6,20 @@ import "golang.org/x/net/context"
 type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
+
+	GetPoolSize() int32
+	Stop()
 }
 
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
 type ManagedClustersStatusDB interface {
 	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]*ClusterKeyAndVersion,
 		error)
-	InsertManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string, payload interface{},
-		version string) error
-	UpdateManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string, payload interface{},
-		version string) error
-	DeleteManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string) error
+	InsertManagedCluster(ctx context.Context, tableName string, clusterName string, leafHubName string,
+		payload interface{}, version string) error
+	UpdateManagedCluster(ctx context.Context, tableName string, clusterName string, leafHubName string,
+		payload interface{}, version string) error
+	DeleteManagedCluster(ctx context.Context, tableName string, clusterName string, leafHubName string) error
 }
 
 // PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.

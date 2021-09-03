@@ -6,11 +6,11 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 )
 
-func newDBWorker(workerID int32, dbWorkerPool chan chan *DBJob, dbConnection db.StatusTransportBridgeDB) *dbWorker {
+func newDBWorker(workerID int32, dbWorkerPool chan chan *DBJob, dbConnPool db.StatusTransportBridgeDB) *dbWorker {
 	return &dbWorker{
 		workerID:     workerID,
 		dbWorkerPool: dbWorkerPool,
-		dbConnection: dbConnection,
+		dbConnPool:   dbConnPool,
 		jobsQueue:    make(chan *DBJob), // no buffering. when worker is working don't queue more jobs.
 	}
 }
@@ -18,7 +18,7 @@ func newDBWorker(workerID int32, dbWorkerPool chan chan *DBJob, dbConnection db.
 type dbWorker struct {
 	workerID     int32
 	dbWorkerPool chan chan *DBJob
-	dbConnection db.StatusTransportBridgeDB
+	dbConnPool   db.StatusTransportBridgeDB
 	jobsQueue    chan *DBJob
 }
 
@@ -35,7 +35,7 @@ func (worker *dbWorker) start(ctx context.Context) {
 				return
 
 			case job := <-worker.jobsQueue: // dbWorker received a job request.
-				job.HandlerFunc(ctx, worker.dbConnection)
+				job.HandlerFunc(ctx, worker.dbConnPool)
 			}
 		}
 	}()
