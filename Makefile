@@ -22,13 +22,13 @@ IMAGE_TAG ?= latest
 IMAGE := ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
 
 .PHONY: all				##formats the code, runs liners, downloads vendor libs, and builds executable
-all: clean-vendor fmt lint vendor build
+all: fmt lint vendor build
 
 .PHONY: fmt				##formats the code
 fmt:
-	@gci -w .
-	@go fmt ./...
-	@gofumpt -w .
+	@gci -w ./cmd/ ./pkg/
+	@go fmt ./cmd/... ./pkg/...
+	@gofumpt -w ./cmd/ ./pkg/
 
 .PHONY: vendor			##download all third party libraries and puts them inside vendor directory
 vendor:
@@ -58,10 +58,10 @@ clean:
 clean-all: clean-vendor clean
 
 .PHONY: lint				##runs code analysis tools
-lint: clean-vendor
-	go vet ./...
-	golint ./...
-	golangci-lint run ./...
+lint:
+	go vet ./cmd/... ./pkg/...
+	golint ./cmd/... ./pkg/...
+	golangci-lint run ./cmd/... ./pkg/...
 
 .PHONY: help				##show this help message
 help:
