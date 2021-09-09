@@ -7,4 +7,6 @@ const (
 	ComplianceTableName = "compliance"
 	// MinimalComplianceTableName table for minimal policy compliance status.
 	MinimalComplianceTableName = "aggregated_compliance"
+	// LeafHubHeartbeatsTableName table for LH heartbeats.
+	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
 )

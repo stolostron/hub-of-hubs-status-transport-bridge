@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
@@ -259,6 +260,17 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 			enforcement, appliedClusters, nonCompliantClusters); err != nil {
 			return fmt.Errorf("failed to insert into database: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
+func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, tableName string, leafHubName string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%[1]s (name, last_timestamp) values($1, $2) 
+		ON CONFLICT (name) DO UPDATE SET last_timestamp = $2 WHERE status.%[1]s.name = $1`, tableName),
+		leafHubName, time.Now().UTC()); err != nil {
+		return fmt.Errorf("failed upsert into database: %w", err)
 	}
 
 	return nil

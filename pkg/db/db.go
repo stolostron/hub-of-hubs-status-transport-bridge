@@ -6,6 +6,7 @@ import "golang.org/x/net/context"
 type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
+	ControlInfoDB
 
 	GetPoolSize() int32
 	Stop()
@@ -43,4 +44,9 @@ type PoliciesStatusDB interface {
 	DeleteAllComplianceRows(ctx context.Context, tableName string, policyID string, leafHubName string) error
 	InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, policyID string, leafHubName string,
 		enforcement string, appliedClusters int, nonCompliantClusters int) error
+}
+
+// ControlInfoDB is the db interface required by status transport bridge to manage control info status.
+type ControlInfoDB interface {
+	UpdateHeartbeat(ctx context.Context, tableName string, leafHubName string) error
 }

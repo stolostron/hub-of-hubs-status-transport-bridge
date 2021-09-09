@@ -34,7 +34,7 @@ func AddToScheme(s *runtime.Scheme) error {
 func AddSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, statusTransport transport.Transport) error {
 	addDBSyncerFunctions := []func(ctrl.Manager, *workerpool.DBWorkerPool, transport.Transport,
 		*configv1.Config) error{
-		addClustersTransportToDBSyncer, addPoliciesTransportToDBSyncer,
+		addClustersTransportToDBSyncer, addPoliciesTransportToDBSyncer, addControlInfoTransportToDBSyncer,
 	}
 
 	config := &configv1.Config{}
@@ -104,6 +104,26 @@ func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, dbWorkerPool *workerpool.D
 			MsgID:            datatypes.MinimalPolicyComplianceMsgKey,
 			CreateBundleFunc: func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
 			Predicate:        minimalStatusPredicate,
+		})
+	if err != nil {
+		return fmt.Errorf("failed to add DB Syncer: %w", err)
+	}
+
+	return nil
+}
+
+func addControlInfoTransportToDBSyncer(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
+	statusTransport transport.Transport, _ *configv1.Config) error {
+	err := dbsyncer.AddControlInfoTransportToDBSyncer(
+		mgr,
+		ctrl.Log.WithName("control-info-transport-to-db-syncer"),
+		dbWorkerPool,
+		statusTransport,
+		dbsyncer.LeafHubHeartbeatsTableName,
+		&transport.BundleRegistration{
+			MsgID:            datatypes.ControlInfoKey,
+			CreateBundleFunc: func() bundle.Bundle { return bundle.NewControlInfoStatusBundle() },
+			Predicate:        func() bool { return true }, // always get control info bundles
 		})
 	if err != nil {
 		return fmt.Errorf("failed to add DB Syncer: %w", err)
