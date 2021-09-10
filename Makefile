@@ -22,7 +22,7 @@ IMAGE_TAG ?= latest
 IMAGE := ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
 
 .PHONY: all				##formats the code, runs liners, downloads vendor libs, and builds executable
-all: fmt lint vendor build
+all: vendor fmt lint build
 
 .PHONY: fmt				##formats the code
 fmt:
@@ -60,7 +60,7 @@ clean-all: clean-vendor clean
 .PHONY: lint				##runs code analysis tools
 lint:
 	go vet ./cmd/... ./pkg/...
-	golint ./cmd/... ./pkg/...
+	golint ./cmd/... && golint ./pkg/...
 	golangci-lint run ./cmd/... ./pkg/...
 
 .PHONY: help				##show this help message

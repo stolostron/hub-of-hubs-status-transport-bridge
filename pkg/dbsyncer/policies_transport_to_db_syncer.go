@@ -10,9 +10,9 @@ import (
 	v1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
