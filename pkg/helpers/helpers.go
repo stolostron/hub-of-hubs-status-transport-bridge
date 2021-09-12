@@ -3,6 +3,7 @@ package helpers
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 )
@@ -22,5 +23,6 @@ func GetObjectIndex(slice []string, toBeFound string) (int, error) {
 
 // GetBundleType returns the concrete type of a bundle.
 func GetBundleType(bundle bundle.Bundle) string {
-	return fmt.Sprintf("%T", bundle)
+	array := strings.Split(fmt.Sprintf("%T", bundle), ".")
+	return array[len(array)-1]
 }

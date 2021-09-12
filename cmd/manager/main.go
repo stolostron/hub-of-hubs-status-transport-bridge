@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -35,43 +36,33 @@ func printVersion(log logr.Logger) {
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain() int {
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-
-	ctrl.SetLogger(zap.Logger())
-	log := ctrl.Log.WithName("cmd")
-
-	printVersion(log)
+	log := initializeLogger()
 
 	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
 	if !found {
 		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
 		return 1
 	}
-
-	// db layer initialization
-	dbWorkerPool, err := workerpool.NewDBWorkerPool()
+	// db layer initialization - worker pool + connection pool
+	dbWorkerPool, err := startDBWorkerPool()
 	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "DBWorkerPool")
-		return 1
-	}
-
-	if err = dbWorkerPool.Start(); err != nil {
-		log.Error(err, "initialization error", "failed to start", "DBWorkerPool")
+		log.Error(err, "initialization error")
 		return 1
 	}
 
 	defer dbWorkerPool.Stop()
 
+	conflationReadyQueue := conflator.NewConflationReadyQueue() // shared between ConflationManager and dispatcher
 	// transport layer initialization
-	syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"))
+	syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"),
+		conflator.NewConflationManager(conflationReadyQueue))
 	if err != nil {
 		log.Error(err, "initialization error", "failed to initialize", "SyncService")
 		return 1
 	}
 
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, syncService)
+	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, conflationReadyQueue,
+		syncService)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -90,8 +81,34 @@ func doMain() int {
 	return 0
 }
 
+func initializeLogger() logr.Logger {
+	pflag.CommandLine.AddFlagSet(zap.FlagSet())
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	ctrl.SetLogger(zap.Logger())
+	log := ctrl.Log.WithName("cmd")
+
+	printVersion(log)
+
+	return log
+}
+
+func startDBWorkerPool() (*workerpool.DBWorkerPool, error) {
+	dbWorkerPool, err := workerpool.NewDBWorkerPool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize DBWorkerPool - %w", err)
+	}
+
+	if err = dbWorkerPool.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start DBWorkerPool - %w", err)
+	}
+
+	return dbWorkerPool, nil
+}
+
 func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
-	syncService transport.Transport) (ctrl.Manager, error) {
+	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport) (ctrl.Manager, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -108,8 +125,8 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 
-	if err := controller.AddSyncers(mgr, workersPool, syncService); err != nil {
-		return nil, fmt.Errorf("failed to add syncers: %w", err)
+	if err := controller.Setup(mgr, workersPool, conflationReadyQueue, transport); err != nil {
+		return nil, fmt.Errorf("failed to do initial setup of the manager: %w", err)
 	}
 
 	return mgr, nil

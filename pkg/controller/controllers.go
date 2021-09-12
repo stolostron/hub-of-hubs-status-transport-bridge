@@ -3,19 +3,17 @@ package controller
 import (
 	"fmt"
 
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	configCtrl "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/config"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/dbsyncer"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/dispatcher"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/dbsyncer"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
-
-const aggregationLevelUnset = "Unset"
 
 // AddToScheme adds all the resources to be processed to the Scheme.
 func AddToScheme(s *runtime.Scheme) error {
@@ -30,84 +28,53 @@ func AddToScheme(s *runtime.Scheme) error {
 	return nil
 }
 
-// AddSyncers adds the controllers to sync info from transport to DB to the Manager.
-func AddSyncers(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, statusTransport transport.Transport) error {
-	addDBSyncerFunctions := []func(ctrl.Manager, *workerpool.DBWorkerPool, transport.Transport,
-		*configv1.Config) error{
-		addClustersTransportToDBSyncer, addPoliciesTransportToDBSyncer,
+// Setup performs the initial setup required before starting the runtime manager.
+// adds controllers and/or runnables to the manager, registers handler functions within the dispatcher and create bundle
+// functions within the transport.
+func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
+	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport) error {
+	// register config controller within the runtime manager
+	config, err := addConfigController(mgr)
+	if err != nil {
+		return fmt.Errorf("failed to add config controller to manager - %w", err)
+	}
+	// register dispatcher within the runtime manager
+	dispatcherObj, err := addDispatcher(mgr, dbWorkerPool, conflationReadyQueue)
+	if err != nil {
+		return fmt.Errorf("failed to add dispatcher to manager - %w", err)
+	}
+	// register db syncers create bundle functions within transport and handler functions within dispatcher
+	dbSyncers := []dbsyncer.DBSyncer{
+		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed clusters db syncer")),
+		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies db syncer"), config),
 	}
 
+	for _, dbsyncerObj := range dbSyncers {
+		dbsyncerObj.RegisterCreateBundleFunctions(transport)
+		dbsyncerObj.RegisterBundleHandlerFunctions(dispatcherObj)
+	}
+
+	return nil
+}
+
+func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
 	config := &configv1.Config{}
-	config.Spec.AggregationLevel = aggregationLevelUnset
+	config.Spec.AggregationLevel = configv1.Full // default value is full until the config is read from the CR
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
-		return fmt.Errorf("failed to add controller: %w", err)
+		return nil, fmt.Errorf("failed to add controller: %w", err)
 	}
 
-	for _, addDBSyncerFunction := range addDBSyncerFunctions {
-		if err := addDBSyncerFunction(mgr, dbWorkerPool, statusTransport, config); err != nil {
-			return fmt.Errorf("failed to add DB Syncer: %w", err)
-		}
-	}
-
-	return nil
+	return config, nil
 }
 
-func addClustersTransportToDBSyncer(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
-	statusTransport transport.Transport, _ *configv1.Config) error {
-	err := dbsyncer.AddClustersTransportToDBSyncer(
-		mgr,
-		ctrl.Log.WithName("managed-clusters-transport-to-db-syncer"),
-		dbWorkerPool,
-		statusTransport,
-		dbsyncer.ManagedClustersTableName,
-		&transport.BundleRegistration{
-			MsgID:            datatypes.ManagedClustersMsgKey,
-			CreateBundleFunc: func() bundle.Bundle { return bundle.NewManagedClustersStatusBundle() },
-			Predicate:        func() bool { return true }, // always get managed clusters bundles
-		})
-	if err != nil {
-		return fmt.Errorf("failed to add DB Syncer: %w", err)
+func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
+	conflationReadyQueue *conflator.ConflationReadyQueue) (*dispatcher.Dispatcher, error) {
+	dispatcherObj := dispatcher.NewDispatcher(ctrl.Log.WithName("dispatcher"), conflationReadyQueue, dbWorkerPool)
+
+	if err := mgr.Add(dispatcherObj); err != nil {
+		return nil, fmt.Errorf("failed to add dispatcher: %w", err)
 	}
 
-	return nil
-}
-
-func addPoliciesTransportToDBSyncer(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
-	statusTransport transport.Transport, config *configv1.Config) error {
-	fullStatusPredicate := func() bool {
-		return config.Spec.AggregationLevel == configv1.Full || config.Spec.AggregationLevel == aggregationLevelUnset
-	}
-	minimalStatusPredicate := func() bool {
-		return config.Spec.AggregationLevel == configv1.Minimal || config.Spec.AggregationLevel == aggregationLevelUnset
-	}
-
-	err := dbsyncer.AddPoliciesTransportToDBSyncer(
-		mgr,
-		ctrl.Log.WithName("policies-transport-to-db-syncer"),
-		dbWorkerPool,
-		statusTransport,
-		dbsyncer.ManagedClustersTableName,
-		dbsyncer.ComplianceTableName,
-		dbsyncer.MinimalComplianceTableName,
-		&transport.BundleRegistration{
-			MsgID:            datatypes.ClustersPerPolicyMsgKey,
-			CreateBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
-			Predicate:        fullStatusPredicate,
-		},
-		&transport.BundleRegistration{
-			MsgID:            datatypes.PolicyComplianceMsgKey,
-			CreateBundleFunc: func() bundle.Bundle { return bundle.NewComplianceStatusBundle() },
-			Predicate:        fullStatusPredicate,
-		},
-		&transport.BundleRegistration{
-			MsgID:            datatypes.MinimalPolicyComplianceMsgKey,
-			CreateBundleFunc: func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
-			Predicate:        minimalStatusPredicate,
-		})
-	if err != nil {
-		return fmt.Errorf("failed to add DB Syncer: %w", err)
-	}
-
-	return nil
+	return dispatcherObj, nil
 }

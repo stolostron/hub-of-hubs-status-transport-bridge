@@ -22,8 +22,7 @@ func NewDBWorkerPool() (*DBWorkerPool, error) {
 		ctx:           ctx,
 		cancelContext: cancelContext,
 		dbConnPool:    dbConnPool,
-		dbWorkers:     make(chan chan *DBJob, dbConnPool.GetPoolSize()),
-		jobsQueue:     make(chan *DBJob),
+		dbWorkers:     make(chan *DBWorker, dbConnPool.GetPoolSize()),
 	}, nil
 }
 
@@ -32,53 +31,30 @@ type DBWorkerPool struct {
 	ctx           context.Context
 	cancelContext context.CancelFunc
 	dbConnPool    db.StatusTransportBridgeDB
-	dbWorkers     chan chan *DBJob // A pool of workers channels that are registered with the db workers pool
-	jobsQueue     chan *DBJob
+	dbWorkers     chan *DBWorker // A pool of workers that are registered within the workers pool
 }
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start() error {
 	var i int32
-	// start workers and register them within the pool
+	// start workers and register them within the workers pool
 	for i = 1; i <= pool.dbConnPool.GetPoolSize(); i++ {
-		worker := newDBWorker(i, pool.dbWorkers, pool.dbConnPool)
-		// register the db worker within the pool
-		worker.start(pool.ctx)
+		worker := NewDBWorker(i, pool.dbWorkers, pool.dbConnPool)
+		worker.start(pool.ctx) // each worker adds itself to the pool inside start function
 	}
-
-	go pool.dispatch(pool.ctx)
 
 	return nil
 }
 
-// Stop function stops the dbWorker queue.
+// Stop function stops the DBWorker queue.
 func (pool *DBWorkerPool) Stop() {
-	pool.cancelContext()
+	pool.cancelContext() // worker pool is responsible for stopping it's workers, it's done using context
 	pool.dbConnPool.Stop()
+
 	close(pool.dbWorkers)
 }
 
-// QueueDBJob function to add a db job to the queue.
-func (pool *DBWorkerPool) QueueDBJob(job *DBJob) {
-	pool.jobsQueue <- job
-}
-
-// this function doesn't use go routine because we want to be blocked until a dbWorker is available.
-// while all workers are working, whoever tries to push a new job will get blocked as well.
-// being blocked while all workers are working will allow conflation mechanism on the other side.
-func (pool *DBWorkerPool) dispatch(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case job := <-pool.jobsQueue:
-			// try to obtain a dbWorker job channel that is available.
-			// this will block until a dbWorker is idle
-			jobChannel := <-pool.dbWorkers
-
-			// dispatch the job to the dbWorker job channel
-			jobChannel <- job
-		}
-	}
+// Acquire tries to acquire an available worker. if no worker is available, blocking until a worker becomes available.
+func (pool *DBWorkerPool) Acquire() *DBWorker {
+	return <-pool.dbWorkers
 }

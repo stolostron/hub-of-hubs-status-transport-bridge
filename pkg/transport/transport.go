@@ -1,9 +1,7 @@
 package transport
 
-import "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-
 // Transport is the status bridge transport layer interface.
 type Transport interface {
-	// Register function registers for the bundle updates channel.
-	Register(registration *BundleRegistration, bundleUpdatesChan chan bundle.Bundle)
+	// Register function registers a msgID for sync service to know how to create the bundle, and use predicate.
+	Register(registration *BundleRegistration)
 }

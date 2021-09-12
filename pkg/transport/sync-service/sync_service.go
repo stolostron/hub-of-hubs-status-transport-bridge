@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
 )
@@ -36,14 +36,14 @@ type SyncService struct {
 	pollingInterval        int
 	objectsMetaDataChan    chan *client.ObjectMetaData
 	stopChan               chan struct{}
-	msgIDToChanMap         map[string]chan bundle.Bundle
+	conflationManager      *conflator.ConflationManager
 	msgIDToRegistrationMap map[string]*transport.BundleRegistration
 	startOnce              sync.Once
 	stopOnce               sync.Once
 }
 
 // NewSyncService creates a new instance of SyncService.
-func NewSyncService(log logr.Logger) (*SyncService, error) {
+func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationManager) (*SyncService, error) {
 	serverProtocol, host, port, pollingInterval, err := readEnvVars()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
@@ -59,7 +59,7 @@ func NewSyncService(log logr.Logger) (*SyncService, error) {
 		client:                 syncServiceClient,
 		pollingInterval:        pollingInterval,
 		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
-		msgIDToChanMap:         make(map[string]chan bundle.Bundle),
+		conflationManager:      conflationManager,
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 		stopChan:               make(chan struct{}, 1),
 	}, nil
@@ -116,9 +116,8 @@ func (s *SyncService) Stop() {
 	})
 }
 
-// Register function registers a msgID to the bundle updates channel.
-func (s *SyncService) Register(registration *transport.BundleRegistration, bundleUpdatesChan chan bundle.Bundle) {
-	s.msgIDToChanMap[registration.MsgID] = bundleUpdatesChan
+// Register function registers a msgID for sync service to know how to create the bundle, and use predicate.
+func (s *SyncService) Register(registration *transport.BundleRegistration) {
 	s.msgIDToRegistrationMap[registration.MsgID] = registration
 }
 
@@ -157,7 +156,8 @@ func (s *SyncService) handleBundles() {
 				continue
 			}
 
-			s.msgIDToChanMap[msgID] <- receivedBundle
+			s.conflationManager.Insert(receivedBundle, objectMetaData)
+
 			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
 				s.log.Error(err, "failed to report object received to sync service")
 			}

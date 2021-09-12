@@ -1,10 +1,10 @@
 package dbsyncer
 
 const (
-	// ManagedClustersTableName table for managed clusters.
-	ManagedClustersTableName = "managed_clusters"
-	// ComplianceTableName table for policy compliance status.
-	ComplianceTableName = "compliance"
-	// MinimalComplianceTableName table for minimal policy compliance status.
-	MinimalComplianceTableName = "aggregated_compliance"
+	// managedClustersTableName table for managed clusters.
+	managedClustersTableName = "managed_clusters"
+	// complianceTableName table for policy compliance status.
+	complianceTableName = "compliance"
+	// minimalComplianceTableName table for minimal policy compliance status.
+	minimalComplianceTableName = "aggregated_compliance"
 )
