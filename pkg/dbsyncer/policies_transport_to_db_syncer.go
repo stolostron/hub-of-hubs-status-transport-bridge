@@ -12,7 +12,7 @@ import (
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/dispatcher"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -86,13 +86,22 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(dispatcher *dispatcher.Dispatcher) {
-	dispatcher.RegisterHandler(helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc()),
-		syncer.handleClustersPerPolicyBundle)
-	dispatcher.RegisterHandler(helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
-		syncer.handleComplianceBundle)
-	dispatcher.RegisterHandler(helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
-		syncer.handleMinimalComplianceBundle)
+func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.ClustersPerPolicyPriority,
+		BundleType:      helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc()),
+		HandlerFunction: syncer.handleClustersPerPolicyBundle,
+	})
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.ComplianceStatusPriority,
+		BundleType:      helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
+		HandlerFunction: syncer.handleComplianceBundle,
+	})
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.MinimalComplianceStatusPriority,
+		BundleType:      helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
+		HandlerFunction: syncer.handleMinimalComplianceBundle,
+	})
 }
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.

@@ -4,6 +4,10 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
+const (
+	clustersPerPolicyBundleType = "ClustersPerPolicyBundle"
+)
+
 // NewComplianceStatusBundle creates a new compliance status bundle with no data in it.
 func NewComplianceStatusBundle() *ComplianceStatusBundle {
 	return &ComplianceStatusBundle{}
@@ -34,7 +38,10 @@ func (bundle *ComplianceStatusBundle) GetGeneration() uint64 {
 	return bundle.Generation
 }
 
-// GetBaseBundleGeneration returns the base bundle generation.
-func (bundle *ComplianceStatusBundle) GetBaseBundleGeneration() uint64 {
-	return bundle.BaseBundleGeneration
+// GetDependency return the bundle dependency or nil in case there is no dependency.
+func (bundle *ComplianceStatusBundle) GetDependency() *DependencyBundle {
+	return &DependencyBundle{
+		BundleType: clustersPerPolicyBundleType,
+		Generation: bundle.BaseBundleGeneration,
+	}
 }

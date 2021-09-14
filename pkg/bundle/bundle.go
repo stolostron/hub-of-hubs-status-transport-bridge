@@ -7,5 +7,12 @@ type CreateBundleFunction func() Bundle
 type Bundle interface {
 	GetLeafHubName() string
 	GetObjects() []interface{}
+	GetDependency() *DependencyBundle
 	GetGeneration() uint64
+}
+
+// DependencyBundle represents the dependency between different bundles.
+type DependencyBundle struct {
+	BundleType string
+	Generation uint64
 }

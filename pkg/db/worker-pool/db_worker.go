@@ -47,7 +47,7 @@ func (worker *DBWorker) start(ctx context.Context) {
 
 			case job := <-worker.jobsQueue: // DBWorker received a job request.
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
-				job.conflationUnit.ReportResult(job.bundleMetadata, err)
+				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 			}
 		}
 	}()

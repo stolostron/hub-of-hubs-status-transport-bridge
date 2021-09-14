@@ -9,7 +9,7 @@ import (
 	managedclustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/dispatcher"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -47,15 +47,19 @@ func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportIn
 	})
 }
 
-// RegisterBundleHandlerFunctions registers bundle handler functions within the dispatcher.
-// need to do "diff" between objects received in the bundle and the objects in db.
+// RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
+// handler function need to do "diff" between objects received in the bundle and the objects in db.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(dispatcher *dispatcher.Dispatcher) {
-	dispatcher.RegisterHandler(helpers.GetBundleType(syncer.createBundleFunc()), syncer.handleManagedClustersBundle)
+func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.ManagedClustersPriority,
+		BundleType:      helpers.GetBundleType(syncer.createBundleFunc()),
+		HandlerFunction: syncer.handleManagedClustersBundle,
+	})
 }
 
 func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,

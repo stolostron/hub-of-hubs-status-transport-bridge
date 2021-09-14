@@ -11,6 +11,7 @@ import (
 func NewConflationManager(conflationUnitsReadyQueue *ConflationReadyQueue) *ConflationManager {
 	return &ConflationManager{
 		conflationUnits: make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
+		registrations:   make([]*ConflationRegistration, 0),
 		readyQueue:      conflationUnitsReadyQueue,
 		lock:            sync.Mutex{}, // lock to be used to find/create conflation units
 	}
@@ -19,11 +20,17 @@ func NewConflationManager(conflationUnitsReadyQueue *ConflationReadyQueue) *Conf
 // ConflationManager implements conflation units management.
 type ConflationManager struct {
 	conflationUnits map[string]*ConflationUnit // map from leaf hub to conflation unit
+	registrations   []*ConflationRegistration
 	readyQueue      *ConflationReadyQueue
 	lock            sync.Mutex
 }
 
-// Insert - inserts the bundle to the appropriate conflation unit.
+// Register registers bundle type with priority and handler function within the conflation manager.
+func (cm *ConflationManager) Register(registration *ConflationRegistration) {
+	cm.registrations = append(cm.registrations, registration)
+}
+
+// Insert function inserts the bundle to the appropriate conflation unit.
 func (cm *ConflationManager) Insert(bundle bundle.Bundle, metadata transport.BundleMetadata) {
 	cm.getConflationUnit(bundle.GetLeafHubName()).insert(bundle, metadata)
 }
@@ -37,7 +44,7 @@ func (cm *ConflationManager) getConflationUnit(leafHubName string) *ConflationUn
 		return conflationUnit
 	}
 	// otherwise, need to create conflation unit
-	conflationUnit := newConflationUnit(cm.readyQueue)
+	conflationUnit := newConflationUnit(cm.readyQueue, cm.registrations)
 	cm.conflationUnits[leafHubName] = conflationUnit
 
 	return conflationUnit

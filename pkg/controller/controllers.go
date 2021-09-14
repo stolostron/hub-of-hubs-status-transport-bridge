@@ -31,7 +31,7 @@ func AddToScheme(s *runtime.Scheme) error {
 // Setup performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher and create bundle
 // functions within the transport.
-func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
+func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationManager *conflator.ConflationManager,
 	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport) error {
 	// register config controller within the runtime manager
 	config, err := addConfigController(mgr)
@@ -39,8 +39,7 @@ func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
 	}
 	// register dispatcher within the runtime manager
-	dispatcherObj, err := addDispatcher(mgr, dbWorkerPool, conflationReadyQueue)
-	if err != nil {
+	if err := addDispatcher(mgr, dbWorkerPool, conflationReadyQueue); err != nil {
 		return fmt.Errorf("failed to add dispatcher to manager - %w", err)
 	}
 	// register db syncers create bundle functions within transport and handler functions within dispatcher
@@ -51,7 +50,7 @@ func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 
 	for _, dbsyncerObj := range dbSyncers {
 		dbsyncerObj.RegisterCreateBundleFunctions(transport)
-		dbsyncerObj.RegisterBundleHandlerFunctions(dispatcherObj)
+		dbsyncerObj.RegisterBundleHandlerFunctions(conflationManager)
 	}
 
 	return nil
@@ -69,12 +68,14 @@ func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
 }
 
 func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
-	conflationReadyQueue *conflator.ConflationReadyQueue) (*dispatcher.Dispatcher, error) {
-	dispatcherObj := dispatcher.NewDispatcher(ctrl.Log.WithName("dispatcher"), conflationReadyQueue, dbWorkerPool)
-
-	if err := mgr.Add(dispatcherObj); err != nil {
-		return nil, fmt.Errorf("failed to add dispatcher: %w", err)
+	conflationReadyQueue *conflator.ConflationReadyQueue) error {
+	if err := mgr.Add(dispatcher.NewDispatcher(
+		ctrl.Log.WithName("dispatcher"),
+		conflationReadyQueue,
+		dbWorkerPool,
+	)); err != nil {
+		return fmt.Errorf("failed to add dispatcher: %w", err)
 	}
 
-	return dispatcherObj, nil
+	return nil
 }

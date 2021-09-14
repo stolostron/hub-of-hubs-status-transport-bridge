@@ -52,24 +52,14 @@ func doMain() int {
 
 	defer dbWorkerPool.Stop()
 
-	conflationReadyQueue := conflator.NewConflationReadyQueue() // shared between ConflationManager and dispatcher
-	// transport layer initialization
-	syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"),
-		conflator.NewConflationManager(conflationReadyQueue))
-	if err != nil {
-		log.Error(err, "initialization error", "failed to initialize", "SyncService")
-		return 1
-	}
-
-	mgr, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, conflationReadyQueue,
-		syncService)
+	mgr, transportObj, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
 	}
 
-	syncService.Start()
-	defer syncService.Stop()
+	transportObj.Start()
+	defer transportObj.Stop()
 
 	log.Info("Starting the Cmd.")
 
@@ -107,8 +97,8 @@ func startDBWorkerPool() (*workerpool.DBWorkerPool, error) {
 	return dbWorkerPool, nil
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
-	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport) (ctrl.Manager, error) {
+func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32,
+	workersPool *workerpool.DBWorkerPool) (ctrl.Manager, transport.Transport, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -118,18 +108,26 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a new manager: %w", err)
+		return nil, nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
 	if err = controller.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, fmt.Errorf("failed to add schemes: %w", err)
+		return nil, nil, fmt.Errorf("failed to add schemes: %w", err)
+	}
+	// conflationReadyQueue is shared between ConflationManager and dispatcher
+	conflationReadyQueue := conflator.NewConflationReadyQueue()
+	conflationManager := conflator.NewConflationManager(conflationReadyQueue) // manage all Conflation Units
+	// transport layer initialization
+	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize transport: %w", err)
 	}
 
-	if err := controller.Setup(mgr, workersPool, conflationReadyQueue, transport); err != nil {
-		return nil, fmt.Errorf("failed to do initial setup of the manager: %w", err)
+	if err := controller.Setup(mgr, workersPool, conflationManager, conflationReadyQueue, transportObj); err != nil {
+		return nil, nil, fmt.Errorf("failed to do initial setup of the manager: %w", err)
 	}
 
-	return mgr, nil
+	return mgr, transportObj, nil
 }
 
 func main() {
