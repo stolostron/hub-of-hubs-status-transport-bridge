@@ -9,5 +9,6 @@ type conflationElement struct {
 	bundle                        bundle.Bundle
 	bundleMetadata                *BundleMetadata
 	handlerFunction               BundleHandlerFunc
+	isInProcess                   bool
 	lastProcessedBundleGeneration uint64
 }
