@@ -74,7 +74,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	}
 
 	for _, object := range bundle.GetObjects() {
-		cluster, ok := object.(managedclustersv1.ManagedCluster)
+		cluster, ok := object.(*managedclustersv1.ManagedCluster)
 		if !ok {
 			syncer.log.Error(errObjectNotManagedCluster, "skipping object")
 			continue // do not handle objects other than ManagedCluster
