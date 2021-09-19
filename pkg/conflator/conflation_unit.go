@@ -114,7 +114,7 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	defer cu.lock.Unlock()
 
 	priority := cu.bundleTypeToPriority[metadata.bundleType] // priority of the bundle that was processed
-	cu.priorityQueue[priority].isInProcess = false // finished processing bundle
+	cu.priorityQueue[priority].isInProcess = false           // finished processing bundle
 
 	if err != nil {
 		cu.addCUToReadyQueueIfNeeded()
@@ -158,6 +158,7 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 	}
 }
 
+// returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
 		if conflationElement.bundle != nil && !conflationElement.isInProcess &&

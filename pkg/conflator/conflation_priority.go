@@ -1,13 +1,13 @@
 package conflator
 
-type conflationPriority int
+type conflationPriority uint
 
 // iota is the golang way of implementing ENUM
 
 // priority list of conflation unit.
 const (
 	ManagedClustersPriority         conflationPriority = iota // ManagedClusters = 0
-	ClustersPerPolicyPriority                          = iota // ClustersPerPolicy = 1
-	ComplianceStatusPriority                           = iota // ComplianceStatus = 2
-	MinimalComplianceStatusPriority                    = iota // MinimalComplianceStatus = 3
+	ClustersPerPolicyPriority       conflationPriority = iota // ClustersPerPolicy = 1
+	ComplianceStatusPriority        conflationPriority = iota // ComplianceStatus = 2
+	MinimalComplianceStatusPriority conflationPriority = iota // MinimalComplianceStatus = 3
 )
