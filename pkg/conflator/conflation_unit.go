@@ -173,7 +173,7 @@ func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 // dependencies are organized in a chain.
 func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
 	dependency := bundleToCheck.GetDependency()
-	if dependency == nil {
+	if dependency == nil { // bundle has no dependency
 		return true
 	}
 
@@ -184,6 +184,10 @@ func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
 
 	if cu.priorityQueue[dependencyIndex].isInProcess {
 		return false // the needed dependency bundle is currently in process, waiting for its processing to finish.
+	}
+
+	if cu.priorityQueue[dependencyIndex].bundle == nil {
+		return true // dependency bundle is nil, no need to continue checking the chain
 	}
 
 	return cu.checkDependencies(cu.priorityQueue[dependencyIndex].bundle)

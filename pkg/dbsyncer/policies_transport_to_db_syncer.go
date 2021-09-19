@@ -41,7 +41,7 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 		createMinComplianceStatusBundleFunc: func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
 	}
 
-	log.Info("initialized policies syncer")
+	log.Info("initialized policies db syncer")
 
 	return dbSyncer
 }
