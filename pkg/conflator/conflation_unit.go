@@ -186,9 +186,5 @@ func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
 		return false // the needed dependency bundle is currently in process, waiting for its processing to finish.
 	}
 
-	if cu.priorityQueue[dependencyIndex].bundle == nil {
-		return true // dependency bundle is nil, no need to continue checking the chain
-	}
-
-	return cu.checkDependencies(cu.priorityQueue[dependencyIndex].bundle)
+	return true // dependency required generation was processed, and new generation of dependency is not in process
 }
