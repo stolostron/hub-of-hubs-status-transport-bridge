@@ -6,6 +6,7 @@ import (
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // NewDBWorkerPool returns a new db workers pool dispatcher.
@@ -36,10 +37,12 @@ type DBWorkerPool struct {
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start() error {
+	workerPoolLogger := ctrl.Log.WithName("db-worker-pool")
+
 	var i int32
 	// start workers and register them within the workers pool
 	for i = 1; i <= pool.dbConnPool.GetPoolSize(); i++ {
-		worker := NewDBWorker(i, pool.dbWorkers, pool.dbConnPool)
+		worker := NewDBWorker(workerPoolLogger, i, pool.dbWorkers, pool.dbConnPool)
 		worker.start(pool.ctx) // each worker adds itself to the pool inside start function
 	}
 

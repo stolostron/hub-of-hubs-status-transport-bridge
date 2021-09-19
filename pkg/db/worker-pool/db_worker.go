@@ -3,14 +3,17 @@ package workerpool
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 )
 
 // NewDBWorker creates a new instance of DBWorker.
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
 // to RunAsync, otherwise it will yield cpu to other go routines.
-func NewDBWorker(workerID int32, dbWorkersPool chan *DBWorker, dbConnPool db.StatusTransportBridgeDB) *DBWorker {
+func NewDBWorker(log logr.Logger, workerID int32, dbWorkersPool chan *DBWorker,
+	dbConnPool db.StatusTransportBridgeDB) *DBWorker {
 	return &DBWorker{
+		log:           log,
 		workerID:      workerID,
 		dbWorkersPool: dbWorkersPool,
 		dbConnPool:    dbConnPool,
@@ -20,6 +23,7 @@ func NewDBWorker(workerID int32, dbWorkersPool chan *DBWorker, dbConnPool db.Sta
 
 // DBWorker worker within the DB Worker pool. runs as a goroutine and invokes DBJobs.
 type DBWorker struct {
+	log           logr.Logger
 	workerID      int32
 	dbWorkersPool chan *DBWorker
 	dbConnPool    db.StatusTransportBridgeDB
@@ -34,6 +38,8 @@ func (worker *DBWorker) RunAsync(job *DBJob) {
 
 func (worker *DBWorker) start(ctx context.Context) {
 	go func() {
+		worker.log.Info("started worker", "WorkerID", worker.workerID)
+
 		for {
 			// add worker into the dbWorkerPool to mark this worker as available.
 			// this is done in each iteration after the worker finished handling a job (or at startup),
@@ -46,8 +52,10 @@ func (worker *DBWorker) start(ctx context.Context) {
 				return
 
 			case job := <-worker.jobsQueue: // DBWorker received a job request.
+				worker.log.Info("received DB job", "WorkerID", worker.workerID)
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
 				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
+				worker.log.Info("finished processing DB job", "WorkerID", worker.workerID)
 			}
 		}
 	}()
