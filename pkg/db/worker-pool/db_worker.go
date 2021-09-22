@@ -2,10 +2,10 @@ package workerpool
 
 import (
 	"context"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
 // NewDBWorker creates a new instance of DBWorker.
