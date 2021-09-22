@@ -332,7 +332,7 @@ func (syncer *PoliciesTransportToDBSyncer) handleLocalSpecBundleHelper(ctx conte
 	tableName string) error {
 	leafHubName := b.GetLeafHubName()
 
-	objectIDsFromDB, err := syncer.db.GetFromSpecByID(ctx, tableName, leafHubName)
+	objectIDsFromDB, err := syncer.db.GetDistinctIDsFromLH(ctx, tableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s' IDs from db - %w", leafHubName, err)
 	}

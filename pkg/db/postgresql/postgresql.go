@@ -294,7 +294,7 @@ func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) e
 }
 
 // GetFromSpecByID this function returns distinct id entries in the local_spec schema.
-func (p *PostgreSQL) GetFromSpecByID(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
+func (p *PostgreSQL) GetDistinctIDsFromLH(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
 	result := make([]string, 0)
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s WHERE leaf_hub_name=$1`,
 		tableName), leafHubName)
@@ -328,7 +328,7 @@ func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string
 	id string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE id=$1 AND 
 			leaf_hub_name=$2`, tableName), id, leafHubName); err != nil {
-		return fmt.Errorf("failed to delete policy row from database: %w", err)
+		return fmt.Errorf("failed to delete spec row from database: %w", err)
 	}
 
 	return nil
