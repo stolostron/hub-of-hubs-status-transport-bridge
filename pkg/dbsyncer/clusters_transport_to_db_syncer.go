@@ -96,8 +96,8 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		clusterFromDB := clustersFromDB[index]
 		clustersFromDB = append(clustersFromDB[:index], clustersFromDB[index+1:]...) // remove from objectsFromDB
 
-		if cluster.GetResourceVersion() <= clusterFromDB.ResourceVersion {
-			continue // sync object to db only if what we got is a newer version of the resource
+		if cluster.GetResourceVersion() == clusterFromDB.ResourceVersion {
+			continue // sync object to db only if what we got is a different version of the resource
 		}
 
 		if err = dbConn.UpdateManagedCluster(ctx, managedClustersTableName, clusterName, leafHubName, object,
