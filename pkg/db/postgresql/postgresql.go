@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
 )
 
 const (
@@ -48,20 +48,20 @@ func (p *PostgreSQL) GetPoolSize() int32 {
 
 // GetManagedClustersByLeafHub returns list of managed clusters by leaf hub name.
 func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName string,
-	leafHubName string) ([]*db.ClusterKeyAndVersion, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name,resource_version FROM status.%s WHERE 
-			leaf_hub_name=$1`, tableName), leafHubName)
+	leafHubName string) (datastructures.HashSet, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1`,
+		tableName), leafHubName)
 	defer rows.Close()
 
-	result := make([]*db.ClusterKeyAndVersion, 0)
+	result := datastructures.NewHashSet()
 
 	for rows.Next() {
-		object := db.ClusterKeyAndVersion{}
-		if err := rows.Scan(&object.ClusterName, &object.ResourceVersion); err != nil {
+		clusterName := ""
+		if err := rows.Scan(&clusterName); err != nil {
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
-		result = append(result, &object)
+		result.Add(clusterName)
 	}
 
 	return result, nil
@@ -114,13 +114,13 @@ func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string,
 }
 
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
-func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string,
-	error) {
+func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) (
+	datastructures.HashSet, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM status.%s WHERE leaf_hub_name=$1`,
 		tableName), leafHubName)
 	defer rows.Close()
 
-	result := make([]string, 0)
+	result := datastructures.NewHashSet()
 
 	for rows.Next() {
 		policyID := ""
@@ -128,7 +128,7 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
-		result = append(result, policyID)
+		result.Add(policyID)
 	}
 
 	return result, nil
@@ -136,12 +136,12 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string
 
 // GetComplianceClustersByLeafHubAndPolicy returns list of clusters by leaf hub and policy.
 func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
-	policyID string) ([]string, error) {
+	policyID string) (datastructures.HashSet, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2`, tableName), leafHubName, policyID)
 	defer rows.Close()
 
-	result := make([]string, 0)
+	result := datastructures.NewHashSet()
 
 	for rows.Next() {
 		clusterName := ""
@@ -149,7 +149,7 @@ func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
-		result = append(result, clusterName)
+		result.Add(clusterName)
 	}
 
 	return result, nil
@@ -157,13 +157,13 @@ func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context
 
 // GetNonCompliantClustersByLeafHubAndPolicy returns a list of non compliant clusters by leaf hub and policy.
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string,
-	leafHubName string, policyID string) ([]string, error) {
+	leafHubName string, policyID string) (datastructures.HashSet, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2 AND compliance!='compliant'`, tableName),
 		leafHubName, policyID)
 	defer rows.Close()
 
-	result := make([]string, 0)
+	result := datastructures.NewHashSet()
 
 	for rows.Next() {
 		clusterName := ""
@@ -171,7 +171,7 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Conte
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
-		result = append(result, clusterName)
+		result.Add(clusterName)
 	}
 
 	return result, nil

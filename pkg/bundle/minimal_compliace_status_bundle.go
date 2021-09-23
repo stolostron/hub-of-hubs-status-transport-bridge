@@ -1,6 +1,8 @@
 package bundle
 
-import statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+import (
+	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+)
 
 // NewMinimalComplianceStatusBundle creates a new minimal compliance status bundle with no data in it.
 func NewMinimalComplianceStatusBundle() *MinimalComplianceStatusBundle {
