@@ -15,6 +15,7 @@ func NewManagedClustersStatusBundle() *ManagedClustersStatusBundle {
 type ManagedClustersStatusBundle struct {
 	Objects     []*clusterv1.ManagedCluster `json:"objects"`
 	LeafHubName string                      `json:"leafHubName"`
+	Incarnation uint64                      `json:"incarnation"`
 	Generation  uint64                      `json:"generation"`
 }
 
@@ -39,6 +40,6 @@ func (bundle *ManagedClustersStatusBundle) GetDependency() *DependencyBundle {
 }
 
 // GetGeneration returns the bundle generation.
-func (bundle *ManagedClustersStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
+func (bundle *ManagedClustersStatusBundle) GetGeneration() (uint64, uint64) {
+	return bundle.Incarnation, bundle.Generation
 }

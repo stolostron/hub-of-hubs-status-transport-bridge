@@ -33,6 +33,6 @@ func (bundle *MinimalComplianceStatusBundle) GetDependency() *DependencyBundle {
 }
 
 // GetGeneration returns the bundle generation.
-func (bundle *MinimalComplianceStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
+func (bundle *MinimalComplianceStatusBundle) GetGeneration() (uint64, uint64) {
+	return bundle.Incarnation, bundle.Generation
 }

@@ -26,3 +26,43 @@ func GetBundleType(bundle bundle.Bundle) string {
 	array := strings.Split(fmt.Sprintf("%T", bundle), ".")
 	return array[len(array)-1]
 }
+
+// CompareBundleGenerations checks generations of two bundles and returns:
+//
+// -1 if bundleL >(gen) bundleR.
+//
+// 0 if bundleL ==(gen) bundleR.
+//
+// 1 if bundleL <(gen) bundleR.
+func CompareBundleGenerations(bundleL, bundleR bundle.Bundle) int {
+	// bundle generation is formatted as INCARNATION.GENERATION (uint64.uint64)
+	incarnationL, generationL := bundleL.GetGeneration()
+	incarnationR, generationR := bundleR.GetGeneration()
+
+	return CompareIncarnationGenerationPairs(incarnationL, generationL, incarnationR, generationR)
+}
+
+// CompareIncarnationGenerationPairs compares pairs of (incarnation, generation) of L and R:
+//
+// -1 if L > R.
+//
+// 0 if L == R.
+//
+// 1 if L < R.
+func CompareIncarnationGenerationPairs(incarnationL, generationL, incarnationR, generationR uint64) int {
+	if incarnationL < incarnationR {
+		return 1
+	} else if incarnationL > incarnationR {
+		return -1
+	}
+
+	// incarnations are equal, check generations
+	if generationL < generationR {
+		return 1
+	} else if generationL > generationR {
+		return -1
+	}
+
+	// equal
+	return 0
+}

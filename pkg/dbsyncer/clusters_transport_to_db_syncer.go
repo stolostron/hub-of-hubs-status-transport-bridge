@@ -65,8 +65,10 @@ func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflation
 func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,
 	dbConn db.StatusTransportBridgeDB) error {
 	leafHubName := bundle.GetLeafHubName()
-	syncer.log.Info("start handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName, "Generation",
-		bundle.GetGeneration())
+	bundleIncarnation, bundleGeneration := bundle.GetGeneration()
+
+	syncer.log.Info("start handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName,
+		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
 
 	clustersFromDB, err := dbConn.GetManagedClustersByLeafHub(ctx, managedClustersTableName, leafHubName)
 	if err != nil {
@@ -112,7 +114,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	}
 
 	syncer.log.Info("finished handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundle.GetGeneration())
+		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
 
 	return nil
 }
