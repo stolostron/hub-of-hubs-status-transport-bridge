@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
 // NewDBWorker creates a new instance of DBWorker.
@@ -57,13 +58,18 @@ func (worker *DBWorker) start(ctx context.Context) {
 				return
 
 			case job := <-worker.jobsQueue: // DBWorker received a job request.
-				worker.log.Info("received DB job", "WorkerID", worker.workerID)
+				worker.log.Info("received DB job", "WorkerID", worker.workerID, "BundleType",
+					helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(), "Generation",
+					job.bundle.GetGeneration())
 
 				startTime := time.Now()
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
 				worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime))
 				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
-				worker.log.Info("finished processing DB job", "WorkerID", worker.workerID)
+
+				worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
+					"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
+					"Generation", job.bundle.GetGeneration())
 			}
 		}
 	}()
