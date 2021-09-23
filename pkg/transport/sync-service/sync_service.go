@@ -29,19 +29,6 @@ var (
 	errSyncServiceReadFailed = errors.New("sync service error")
 )
 
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	log                    logr.Logger
-	client                 *client.SyncServiceClient
-	pollingInterval        int
-	objectsMetaDataChan    chan *client.ObjectMetaData
-	stopChan               chan struct{}
-	conflationManager      *conflator.ConflationManager
-	msgIDToRegistrationMap map[string]*transport.BundleRegistration
-	startOnce              sync.Once
-	stopOnce               sync.Once
-}
-
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationManager) (*SyncService, error) {
 	serverProtocol, host, port, pollingInterval, err := readEnvVars()
@@ -63,6 +50,19 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 		stopChan:               make(chan struct{}, 1),
 	}, nil
+}
+
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	log                    logr.Logger
+	client                 *client.SyncServiceClient
+	pollingInterval        int
+	objectsMetaDataChan    chan *client.ObjectMetaData
+	stopChan               chan struct{}
+	conflationManager      *conflator.ConflationManager
+	msgIDToRegistrationMap map[string]*transport.BundleRegistration
+	startOnce              sync.Once
+	stopOnce               sync.Once
 }
 
 func readEnvVars() (string, string, uint16, int, error) {
@@ -102,10 +102,12 @@ func readEnvVars() (string, string, uint16, int, error) {
 }
 
 // Start function starts sync service.
-func (s *SyncService) Start() {
+func (s *SyncService) Start() error {
 	s.startOnce.Do(func() {
 		go s.handleBundles()
 	})
+
+	return nil
 }
 
 // Stop function stops sync service.
@@ -122,7 +124,7 @@ func (s *SyncService) Register(registration *transport.BundleRegistration) {
 }
 
 func (s *SyncService) handleBundles() {
-	// register for updates for spec bundles, this include all types of spec bundles each with a different id.
+	// register for updates for spec bundles, this includes all types of spec bundles each with a different id.
 	s.client.StartPollingForUpdates(datatypes.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
 
 	for {
@@ -156,7 +158,7 @@ func (s *SyncService) handleBundles() {
 				continue
 			}
 
-			s.conflationManager.Insert(receivedBundle, objectMetaData)
+			s.conflationManager.Insert(receivedBundle, transport.BundleMetadata{})
 
 			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
 				s.log.Error(err, "failed to report object received to sync service")
