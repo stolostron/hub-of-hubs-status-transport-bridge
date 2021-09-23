@@ -24,7 +24,7 @@ type ManagedClustersStatusDB interface {
 
 // PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
 type PoliciesStatusDB interface {
-	ManagedClusterExists(ctx context.Context, tableName string, leafHubName string, objName string) bool
+	ManagedClusterExists(ctx context.Context, tableName string, leafHubName string, clusterName string) bool
 	GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string, error)
 	GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
 		policyID string) ([]string, error)
