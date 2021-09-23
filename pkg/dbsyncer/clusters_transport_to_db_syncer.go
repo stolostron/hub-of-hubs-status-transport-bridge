@@ -84,7 +84,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 		index, err := getClusterIndexByName(clustersFromDB, clusterName)
 		if err != nil { // cluster not found in the db table
-			if err = dbConn.InsertManagedCluster(ctx, managedClustersTableName, clusterName, leafHubName, object,
+			if err = dbConn.InsertManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
 				cluster.GetResourceVersion()); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' to the DB - %w", clusterName,
 					leafHubName, err)
@@ -100,7 +100,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			continue // sync object to db only if what we got is a different version of the resource
 		}
 
-		if err = dbConn.UpdateManagedCluster(ctx, managedClustersTableName, clusterName, leafHubName, object,
+		if err = dbConn.UpdateManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
 			cluster.GetResourceVersion()); err != nil {
 			return fmt.Errorf("failed to update cluster '%s' from leaf hub '%s' in the DB - %w", clusterName,
 				leafHubName, err)
@@ -124,7 +124,7 @@ func (syncer *ManagedClustersDBSyncer) deleteClustersFromDB(ctx context.Context,
 			continue
 		}
 
-		if err := dbConn.DeleteManagedCluster(ctx, managedClustersTableName, obj.ClusterName, leafHubName); err != nil {
+		if err := dbConn.DeleteManagedCluster(ctx, managedClustersTableName, leafHubName, obj.ClusterName); err != nil {
 			return fmt.Errorf("failed to delete cluster '%s' from leaf hub '%s' from the DB - %w",
 				obj.ClusterName, leafHubName, err)
 		}
