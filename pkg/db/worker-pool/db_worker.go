@@ -49,6 +49,7 @@ func (worker *DBWorker) start(ctx context.Context) {
 			// this is done in each iteration after the worker finished handling a job (or at startup),
 			// for receiving a new job to handle.
 			worker.dbWorkersPool <- worker
+			worker.statistics.SetNumberOfAvailableDBWorkers(len(worker.dbWorkersPool))
 
 			select {
 			case <-ctx.Done(): // we have received a signal to stop

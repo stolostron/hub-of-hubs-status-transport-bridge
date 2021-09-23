@@ -30,18 +30,18 @@ func NewStatistics(log logr.Logger) *Statistics {
 // TimeMeasurement contains average and maximum times in milliseconds.
 type TimeMeasurement struct {
 	count         int64
-	totalDuration time.Duration // in milliseconds
-	maxDuration   time.Duration // in milliseconds
+	totalDuration int64 // in milliseconds
+	maxDuration   int64 // in milliseconds
 }
 
 func (tm *TimeMeasurement) add(duration time.Duration) {
-	duration /= time.Millisecond
+	durationMilliseconds := duration.Milliseconds()
 
 	tm.count++
-	tm.totalDuration += duration
+	tm.totalDuration += durationMilliseconds
 
-	if tm.maxDuration < duration {
-		tm.maxDuration = duration
+	if tm.maxDuration < durationMilliseconds {
+		tm.maxDuration = durationMilliseconds
 	}
 }
 
@@ -50,7 +50,7 @@ func (tm *TimeMeasurement) average() float64 {
 		return 0
 	}
 
-	return float64(int64(tm.totalDuration) / tm.count)
+	return float64(tm.totalDuration / tm.count)
 }
 
 // BundleMetrics aggregates metrics per specific bundle type.
@@ -78,7 +78,7 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 	s.conflationReadyQueueSize = size
 }
 
-// Start starts the dispatcher.
+// Start starts the statistics.
 func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()

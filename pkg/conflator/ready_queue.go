@@ -35,7 +35,7 @@ func (rq *ConflationReadyQueue) Enqueue(cu *ConflationUnit) {
 	rq.queue.PushBack(cu)
 	rq.notEmptyCondition.Signal() // Signal wakes another goroutine waiting on BlockingDequeue
 
-	rq.statistics.SetConflationReadyQueueSize(rq.Size())
+	rq.statistics.SetConflationReadyQueueSize(rq.queue.Len())
 }
 
 // BlockingDequeue pops ConflationUnit from the beginning of the queue. if no CU is ready, this call is blocking.
@@ -48,18 +48,13 @@ func (rq *ConflationReadyQueue) BlockingDequeue() *ConflationUnit {
 	}
 
 	conflationUnit, ok := rq.queue.Remove(rq.queue.Front()).(*ConflationUnit) // conflation unit is inside element.Value
-	rq.statistics.SetConflationReadyQueueSize(rq.Size())
+	rq.statistics.SetConflationReadyQueueSize(rq.queue.Len())
 
 	if !ok {
 		return nil
 	}
 
 	return conflationUnit
-}
-
-// Size returns size of the queue.
-func (rq *ConflationReadyQueue) Size() int {
-	return rq.queue.Len()
 }
 
 func (rq *ConflationReadyQueue) isEmpty() bool {
