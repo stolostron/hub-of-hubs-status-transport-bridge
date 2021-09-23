@@ -37,20 +37,15 @@ func (cm *ConflationManager) Insert(bundle bundle.Bundle, metadata transport.Bun
 
 // if conflation unit doesn't exist for leaf hub, creates it.
 func (cm *ConflationManager) getConflationUnit(leafHubName string) *ConflationUnit {
-	// if CU found - return it
+	cm.lock.Lock() // use lock to find/create conflation units
+	defer cm.lock.Unlock()
+
 	if conflationUnit, found := cm.conflationUnits[leafHubName]; found {
 		return conflationUnit
 	}
-
-	// double-checked locking to return or create and return CU
-	cm.lock.Lock()
-	defer cm.lock.Unlock()
-
-	conflationUnit := cm.conflationUnits[leafHubName]
-	if conflationUnit == nil {
-		conflationUnit = newConflationUnit(cm.readyQueue, cm.registrations)
-		cm.conflationUnits[leafHubName] = conflationUnit
-	}
+	// otherwise, need to create conflation unit
+	conflationUnit := newConflationUnit(cm.readyQueue, cm.registrations)
+	cm.conflationUnits[leafHubName] = conflationUnit
 
 	return conflationUnit
 }
