@@ -60,9 +60,15 @@ func (worker *DBWorker) start(ctx context.Context) {
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
 				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 
-				worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
-					"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
-					"Generation", job.bundle.GetGeneration())
+				if err != nil {
+					worker.log.Error(err, "failed processing DB job", "WorkerID", worker.workerID,
+						"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
+						"Generation", job.bundle.GetGeneration())
+				} else {
+					worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
+						"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
+						"Generation", job.bundle.GetGeneration())
+				}
 			}
 		}
 	}()
