@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 )
 
 // NewDBWorker creates a new instance of DBWorker.
