@@ -22,6 +22,7 @@ const (
 	envVarSyncServiceHost            = "SYNC_SERVICE_HOST"
 	envVarSyncServicePort            = "SYNC_SERVICE_PORT"
 	envVarSyncServicePollingInterval = "SYNC_SERVICE_POLLING_INTERVAL"
+	channelSize                      = 1000
 )
 
 var (
@@ -58,7 +59,7 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 		log:                    log,
 		client:                 syncServiceClient,
 		pollingInterval:        pollingInterval,
-		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
+		objectsMetaDataChan:    make(chan *client.ObjectMetaData, channelSize),
 		conflationManager:      conflationManager,
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 		stopChan:               make(chan struct{}, 1),
