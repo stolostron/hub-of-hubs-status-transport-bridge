@@ -31,8 +31,11 @@ func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 }
 
 // Insert function inserts the bundle to the appropriate conflation unit.
-func (cm *ConflationManager) Insert(bundle bundle.Bundle, metadata transport.BundleMetadata) {
-	cm.getConflationUnit(bundle.GetLeafHubName()).insert(bundle, metadata)
+func (cm *ConflationManager) Insert(bundle bundle.Bundle, metadata transport.BundleMetadata) *ConflationUnit {
+	cu := cm.getConflationUnit(bundle.GetLeafHubName())
+	cu.insert(bundle, metadata)
+
+	return cu
 }
 
 // if conflation unit doesn't exist for leaf hub, creates it.
