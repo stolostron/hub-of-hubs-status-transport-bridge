@@ -67,9 +67,13 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	bundleType := helpers.GetBundleType(bundle)
 	priority := cu.bundleTypeToPriority[bundleType]
 
+	if bundle.GetGeneration() <= cu.priorityQueue[priority].lastProcessedBundleGeneration {
+		return // we got old bundle, a newer bundle was already processed.
+	}
+
 	if cu.priorityQueue[priority].bundle != nil &&
 		bundle.GetGeneration() <= cu.priorityQueue[priority].bundle.GetGeneration() {
-		return // insert bundle only if the generation we got is newer, otherwise do nothing.
+		return // insert bundle only if generation we got is newer than what we have in memory, otherwise do nothing.
 	}
 
 	// if we got here, we got bundle with newer generation
