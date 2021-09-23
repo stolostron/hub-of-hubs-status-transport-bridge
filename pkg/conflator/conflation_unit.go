@@ -31,32 +31,35 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 
 	for _, registration := range registrations {
 		priorityQueue[registration.Priority] = &conflationElement{
-			bundleType:                    registration.BundleType,
-			bundle:                        nil,
-			bundleMetadata:                nil,
-			handlerFunction:               registration.HandlerFunction,
-			isInProcess:                   false,
-			lastProcessedBundleGeneration: 0, // no generation was processed yet
+			bundleType:                     registration.BundleType,
+			bundle:                         nil,
+			bundleMetadata:                 nil,
+			handlerFunction:                registration.HandlerFunction,
+			isInProcess:                    false,
+			lastProcessedBundleIncarnation: 0,
+			lastProcessedBundleGeneration:  0, // no generation was processed yet
 		}
 		bundleTypeToPriority[registration.BundleType] = registration.Priority
 	}
 
 	return &ConflationUnit{
-		priorityQueue:        priorityQueue,
-		bundleTypeToPriority: bundleTypeToPriority,
-		readyQueue:           readyQueue,
-		isInReadyQueue:       false,
-		lock:                 sync.Mutex{},
+		priorityQueue:           priorityQueue,
+		bundleTypeToPriority:    bundleTypeToPriority,
+		readyQueue:              readyQueue,
+		bundleMetadataInProcess: nil,
+		isInReadyQueue:          false,
+		lock:                    sync.Mutex{},
 	}
 }
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	priorityQueue        []*conflationElement
-	bundleTypeToPriority map[string]conflationPriority
-	readyQueue           *ConflationReadyQueue
-	isInReadyQueue       bool
-	lock                 sync.Mutex
+	priorityQueue           []*conflationElement
+	bundleTypeToPriority    map[string]conflationPriority
+	readyQueue              *ConflationReadyQueue
+	bundleMetadataInProcess *BundleMetadata
+	isInReadyQueue          bool
+	lock                    sync.Mutex
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
@@ -68,7 +71,7 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	priority := cu.bundleTypeToPriority[bundleType]
 
 	if cu.priorityQueue[priority].bundle != nil &&
-		bundle.GetGeneration() <= cu.priorityQueue[priority].bundle.GetGeneration() {
+		helpers.CompareBundleGenerations(bundle, cu.priorityQueue[priority].bundle) >= 0 {
 		return // insert bundle only if the generation we got is newer, otherwise do nothing.
 	}
 
@@ -76,12 +79,14 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
+	incarnation, generation := bundle.GetGeneration()
 	if cu.priorityQueue[priority].bundleMetadata != nil && !cu.priorityQueue[priority].isInProcess {
-		cu.priorityQueue[priority].bundleMetadata.update(bundle.GetGeneration(), metadata)
+		cu.priorityQueue[priority].bundleMetadata.update(incarnation, generation, metadata)
 	} else {
 		cu.priorityQueue[priority].bundleMetadata = &BundleMetadata{
 			bundleType:              bundleType,
-			generation:              bundle.GetGeneration(),
+			incarnation:             incarnation,
+			generation:              generation,
 			transportBundleMetadata: metadata,
 		}
 	}
@@ -97,7 +102,7 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 
 	nextBundleToProcessPriority := cu.getNextReadyBundlePriority()
 	if nextBundleToProcessPriority == invalidPriority { // CU adds itself to RQ only when it has ready to process bundle
-		return nil, nil, nil, errNoReadyBundle // therefore this shouldn't happen
+		return nil, nil, nil, errNoReadyBundle // therefore, this shouldn't happen
 	}
 
 	conflationElement := cu.priorityQueue[nextBundleToProcessPriority]
@@ -114,26 +119,46 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	defer cu.lock.Unlock()
 
 	priority := cu.bundleTypeToPriority[metadata.bundleType] // priority of the bundle that was processed
-	cu.priorityQueue[priority].isInProcess = false           // finished processing bundle
+	conflationElement := cu.priorityQueue[priority]
+	conflationElement.isInProcess = false // finished processing bundle
 
 	if err != nil {
 		cu.addCUToReadyQueueIfNeeded()
 		return
 	}
-	// otherwise err is nil, means bundle processing finished successfully
-	if metadata.generation > cu.priorityQueue[priority].lastProcessedBundleGeneration {
-		cu.priorityQueue[priority].lastProcessedBundleGeneration = metadata.generation
+	// otherwise, err is nil, means bundle processing finished successfully
+	if helpers.CompareIncarnationGenerationPairs(metadata.incarnation, metadata.generation,
+		conflationElement.lastProcessedBundleIncarnation, conflationElement.lastProcessedBundleGeneration) < 0 {
+		conflationElement.lastProcessedBundleIncarnation = metadata.incarnation
+		conflationElement.lastProcessedBundleGeneration = metadata.generation
 	}
 	// if bundle wasn't updated since GetNext was called - delete bundle + metadata since it was already processed
-	if metadata.generation == cu.priorityQueue[priority].bundle.GetGeneration() {
-		cu.priorityQueue[priority].bundle = nil
-		cu.priorityQueue[priority].bundleMetadata = nil
+	if helpers.CompareIncarnationGenerationPairs(metadata.incarnation, metadata.generation,
+		conflationElement.lastProcessedBundleIncarnation, conflationElement.lastProcessedBundleGeneration) == 0 {
+		// we won't throw the metadata since the committer may use it
+		conflationElement.bundleMetadata.transportBundleMetadata.Processed = true
+		conflationElement.bundle = nil
 	}
 
-	// TODO metadata should be sent to transport committer when the component is implemented
-	// transportCommitter.MarkAsConsumed(metadata)
-
 	cu.addCUToReadyQueueIfNeeded()
+}
+
+// GetBundlesMetadata provides collections of the CU's bundle transport-metadata.
+func (cu *ConflationUnit) GetBundlesMetadata() []*transport.BundleMetadata {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
+
+	bundlesMetadata := make([]*transport.BundleMetadata, 0, len(cu.priorityQueue))
+
+	for _, element := range cu.priorityQueue {
+		if element.bundleMetadata == nil {
+			continue
+		}
+
+		bundlesMetadata = append(bundlesMetadata, &element.bundleMetadata.transportBundleMetadata)
+	}
+
+	return bundlesMetadata
 }
 
 func (cu *ConflationUnit) isInProcess() bool {
@@ -158,7 +183,6 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 	}
 }
 
-// returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
 		if conflationElement.bundle != nil && !conflationElement.isInProcess &&
@@ -173,12 +197,16 @@ func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 // dependencies are organized in a chain.
 func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
 	dependency := bundleToCheck.GetDependency()
-	if dependency == nil { // bundle has no dependency
+	if dependency == nil {
 		return true
 	}
 
 	dependencyIndex := cu.bundleTypeToPriority[dependency.BundleType]
-	if dependency.Generation > cu.priorityQueue[dependencyIndex].lastProcessedBundleGeneration {
+	dependencyConflationElement := cu.priorityQueue[dependencyIndex]
+
+	if helpers.CompareIncarnationGenerationPairs(dependency.Incarnation, dependency.Generation,
+		dependencyConflationElement.lastProcessedBundleIncarnation,
+		dependencyConflationElement.lastProcessedBundleGeneration) < 0 {
 		return false // the needed dependency generation wasn't processed yet
 	}
 

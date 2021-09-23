@@ -5,10 +5,11 @@ import (
 )
 
 type conflationElement struct {
-	bundleType                    string
-	bundle                        bundle.Bundle
-	bundleMetadata                *BundleMetadata
-	handlerFunction               BundleHandlerFunc
-	isInProcess                   bool
-	lastProcessedBundleGeneration uint64
+	bundleType                     string
+	bundle                         bundle.Bundle
+	bundleMetadata                 *BundleMetadata
+	handlerFunction                BundleHandlerFunc
+	isInProcess                    bool
+	lastProcessedBundleIncarnation uint64
+	lastProcessedBundleGeneration  uint64
 }
