@@ -1,6 +1,10 @@
 package db
 
-import "golang.org/x/net/context"
+import (
+	"context"
+
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
+)
 
 // StatusTransportBridgeDB is the db interface required by status transport bridge.
 type StatusTransportBridgeDB interface {
@@ -13,8 +17,8 @@ type StatusTransportBridgeDB interface {
 
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
 type ManagedClustersStatusDB interface {
-	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]*ClusterKeyAndVersion,
-		error)
+	// GetManagedClustersByLeafHub returns a map from clusterName to its resourceVersion
+	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) (map[string]string, error)
 	InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
 		payload interface{}, version string) error
 	UpdateManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
@@ -24,12 +28,11 @@ type ManagedClustersStatusDB interface {
 
 // PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
 type PoliciesStatusDB interface {
-	ManagedClusterExists(ctx context.Context, tableName string, leafHubName string, clusterName string) bool
-	GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string, error)
+	GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) (datastructures.HashSet, error)
 	GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
-		policyID string) ([]string, error)
+		policyID string) (datastructures.HashSet, error)
 	GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
-		policyID string) ([]string, error)
+		policyID string) (datastructures.HashSet, error)
 	InsertPolicyCompliance(ctx context.Context, tableName string, leafHubName string, clusterName string,
 		policyID string, errorString string, compliance string, enforcement string, version string) error
 	UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, leafHubName string, policyID string,

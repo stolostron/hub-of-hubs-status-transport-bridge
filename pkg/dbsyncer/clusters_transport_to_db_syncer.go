@@ -15,10 +15,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
-var (
-	errObjectNotFound          = errors.New("object not found")
-	errObjectNotManagedCluster = errors.New("failed to parse object in bundle to a managed cluster")
-)
+var errObjectNotManagedCluster = errors.New("failed to parse object in bundle to a managed cluster")
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
 func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
@@ -81,9 +78,9 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		}
 
 		clusterName := cluster.GetName()
+		resourceVersionFromDB, clusterExists := clustersFromDB[clusterName]
 
-		index, err := getClusterIndexByName(clustersFromDB, clusterName)
-		if err != nil { // cluster not found in the db table
+		if !clusterExists { // cluster not found in the db table
 			if err = dbConn.InsertManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
 				cluster.GetResourceVersion()); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' to the DB - %w", clusterName,
@@ -92,12 +89,11 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 			continue
 		}
-		// if we got here, the object exists both in db and in the received bundle.
-		clusterFromDB := clustersFromDB[index]
-		clustersFromDB = append(clustersFromDB[:index], clustersFromDB[index+1:]...) // remove from objectsFromDB
+		// if we got here, the managed cluster exists both in db and in the received bundle.
+		delete(clustersFromDB, clusterName)
 
-		if cluster.GetResourceVersion() == clusterFromDB.ResourceVersion {
-			continue // sync object to db only if what we got is a different version of the resource
+		if cluster.GetResourceVersion() == resourceVersionFromDB {
+			continue // sync cluster to db only if what we got is a different version of the resource
 		}
 
 		if err = dbConn.UpdateManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
@@ -106,7 +102,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 				leafHubName, err)
 		}
 	}
-	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+	// delete clusters that in the db but were not sent in the bundle (leaf hub sends only living resources).
 	if err = syncer.deleteClustersFromDB(ctx, dbConn, leafHubName, clustersFromDB); err != nil {
 		return fmt.Errorf("failed deleting clusters from db - %w", err)
 	}
@@ -118,27 +114,13 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 }
 
 func (syncer *ManagedClustersDBSyncer) deleteClustersFromDB(ctx context.Context, dbConn db.StatusTransportBridgeDB,
-	leafHubName string, clustersFromDB []*db.ClusterKeyAndVersion) error {
-	for _, obj := range clustersFromDB {
-		if obj == nil {
-			continue
-		}
-
-		if err := dbConn.DeleteManagedCluster(ctx, managedClustersTableName, leafHubName, obj.ClusterName); err != nil {
+	leafHubName string, clustersFromDB map[string]string) error {
+	for clusterName := range clustersFromDB {
+		if err := dbConn.DeleteManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName); err != nil {
 			return fmt.Errorf("failed to delete cluster '%s' from leaf hub '%s' from the DB - %w",
-				obj.ClusterName, leafHubName, err)
+				clusterName, leafHubName, err)
 		}
 	}
 
 	return nil
-}
-
-func getClusterIndexByName(objects []*db.ClusterKeyAndVersion, clusterName string) (int, error) {
-	for i, object := range objects {
-		if object.ClusterName == clusterName {
-			return i, nil
-		}
-	}
-
-	return -1, fmt.Errorf("%w - %s", errObjectNotFound, clusterName)
 }

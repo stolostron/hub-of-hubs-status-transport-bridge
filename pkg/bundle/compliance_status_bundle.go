@@ -33,15 +33,15 @@ func (bundle *ComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *ComplianceStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
-}
-
 // GetDependency return the bundle dependency or nil in case there is no dependency.
 func (bundle *ComplianceStatusBundle) GetDependency() *DependencyBundle {
 	return &DependencyBundle{
 		BundleType: clustersPerPolicyBundleType,
 		Generation: bundle.BaseBundleGeneration,
 	}
+}
+
+// GetGeneration returns the bundle generation.
+func (bundle *ComplianceStatusBundle) GetGeneration() uint64 {
+	return bundle.Generation
 }
