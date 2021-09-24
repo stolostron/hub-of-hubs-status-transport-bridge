@@ -10,7 +10,6 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -79,8 +78,9 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		}
 
 		clusterName := cluster.GetName()
+		resourceVersionFromDB, clusterExists := clustersFromDB[clusterName]
 
-		if !clustersFromDB.Exists(clusterName) { // cluster not found in the db table
+		if !clusterExists { // cluster not found in the db table
 			if err = dbConn.InsertManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
 				cluster.GetResourceVersion()); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' to the DB - %w", clusterName,
@@ -90,7 +90,11 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 			continue
 		}
 		// if we got here, the managed cluster exists both in db and in the received bundle.
-		clustersFromDB.Delete(clusterName)
+		delete(clustersFromDB, clusterName)
+
+		if cluster.GetResourceVersion() == resourceVersionFromDB {
+			continue // sync cluster to db only if what we got is a different version of the resource
+		}
 
 		if err = dbConn.UpdateManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
 			cluster.GetResourceVersion()); err != nil {
@@ -110,7 +114,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 }
 
 func (syncer *ManagedClustersDBSyncer) deleteClustersFromDB(ctx context.Context, dbConn db.StatusTransportBridgeDB,
-	leafHubName string, clustersFromDB datastructures.HashSet) error {
+	leafHubName string, clustersFromDB map[string]string) error {
 	for clusterName := range clustersFromDB {
 		if err := dbConn.DeleteManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName); err != nil {
 			return fmt.Errorf("failed to delete cluster '%s' from leaf hub '%s' from the DB - %w",

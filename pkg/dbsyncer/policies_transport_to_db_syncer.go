@@ -155,7 +155,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 
 func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbConn db.StatusTransportBridgeDB,
 	leafHubName string, bundleGeneration uint64, clustersPerPolicy *statusbundle.ClustersPerPolicy,
-	clustersFromDB datastructures.HashSet) error {
+	clustersFromDB map[string]string) error {
 	complianceClustersFromDB, err := dbConn.GetComplianceClustersByLeafHubAndPolicy(ctx, complianceTableName,
 		leafHubName, clustersPerPolicy.PolicyID) // compliance clusters are fetched from compliance table
 	if err != nil {
@@ -165,7 +165,7 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 	for _, clusterName := range clustersPerPolicy.Clusters { // go over the clusters per policy from bundle
 		// check if cluster not found in the compliance table (and exists in managed clusters status table)
 		if !complianceClustersFromDB.Exists(clusterName) {
-			if !clustersFromDB.Exists(clusterName) { // cluster does not exist in the managed clusters table
+			if _, exists := clustersFromDB[clusterName]; !exists { // cluster doesn't exist in managed clusters table
 				return fmt.Errorf(`%w from leaf hub '%s', generation %d - cluster '%s' doesn't exist`,
 					errFailedToHandleClustersPerPolicy, leafHubName, bundleGeneration, clusterName)
 			}

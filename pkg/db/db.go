@@ -17,8 +17,8 @@ type StatusTransportBridgeDB interface {
 
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
 type ManagedClustersStatusDB interface {
-	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) (datastructures.HashSet,
-		error)
+	// GetManagedClustersByLeafHub returns a map from clusterName to its resourceVersion
+	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) (map[string]string, error)
 	InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
 		payload interface{}, version string) error
 	UpdateManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,

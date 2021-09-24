@@ -48,20 +48,22 @@ func (p *PostgreSQL) GetPoolSize() int32 {
 
 // GetManagedClustersByLeafHub returns list of managed clusters by leaf hub name.
 func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName string,
-	leafHubName string) (datastructures.HashSet, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM status.%s WHERE leaf_hub_name=$1`,
-		tableName), leafHubName)
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name,resource_version FROM status.%s WHERE 
+		leaf_hub_name=$1`, tableName), leafHubName)
 	defer rows.Close()
 
-	result := datastructures.NewHashSet()
+	result := make(map[string]string)
 
 	for rows.Next() {
 		clusterName := ""
-		if err := rows.Scan(&clusterName); err != nil {
+		resourceVersion := ""
+
+		if err := rows.Scan(&clusterName, &resourceVersion); err != nil {
 			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
 		}
 
-		result.Add(clusterName)
+		result[clusterName] = resourceVersion
 	}
 
 	return result, nil
