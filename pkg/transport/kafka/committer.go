@@ -32,7 +32,7 @@ func NewCommitter(log logr.Logger, commitPositionsFunc CommitPositionsFunc) (*Co
 	return &Committer{
 		log:                 log,
 		commitPositionsFunc: commitPositionsFunc,
-		users:               make(map[User]struct{}),
+		users:               make(map[transport.Consumer]struct{}),
 		interval:            committerInterval,
 		lock:                sync.Mutex{},
 	}, nil
@@ -42,7 +42,7 @@ func NewCommitter(log logr.Logger, commitPositionsFunc CommitPositionsFunc) (*Co
 type Committer struct {
 	log                 logr.Logger
 	commitPositionsFunc CommitPositionsFunc
-	users               map[User]struct{}
+	users               map[transport.Consumer]struct{}
 	interval            time.Duration
 	lock                sync.Mutex
 }
@@ -62,8 +62,8 @@ func (c *Committer) Start(stopChannel <-chan struct{}) {
 	}
 }
 
-// AddUser adds a transport-User that the committer will refer to when looking for offsets to commit.
-func (c *Committer) AddUser(user User) {
+// AddTransportConsumer adds a transport-Consumer that the committer will refer to when looking for offsets to commit.
+func (c *Committer) AddTransportConsumer(user transport.Consumer) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -85,7 +85,7 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 
 			// fill map with the lowest offsets per partition via iterating over all registered users
 			for User := range c.users {
-				// get metadata (pending, non-pending) from User
+				// get metadata (pending, non-pending) from Consumer
 				bundlesMetadata := User.GetBundlesMetadata()
 				// extract the lowest per partition in the pending bundles, the highest per partition in the
 				// processed bundles

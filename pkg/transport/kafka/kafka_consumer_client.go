@@ -21,7 +21,7 @@ const (
 // CommitPositionsFunc is the function the kafka transport provides for committing positions.
 type CommitPositionsFunc func(positions map[int32]*transport.BundleMetadata) error
 
-// NewConsumer creates a new instance of User.
+// NewConsumer creates a new instance of Consumer.
 func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager) (*Consumer, error) {
 	msgChan := make(chan *kafka.Message, bufferedChannelSize)
 
@@ -45,6 +45,9 @@ func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager
 	if err != nil {
 		return nil, fmt.Errorf("failed to create committer: %w", err)
 	}
+
+	// add conflation manager to committer consumers
+	consumer.committer.AddTransportConsumer(conflationManager)
 
 	return consumer, nil
 }
@@ -112,22 +115,21 @@ func (c *Consumer) commitAsync(metadata *transport.BundleMetadata) error {
 		}
 	}
 
-	offsets := []kafka.TopicPartition{
-		{
-			Topic:     &metadata.Topic,
-			Partition: metadata.Partition,
-			Offset:    kafka.Offset(metadata.Offset),
-		},
+	topicPartition := kafka.TopicPartition{
+		Topic:     &metadata.Topic,
+		Partition: metadata.Partition,
+		// offset + 1 because when kafka commits offset X, on next load it starts from offset X, not after it.
+		Offset: kafka.Offset(metadata.Offset) + 1,
 	}
 
-	if _, err := c.kafkaConsumer.Consumer().CommitOffsets(offsets); err != nil {
+	if _, err := c.kafkaConsumer.Consumer().CommitOffsets([]kafka.TopicPartition{topicPartition}); err != nil {
 		return fmt.Errorf("%w", err)
 	}
 
 	// log success and update commitsMap
-	c.log.Info("committed offset", "topic", metadata.Topic, "partition", metadata.Partition, "offset",
-		metadata.Offset)
-	c.updateOffsetsMap(c.commitsMap, metadata.Topic, metadata.Partition, kafka.Offset(metadata.Offset))
+	c.log.Info("committed offset", "topic", topicPartition.Topic, "partition", topicPartition.Partition, "offset",
+		topicPartition.Offset)
+	c.updateOffsetsMap(c.commitsMap, metadata.Topic, metadata.Partition, topicPartition.Offset)
 
 	return nil
 }
@@ -178,13 +180,12 @@ func (c *Consumer) processMessage(msg *kafka.Message) {
 		return
 	}
 
-	// add conflation unit to committer (committer takes care of adding it once).
-	c.committer.AddUser(c.conflationManager.Insert(receivedBundle, transport.BundleMetadata{
+	c.conflationManager.Insert(receivedBundle, transport.BundleMetadata{
 		Topic:     *msg.TopicPartition.Topic,
 		Partition: msg.TopicPartition.Partition,
 		Offset:    int64(msg.TopicPartition.Offset),
 		Processed: false,
-	}))
+	})
 }
 
 func (c *Consumer) updateOffsetsMap(offsetsMap map[string]map[int32]kafka.Offset, topic string, partition int32,

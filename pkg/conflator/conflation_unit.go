@@ -143,8 +143,8 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	cu.addCUToReadyQueueIfNeeded()
 }
 
-// GetBundlesMetadata provides collections of the CU's bundle transport-metadata.
-func (cu *ConflationUnit) GetBundlesMetadata() []*transport.BundleMetadata {
+// getBundlesMetadata provides collections of the CU's bundle transport-metadata.
+func (cu *ConflationUnit) getBundlesMetadata() []*transport.BundleMetadata {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
