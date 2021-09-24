@@ -101,18 +101,6 @@ func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string,
 	return nil
 }
 
-// ManagedClusterExists checks if a managed clusters exists in the db and returns true or false accordingly.
-func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string, leafHubName string,
-	clusterName string) bool {
-	var exists bool
-	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from status.%s WHERE leaf_hub_name=$1 AND 
-			cluster_name=$2)`, tableName), leafHubName, clusterName).Scan(&exists); err != nil {
-		return false
-	}
-
-	return exists
-}
-
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
 func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) (
 	datastructures.HashSet, error) {
