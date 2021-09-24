@@ -136,7 +136,7 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	if helpers.CompareIncarnationGenerationPairs(metadata.incarnation, metadata.generation,
 		conflationElement.lastProcessedBundleIncarnation, conflationElement.lastProcessedBundleGeneration) == 0 {
 		// we won't throw the metadata since the committer may use it
-		conflationElement.bundleMetadata.transportBundleMetadata.Processed = true
+		conflationElement.bundleMetadata.transportBundleMetadata.MarkAsProcessed()
 		conflationElement.bundle = nil
 	}
 
@@ -144,18 +144,18 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 }
 
 // getBundlesMetadata provides collections of the CU's bundle transport-metadata.
-func (cu *ConflationUnit) getBundlesMetadata() []*transport.BundleMetadata {
+func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
-	bundlesMetadata := make([]*transport.BundleMetadata, 0, len(cu.priorityQueue))
+	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
 
 	for _, element := range cu.priorityQueue {
 		if element.bundleMetadata == nil {
 			continue
 		}
 
-		bundlesMetadata = append(bundlesMetadata, &element.bundleMetadata.transportBundleMetadata)
+		bundlesMetadata = append(bundlesMetadata, element.bundleMetadata.transportBundleMetadata)
 	}
 
 	return bundlesMetadata

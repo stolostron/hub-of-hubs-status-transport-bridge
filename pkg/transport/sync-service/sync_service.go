@@ -158,7 +158,7 @@ func (s *SyncService) handleBundles() {
 				continue
 			}
 
-			s.conflationManager.Insert(receivedBundle, transport.BundleMetadata{})
+			s.conflationManager.Insert(receivedBundle, &BundleMetadata{})
 
 			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
 				s.log.Error(err, "failed to report object received to sync service")

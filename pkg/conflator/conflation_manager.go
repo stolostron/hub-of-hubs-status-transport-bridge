@@ -39,8 +39,8 @@ func (cm *ConflationManager) Insert(bundle bundle.Bundle, metadata transport.Bun
 }
 
 // GetBundlesMetadata provides collections of the CU's bundle transport-metadata.
-func (cm *ConflationManager) GetBundlesMetadata() []*transport.BundleMetadata {
-	metadata := make([]*transport.BundleMetadata, 0)
+func (cm *ConflationManager) GetBundlesMetadata() []transport.BundleMetadata {
+	metadata := make([]transport.BundleMetadata, 0)
 
 	for _, cu := range cm.conflationUnits {
 		metadata = append(metadata, cu.getBundlesMetadata()...)

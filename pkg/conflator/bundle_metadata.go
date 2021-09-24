@@ -1,6 +1,8 @@
 package conflator
 
-import "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+import (
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+)
 
 // BundleMetadata abstracts metadata of conflation elements inside the conflation units.
 type BundleMetadata struct {

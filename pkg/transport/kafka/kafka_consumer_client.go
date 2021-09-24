@@ -19,7 +19,7 @@ const (
 )
 
 // CommitPositionsFunc is the function the kafka transport provides for committing positions.
-type CommitPositionsFunc func(positions map[int32]*transport.BundleMetadata) error
+type CommitPositionsFunc func(positions map[int32]*BundleMetadata) error
 
 // NewConsumer creates a new instance of Consumer.
 func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager) (*Consumer, error) {
@@ -94,7 +94,7 @@ func (c *Consumer) Stop() {
 }
 
 // commitPositions commits the given positions (by metadata) per partition mapped.
-func (c *Consumer) commitPositions(positions map[int32]*transport.BundleMetadata) error {
+func (c *Consumer) commitPositions(positions map[int32]*BundleMetadata) error {
 	// go over positions and commit
 	for _, metadata := range positions {
 		if err := c.commitAsync(metadata); err != nil {
@@ -105,21 +105,21 @@ func (c *Consumer) commitPositions(positions map[int32]*transport.BundleMetadata
 	return nil
 }
 
-func (c *Consumer) commitAsync(metadata *transport.BundleMetadata) error {
+func (c *Consumer) commitAsync(metadata *BundleMetadata) error {
 	// skip request if already committed this data
-	if partitionsMap, found := c.commitsMap[metadata.Topic]; found {
+	if partitionsMap, found := c.commitsMap[*metadata.Topic]; found {
 		if committedOffset, found := partitionsMap[metadata.Partition]; found {
-			if int64(committedOffset) >= metadata.Offset {
+			if committedOffset >= metadata.Offset {
 				return nil
 			}
 		}
 	}
 
 	topicPartition := kafka.TopicPartition{
-		Topic:     &metadata.Topic,
+		Topic:     metadata.Topic,
 		Partition: metadata.Partition,
 		// offset + 1 because when kafka commits offset X, on next load it starts from offset X, not after it.
-		Offset: kafka.Offset(metadata.Offset) + 1,
+		Offset: metadata.Offset + 1,
 	}
 
 	if _, err := c.kafkaConsumer.Consumer().CommitOffsets([]kafka.TopicPartition{topicPartition}); err != nil {
@@ -129,7 +129,7 @@ func (c *Consumer) commitAsync(metadata *transport.BundleMetadata) error {
 	// log success and update commitsMap
 	c.log.Info("committed offset", "topic", topicPartition.Topic, "partition", topicPartition.Partition, "offset",
 		topicPartition.Offset)
-	c.updateOffsetsMap(c.commitsMap, metadata.Topic, metadata.Partition, topicPartition.Offset)
+	c.updateOffsetsMap(c.commitsMap, topicPartition.Topic, topicPartition.Partition, topicPartition.Offset)
 
 	return nil
 }
@@ -180,18 +180,18 @@ func (c *Consumer) processMessage(msg *kafka.Message) {
 		return
 	}
 
-	c.conflationManager.Insert(receivedBundle, transport.BundleMetadata{
-		Topic:     *msg.TopicPartition.Topic,
+	c.conflationManager.Insert(receivedBundle, &BundleMetadata{
+		Topic:     msg.TopicPartition.Topic,
 		Partition: msg.TopicPartition.Partition,
-		Offset:    int64(msg.TopicPartition.Offset),
+		Offset:    msg.TopicPartition.Offset,
 		Processed: false,
 	})
 }
 
-func (c *Consumer) updateOffsetsMap(offsetsMap map[string]map[int32]kafka.Offset, topic string, partition int32,
+func (c *Consumer) updateOffsetsMap(offsetsMap map[string]map[int32]kafka.Offset, topic *string, partition int32,
 	offset kafka.Offset) {
 	// check if topic is in the map
-	if partitionsMap, found := offsetsMap[topic]; found {
+	if partitionsMap, found := offsetsMap[*topic]; found {
 		// check if partition is in topic map
 		if offsetInMap, found := partitionsMap[partition]; !found || (found && offsetInMap < offset) {
 			// update partition's offset if partition hasn't an offset yet or the new offset is higher.
@@ -199,6 +199,6 @@ func (c *Consumer) updateOffsetsMap(offsetsMap map[string]map[int32]kafka.Offset
 		}
 	} else {
 		// create topic and insert pair
-		offsetsMap[topic] = map[int32]kafka.Offset{partition: offset}
+		offsetsMap[*topic] = map[int32]kafka.Offset{partition: offset}
 	}
 }

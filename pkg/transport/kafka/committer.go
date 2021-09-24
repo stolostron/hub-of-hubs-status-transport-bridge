@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
@@ -32,7 +33,7 @@ func NewCommitter(log logr.Logger, commitPositionsFunc CommitPositionsFunc) (*Co
 	return &Committer{
 		log:                 log,
 		commitPositionsFunc: commitPositionsFunc,
-		users:               make(map[transport.Consumer]struct{}),
+		consumers:           make(map[transport.Consumer]struct{}),
 		interval:            committerInterval,
 		lock:                sync.Mutex{},
 	}, nil
@@ -42,7 +43,7 @@ func NewCommitter(log logr.Logger, commitPositionsFunc CommitPositionsFunc) (*Co
 type Committer struct {
 	log                 logr.Logger
 	commitPositionsFunc CommitPositionsFunc
-	users               map[transport.Consumer]struct{}
+	consumers           map[transport.Consumer]struct{}
 	interval            time.Duration
 	lock                sync.Mutex
 }
@@ -67,8 +68,8 @@ func (c *Committer) AddTransportConsumer(user transport.Consumer) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if _, found := c.users[user]; !found {
-		c.users[user] = struct{}{}
+	if _, found := c.consumers[user]; !found {
+		c.consumers[user] = struct{}{}
 	}
 }
 
@@ -81,12 +82,12 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			pendingBundleMetadataToCommit := make(map[int32]*transport.BundleMetadata)
+			pendingBundleMetadataToCommit := make(map[int32]*BundleMetadata)
 
-			// fill map with the lowest offsets per partition via iterating over all registered users
-			for User := range c.users {
+			// fill map with the lowest offsets per partition via iterating over all registered consumers
+			for Consumer := range c.consumers {
 				// get metadata (pending, non-pending) from Consumer
-				bundlesMetadata := User.GetBundlesMetadata()
+				bundlesMetadata := Consumer.GetBundlesMetadata()
 				// extract the lowest per partition in the pending bundles, the highest per partition in the
 				// processed bundles
 				lowestPendingMetadataPerPartition,
@@ -106,13 +107,18 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 	}
 }
 
-func (c *Committer) filterMetadataPerPartition(metadataArray []*transport.BundleMetadata) ([]*transport.BundleMetadata,
-	[]*transport.BundleMetadata) {
+func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleMetadata) ([]*BundleMetadata,
+	[]*BundleMetadata) {
 	// assumes all are in the same topic, TODO: support multi-topic when needed.
-	lowestBundleMetadataPartitionsMap := make(map[int32]*transport.BundleMetadata)
-	highestBundleMetadataPartitionsMap := make(map[int32]*transport.BundleMetadata)
+	lowestBundleMetadataPartitionsMap := make(map[int32]*BundleMetadata)
+	highestBundleMetadataPartitionsMap := make(map[int32]*BundleMetadata)
 
-	for _, metadata := range metadataArray {
+	for _, transportMetadata := range metadataArray {
+		metadata, ok := transportMetadata.(*BundleMetadata)
+		if !ok {
+			return nil, nil
+		}
+
 		if !metadata.Processed {
 			// this belongs to a pending bundle, update the lowest-metadata-map
 			if lowestMetadata, found := lowestBundleMetadataPartitionsMap[metadata.Partition]; !found ||
@@ -137,14 +143,14 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []*transport.Bundle
 	return filteredPending, filteredProcessed
 }
 
-func (c *Committer) patchCommitMetadataMap(data map[int32]*transport.BundleMetadata,
-	patch []*transport.BundleMetadata, patchByLowest bool) {
-	predicate := func(offset1, offset2 int64) bool {
+func (c *Committer) patchCommitMetadataMap(data map[int32]*BundleMetadata,
+	patch []*BundleMetadata, patchByLowest bool) {
+	predicate := func(offset1, offset2 kafka.Offset) bool {
 		return offset1 > offset2
 	}
 
 	if patchByLowest {
-		predicate = func(offset1, offset2 int64) bool {
+		predicate = func(offset1, offset2 kafka.Offset) bool {
 			return offset1 < offset2
 		}
 	}
@@ -158,14 +164,14 @@ func (c *Committer) patchCommitMetadataMap(data map[int32]*transport.BundleMetad
 	}
 }
 
-func (c *Committer) metadataMapToArray(data map[int32]*transport.BundleMetadata,
-	decrementOffset bool) []*transport.BundleMetadata {
-	metadataArray := make([]*transport.BundleMetadata, 0, len(data))
+func (c *Committer) metadataMapToArray(data map[int32]*BundleMetadata,
+	decrementOffset bool) []*BundleMetadata {
+	metadataArray := make([]*BundleMetadata, 0, len(data))
 
 	for _, metadata := range data {
 		if decrementOffset {
 			// insert metadata of preceding bundle, which is safe to commit
-			metadataArray = append(metadataArray, &transport.BundleMetadata{
+			metadataArray = append(metadataArray, &BundleMetadata{
 				Topic:     metadata.Topic,
 				Partition: metadata.Partition,
 				Offset:    metadata.Offset - 1,
