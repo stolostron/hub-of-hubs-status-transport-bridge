@@ -1,5 +1,11 @@
 package bundle
 
+const (
+	// NoGeneration is used to indicate no generation for bundle (e.g. dependency generation for bundle with no
+	// dependency).
+	NoGeneration = 0
+)
+
 // CreateBundleFunction is a function that specifies how to create a bundle.
 type CreateBundleFunction func() Bundle
 
@@ -7,12 +13,6 @@ type CreateBundleFunction func() Bundle
 type Bundle interface {
 	GetLeafHubName() string
 	GetObjects() []interface{}
-	GetDependency() *DependencyBundle
+	GetExplicitDependencyGeneration() uint64
 	GetGeneration() uint64
-}
-
-// DependencyBundle represents the dependency between different bundles.
-type DependencyBundle struct {
-	BundleType string
-	Generation uint64
 }
