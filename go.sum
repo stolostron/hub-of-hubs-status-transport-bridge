@@ -805,6 +805,10 @@ github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-2021092313
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210923131626-203e0d9b0f53/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210923133307-4083271f981e h1:Z+k0ZGJUkSrDjPs1pHRXkKPs6VVflklucVyICLSR5K0=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210923133307-4083271f981e/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210926101704-463a3684438b h1:5uY2idlqZ8eU/QLsZ/ftet5pG8QFZeI4aM4MkOv/+0s=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210926101704-463a3684438b/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210926104512-12ba0baca146 h1:FrX+jatSGRUOYD2X8+j49SE4HZOdB0wWjaEwiOlJnmw=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210926104512-12ba0baca146/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2/go.mod h1:rKW01VtqwtwaUQ+zkJ80X5EeGqsTblQE4J9HxPUtTAQ=
 github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 h1:YEvNOMo3ANOQ3AwsU0cCcBA4nKHDLUlyUCRWk5rBf68=
