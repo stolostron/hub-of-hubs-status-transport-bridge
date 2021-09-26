@@ -26,7 +26,8 @@ type ResultReporter interface {
 	ReportResult(metadata *BundleMetadata, err error)
 }
 
-func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*ConflationRegistration) *ConflationUnit {
+func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*ConflationRegistration,
+	initBundleVersion *status.BundleVersion) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
@@ -37,7 +38,7 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 			bundleMetadata:             nil,
 			handlerFunction:            registration.HandlerFunction,
 			isInProcess:                false,
-			lastProcessedBundleVersion: status.NewBundleVersion(0, 0),
+			lastProcessedBundleVersion: initBundleVersion,
 		}
 		bundleTypeToPriority[registration.BundleType] = registration.Priority
 	}
@@ -69,21 +70,22 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 
 	bundleType := helpers.GetBundleType(bundle)
 	priority := cu.bundleTypeToPriority[bundleType]
+	conflationElement := cu.priorityQueue[priority]
 
-	if cu.priorityQueue[priority].bundle != nil &&
-		bundle.GetVersion().NewerThan(cu.priorityQueue[priority].bundle.GetVersion()) {
+	if conflationElement.bundle != nil && (conflationElement.bundle.GetVersion().NewerThan(bundle.GetVersion()) ||
+		conflationElement.bundle.GetVersion().Equals(bundle.GetVersion())) {
 		return // insert bundle only if the generation we got is newer, otherwise do nothing.
 	}
 
 	// if we got here, we got bundle with newer generation
-	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
+	conflationElement.bundle = bundle // update the bundle in the priority queue.
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
 	bundleVersion := bundle.GetVersion()
-	if cu.priorityQueue[priority].bundleMetadata != nil && !cu.priorityQueue[priority].isInProcess {
-		cu.priorityQueue[priority].bundleMetadata.update(bundleVersion, metadata)
+	if conflationElement.bundleMetadata != nil && !conflationElement.isInProcess {
+		conflationElement.bundleMetadata.update(bundleVersion, metadata)
 	} else {
-		cu.priorityQueue[priority].bundleMetadata = &BundleMetadata{
+		conflationElement.bundleMetadata = &BundleMetadata{
 			bundleType:              bundleType,
 			bundleVersion:           bundleVersion,
 			transportBundleMetadata: metadata,
@@ -199,6 +201,10 @@ func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
 
 	dependencyIndex := cu.bundleTypeToPriority[dependency.BundleType]
 	dependencyConflationElement := cu.priorityQueue[dependencyIndex]
+
+	if dependencyConflationElement.lastProcessedBundleVersion == nil {
+		return true // if no version was set then the dependency should be skipped
+	}
 
 	if dependency.BundleVersion.NewerThan(dependencyConflationElement.lastProcessedBundleVersion) {
 		return false // the needed dependency generation wasn't processed yet

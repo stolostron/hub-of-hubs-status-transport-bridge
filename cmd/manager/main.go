@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
@@ -62,6 +63,19 @@ func getTransport(transportType string, conflationMgr *conflator.ConflationManag
 
 	default:
 		return nil, fmt.Errorf("%w: %s", errEnvVarIllegalValue, transportType)
+	}
+}
+
+func getInitialConflationManagerBundleVersions(transportType string) *status.BundleVersion {
+	switch transportType {
+	case kafkaTransportTypeName:
+		return nil // with kafka, bundle dependencies are assumed to be satisfied on load
+
+	case syncServiceTransportTypeName:
+		return status.NewBundleVersion(0, 0) // with sync-service bundle dependencies must be enforced even on load
+
+	default:
+		return nil // shouldn't get here
 	}
 }
 
@@ -157,7 +171,9 @@ func createManager(leaderElectionNamespace, transportType, metricsHost string, m
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue()
-	conflationManager := conflator.NewConflationManager(conflationReadyQueue) // manage all Conflation Units
+	conflationUnitsInitialBundleVersion := getInitialConflationManagerBundleVersions(transportType)
+	// manage all Conflation Units
+	conflationManager := conflator.NewConflationManager(conflationReadyQueue, conflationUnitsInitialBundleVersion)
 	// transport layer initialization
 	transportObj, err := getTransport(transportType, conflationManager)
 	if err != nil {
