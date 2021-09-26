@@ -53,6 +53,10 @@ func (tm *TimeMeasurement) average() float64 {
 	return float64(tm.totalDuration / tm.count)
 }
 
+func (tm *TimeMeasurement) String() string {
+	return fmt.Sprintf("[count=%d, average time=%.2f ms, max time=%d ms]", tm.count, tm.average(), tm.maxDuration)
+}
+
 // BundleMetrics aggregates metrics per specific bundle type.
 type BundleMetrics struct {
 	transport      TimeMeasurement // measures a time between bundle send from LH till it was received by HoH
@@ -130,12 +134,12 @@ func (s *Statistics) run(ctx context.Context) {
 			metrics := ""
 
 			for bt, bm := range s.bundleMetrics {
-				metrics += "[" + bt + " (db process - "
-				metrics += fmt.Sprintf("count=%d", bm.database.count) + ", "
-				metrics += fmt.Sprintf("average time=%f ms", bm.database.average()) + ", "
-				metrics += fmt.Sprintf("max time=%d ms", bm.database.maxDuration) + ","
-				metrics += ")] "
+				metrics += "[" + bt + " (db process "
+				metrics += bm.database.String()
+				metrics += ")], "
 			}
+
+			metrics = metrics[:len(metrics)-2]
 
 			s.log.Info("statistics:",
 				"conflation ready queue size", s.conflationReadyQueueSize,
