@@ -29,32 +29,38 @@ func NewStatistics(log logr.Logger) *Statistics {
 
 // TimeMeasurement contains average and maximum times in milliseconds.
 type TimeMeasurement struct {
-	count         int64
+	failures      int64 // number of failures
+	successes     int64 // number of successes
 	totalDuration int64 // in milliseconds
 	maxDuration   int64 // in milliseconds
 }
 
-func (tm *TimeMeasurement) add(duration time.Duration) {
-	durationMilliseconds := duration.Milliseconds()
+func (tm *TimeMeasurement) add(duration time.Duration, err error) {
+	if err == nil {
+		durationMilliseconds := duration.Milliseconds()
 
-	tm.count++
-	tm.totalDuration += durationMilliseconds
+		tm.successes++
+		tm.totalDuration += durationMilliseconds
 
-	if tm.maxDuration < durationMilliseconds {
-		tm.maxDuration = durationMilliseconds
+		if tm.maxDuration < durationMilliseconds {
+			tm.maxDuration = durationMilliseconds
+		}
+	} else {
+		tm.failures++
 	}
 }
 
 func (tm *TimeMeasurement) average() float64 {
-	if tm.count == 0 {
+	if tm.successes == 0 {
 		return 0
 	}
 
-	return float64(tm.totalDuration / tm.count)
+	return float64(tm.totalDuration / tm.successes)
 }
 
 func (tm *TimeMeasurement) String() string {
-	return fmt.Sprintf("[count=%d, average time=%.2f ms, max time=%d ms]", tm.count, tm.average(), tm.maxDuration)
+	return fmt.Sprintf("[failures=%d, successes=%d, average time=%.2f ms, max time=%d ms]",
+		tm.failures, tm.successes, tm.average(), tm.maxDuration)
 }
 
 // BundleMetrics aggregates metrics per specific bundle type.
@@ -101,24 +107,24 @@ func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 }
 
 // AddTransportMetrics adds transport metrics of the specific bundle type.
-func (s *Statistics) AddTransportMetrics(bundle bundle.Bundle, time time.Duration) {
+func (s *Statistics) AddTransportMetrics(bundle bundle.Bundle, time time.Duration, err error) {
 	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bm.transport.add(time)
+	bm.transport.add(time, err)
 }
 
 // AddConflationUnitMetrics adds conflation unit metrics of the specific bundle type.
-func (s *Statistics) AddConflationUnitMetrics(bundle bundle.Bundle, time time.Duration) {
+func (s *Statistics) AddConflationUnitMetrics(bundle bundle.Bundle, time time.Duration, err error) {
 	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bm.conflationUnit.add(time)
+	bm.conflationUnit.add(time, err)
 }
 
 // AddDatabaseMetrics adds database metrics of the specific bundle type.
-func (s *Statistics) AddDatabaseMetrics(bundle bundle.Bundle, duration time.Duration) {
+func (s *Statistics) AddDatabaseMetrics(bundle bundle.Bundle, duration time.Duration, err error) {
 	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bm.database.add(duration)
+	bm.database.add(duration, err)
 }
 
 func (s *Statistics) run(ctx context.Context) {
