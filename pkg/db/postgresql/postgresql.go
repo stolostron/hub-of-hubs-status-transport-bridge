@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -17,19 +16,14 @@ const (
 
 var errEnvVarNotFound = errors.New("not found environment variable")
 
-// PostgreSQL abstracts manamanget of PostgreSQL client.
-type PostgreSQL struct {
-	conn *pgxpool.Pool
-}
-
 // NewPostgreSQL creates a new instance of PostgreSQL object.
-func NewPostgreSQL() (*PostgreSQL, error) {
+func NewPostgreSQL(ctx context.Context) (*PostgreSQL, error) {
 	databaseURL, found := os.LookupEnv(envVarDatabaseURL)
 	if !found {
 		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarDatabaseURL)
 	}
 
-	dbConnectionPool, err := pgxpool.Connect(context.Background(), databaseURL)
+	dbConnectionPool, err := pgxpool.Connect(ctx, databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to db: %w", err)
 	}
@@ -37,21 +31,35 @@ func NewPostgreSQL() (*PostgreSQL, error) {
 	return &PostgreSQL{conn: dbConnectionPool}, nil
 }
 
+// PostgreSQL abstracts management of PostgreSQL client.
+type PostgreSQL struct {
+	conn *pgxpool.Pool
+}
+
 // Stop function stops PostgreSQL client.
 func (p *PostgreSQL) Stop() {
 	p.conn.Close()
 }
 
+// GetPoolSize returns the max number of connections.
+func (p *PostgreSQL) GetPoolSize() int32 {
+	return p.conn.Config().MaxConns
+}
+
 // GetManagedClustersByLeafHub returns list of managed clusters by leaf hub name.
 func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName string,
-	leafHubName string) ([]*db.ClusterKeyAndVersion, error) {
-	result := make([]*db.ClusterKeyAndVersion, 0)
+	leafHubName string) (map[string]string, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name,resource_version FROM %s WHERE 
-			leaf_hub_name=$1`, tableName), leafHubName)
+		leaf_hub_name=$1`, tableName), leafHubName)
+	defer rows.Close()
+
+	result := make(map[string]string)
 
 	for rows.Next() {
-		object := db.ClusterKeyAndVersion{}
-		if err := rows.Scan(&object.ClusterName, &object.ResourceVersion); err != nil {
+		clusterName := ""
+		resourceVersion := ""
+
+		if err := rows.Scan(&clusterName, &resourceVersion); err != nil {
 			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
 		}
 
@@ -62,10 +70,10 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName 
 }
 
 // InsertManagedCluster inserts managed cluster to the db.
-func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string,
+func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
 	payload interface{}, version string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (cluster_name,leaf_hub_name,payload,
-			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), objName, leafHubName, payload,
+			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), clusterName, leafHubName, payload,
 		version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
@@ -74,10 +82,10 @@ func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string,
 }
 
 // UpdateManagedCluster updates managed cluster row in the db.
-func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string, objName string, leafHubName string,
+func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
 	payload interface{}, version string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1,resource_version=$2 WHERE 
-		cluster_name=$3 AND leaf_hub_name=$4`, tableName), payload, version, objName, leafHubName); err != nil {
+		leaf_hub_name=$3 AND cluster_name=$4`, tableName), payload, version, leafHubName, clusterName); err != nil {
 		return fmt.Errorf("failed to update obj in database: %w", err)
 	}
 
@@ -85,33 +93,19 @@ func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string,
 }
 
 // DeleteManagedCluster deletes a managed cluster from the db.
-func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string, objName string,
-	leafHubName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE cluster_name=$1 AND leaf_hub_name=$2`,
-		tableName), objName, leafHubName); err != nil {
+func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string, leafHubName string,
+	clusterName string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE leaf_hub_name=$1 AND cluster_name=$2`,
+		tableName), leafHubName, clusterName); err != nil {
 		return fmt.Errorf("failed to delete managed cluster from database: %w", err)
 	}
 
 	return nil
 }
 
-// ManagedClusterExists checks if a managed clusters exists in the db and returns true or false accordingly.
-func (p *PostgreSQL) ManagedClusterExists(ctx context.Context, tableName string, leafHubName string,
-	objName string) bool {
-	var exists bool
-	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from %s WHERE leaf_hub_name=$1 AND 
-			cluster_name=$2)`, tableName), leafHubName, objName).Scan(&exists); err != nil {
-		log.Println(err)
-		return false
-	}
-
-	return exists
-}
-
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
-func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) ([]string,
-	error) {
-	result := make([]string, 0)
+func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) (
+	datastructures.HashSet, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s WHERE leaf_hub_name=$1`,
 		tableName), leafHubName)
 	defer rows.Close()
@@ -132,8 +126,7 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string
 
 // GetComplianceClustersByLeafHubAndPolicy returns list of clusters by leaf hub and policy.
 func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
-	policyID string) ([]string, error) {
-	result := make([]string, 0)
+	policyID string) (datastructures.HashSet, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM %s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2`, tableName), leafHubName, policyID)
 	defer rows.Close()
@@ -154,8 +147,7 @@ func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context
 
 // GetNonCompliantClustersByLeafHubAndPolicy returns a list of non compliant clusters by leaf hub and policy.
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string,
-	leafHubName string, policyID string) ([]string, error) {
-	result := make([]string, 0)
+	leafHubName string, policyID string) (datastructures.HashSet, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM %s WHERE leaf_hub_name=$1 AND 
 			policy_id=$2 AND compliance!='compliant'`, tableName),
 		leafHubName, policyID)
