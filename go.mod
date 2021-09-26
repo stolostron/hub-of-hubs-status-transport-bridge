@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26
-	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210922145717-1ead3c30bbb3
+	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926071052-a5585653e4a8
 	github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0
 	github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210923133307-4083271f981e
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2

@@ -2,6 +2,7 @@ package bundle
 
 import (
 	clusterv1 "github.com/open-cluster-management/api/cluster/v1"
+	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
 // NewManagedClustersStatusBundle creates a new managed clusters  bundle with no data in it.
@@ -15,8 +16,7 @@ func NewManagedClustersStatusBundle() *ManagedClustersStatusBundle {
 type ManagedClustersStatusBundle struct {
 	Objects     []*clusterv1.ManagedCluster `json:"objects"`
 	LeafHubName string                      `json:"leafHubName"`
-	Incarnation uint64                      `json:"incarnation"`
-	Generation  uint64                      `json:"generation"`
+	statusbundle.BundleVersion
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -39,7 +39,7 @@ func (bundle *ManagedClustersStatusBundle) GetDependency() *DependencyBundle {
 	return nil
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *ManagedClustersStatusBundle) GetGeneration() (uint64, uint64) {
-	return bundle.Incarnation, bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *ManagedClustersStatusBundle) GetVersion() *statusbundle.BundleVersion {
+	return &bundle.BundleVersion
 }

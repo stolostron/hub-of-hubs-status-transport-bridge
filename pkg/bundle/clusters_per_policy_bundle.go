@@ -32,7 +32,7 @@ func (bundle *ClustersPerPolicyBundle) GetDependency() *DependencyBundle {
 	return nil
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *ClustersPerPolicyBundle) GetGeneration() (uint64, uint64) {
-	return bundle.Incarnation, bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *ClustersPerPolicyBundle) GetVersion() *statusbundle.BundleVersion {
+	return &bundle.BundleVersion
 }

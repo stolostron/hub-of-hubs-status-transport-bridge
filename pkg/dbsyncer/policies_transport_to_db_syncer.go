@@ -112,10 +112,10 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle bundle.Bundle,
 	dbConn db.StatusTransportBridgeDB) error {
 	leafHubName := bundle.GetLeafHubName()
-	bundleIncarnation, bundleGeneration := bundle.GetGeneration()
+	version := bundle.GetVersion()
 
 	syncer.log.Info("start handling 'ClustersPerPolicy' bundle", "Leaf Hub", leafHubName,
-		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
+		"Version", helpers.FormatBundleVersion(version))
 
 	policyIDsFromDB, err := dbConn.GetPolicyIDsByLeafHub(ctx, complianceTableName, leafHubName)
 	if err != nil {
@@ -128,8 +128,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 			continue // do not handle objects other than ClustersPerPolicy
 		}
 
-		if err := syncer.handleClusterPerPolicy(ctx, dbConn, leafHubName, bundleIncarnation, bundleGeneration,
-			clustersPerPolicy); err != nil {
+		if err := syncer.handleClusterPerPolicy(ctx, dbConn, leafHubName, version, clustersPerPolicy); err != nil {
 			return fmt.Errorf("failed handling clusters per policy bundle - %w", err)
 		}
 
@@ -144,14 +143,13 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 	}
 
 	syncer.log.Info("finished handling 'ClustersPerPolicy' bundle", "Leaf Hub", leafHubName,
-		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
+		"Version", helpers.FormatBundleVersion(version))
 
 	return nil
 }
 
 func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbConn db.StatusTransportBridgeDB,
-	leafHubName string, bundleIncarnation, bundleGeneration uint64,
-	clustersPerPolicy *statusbundle.ClustersPerPolicy) error {
+	leafHubName string, version *statusbundle.BundleVersion, clustersPerPolicy *statusbundle.ClustersPerPolicy) error {
 	clustersFromDB, err := dbConn.GetComplianceClustersByLeafHubAndPolicy(ctx, complianceTableName, leafHubName,
 		clustersPerPolicy.PolicyID)
 	if err != nil {
@@ -160,8 +158,8 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 
 	for _, clusterName := range clustersPerPolicy.Clusters { // go over the clusters per policy
 		if !dbConn.ManagedClusterExists(ctx, managedClustersTableName, leafHubName, clusterName) {
-			return fmt.Errorf(`%w from leaf hub '%s', (incarnation %d, generation %d) - cluster '%s' doesn't exist`,
-				errFailedToHandleClustersPerPolicy, leafHubName, bundleIncarnation, bundleGeneration, clusterName)
+			return fmt.Errorf(`%w from leaf hub '%s', version '%s' - cluster '%s' doesn't exist`,
+				errFailedToHandleClustersPerPolicy, leafHubName, helpers.FormatBundleVersion(version), clusterName)
 		}
 
 		clusterIndex, err := helpers.GetObjectIndex(clustersFromDB, clusterName)
@@ -228,10 +226,10 @@ func (syncer *PoliciesDBSyncer) deleteSelectedComplianceRows(ctx context.Context
 func (syncer *PoliciesDBSyncer) handleComplianceBundle(ctx context.Context, bundle bundle.Bundle,
 	dbConn db.StatusTransportBridgeDB) error {
 	leafHubName := bundle.GetLeafHubName()
-	bundleIncarnation, bundleGeneration := bundle.GetGeneration()
+	version := bundle.GetVersion()
 
-	syncer.log.Info("start handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName,
-		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
+	syncer.log.Info("start handling 'CompleteComplianceStatus' bundle", "Leaf Hub", leafHubName,
+		"Version", helpers.FormatBundleVersion(version))
 
 	policyIDsFromDB, err := dbConn.GetPolicyIDsByLeafHub(ctx, complianceTableName, leafHubName)
 	if err != nil {
@@ -260,8 +258,8 @@ func (syncer *PoliciesDBSyncer) handleComplianceBundle(ctx context.Context, bund
 		}
 	}
 
-	syncer.log.Info("finished handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName,
-		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
+	syncer.log.Info("finished handling 'CompleteComplianceStatus' bundle", "Leaf Hub", leafHubName,
+		"Version", helpers.FormatBundleVersion(version))
 
 	return nil
 }
@@ -270,10 +268,10 @@ func (syncer *PoliciesDBSyncer) handleComplianceBundle(ctx context.Context, bund
 func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle bundle.Bundle,
 	dbConn db.StatusTransportBridgeDB) error {
 	leafHubName := bundle.GetLeafHubName()
-	bundleIncarnation, bundleGeneration := bundle.GetGeneration()
+	version := bundle.GetVersion()
 
 	syncer.log.Info("start handling 'MinimalComplianceStatus' bundle", "Leaf Hub", leafHubName,
-		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
+		"Version", helpers.FormatBundleVersion(version))
 
 	policyIDsFromDB, err := dbConn.GetPolicyIDsByLeafHub(ctx, minimalComplianceTableName, leafHubName)
 	if err != nil {
@@ -309,7 +307,7 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 	}
 
 	syncer.log.Info("finished handling 'MinimalComplianceStatus' bundle", "Leaf Hub", leafHubName,
-		"Incarnation", bundleIncarnation, "Generation", bundleGeneration)
+		"Version", helpers.FormatBundleVersion(version))
 
 	return nil
 }
