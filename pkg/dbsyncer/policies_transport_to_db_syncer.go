@@ -13,7 +13,6 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
@@ -29,8 +28,6 @@ const (
 
 	inform  = "inform"
 	enforce = "enforce"
-
-	errClusterNotExist = "cluster doesn't exist"
 )
 
 var errFailedToHandleClustersPerPolicy = errors.New("failed to handle 'ClustersPerPolicy'")
@@ -91,30 +88,21 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	managedClustersBundleType := helpers.GetBundleType(bundle.NewManagedClustersStatusBundle())
-	clustersPerPolicyBundleType := helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc())
-
-	// when getting an error that cluster does not exist, turn implicit dependency on MC bundle to explicit dependency
-	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.ClustersPerPolicyPriority,
-		clustersPerPolicyBundleType,
-		syncer.handleClustersPerPolicyBundle,
-		dependency.NewDependency(managedClustersBundleType, dependency.ImplicitDependency),
-		func(err error) bool { return strings.Contains(err.Error(), errClusterNotExist) }))
-
-	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.ComplianceStatusPriority,
-		helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
-		syncer.handleComplianceBundle,
-		dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExplicitDependency),
-		nil))
-
-	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.MinimalComplianceStatusPriority,
-		helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
-		syncer.handleMinimalComplianceBundle,
-		nil, // no dependency for minimal compliance bundle
-		nil))
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.ClustersPerPolicyPriority,
+		BundleType:      helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc()),
+		HandlerFunction: syncer.handleClustersPerPolicyBundle,
+	})
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.ComplianceStatusPriority,
+		BundleType:      helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
+		HandlerFunction: syncer.handleComplianceBundle,
+	})
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.MinimalComplianceStatusPriority,
+		BundleType:      helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
+		HandlerFunction: syncer.handleMinimalComplianceBundle,
+	})
 }
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.
@@ -178,8 +166,8 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 		// check if cluster not found in the compliance table (and exists in managed clusters status table)
 		if !complianceClustersFromDB.Exists(clusterName) {
 			if _, exists := clustersFromDB[clusterName]; !exists { // cluster doesn't exist in managed clusters table
-				return fmt.Errorf(`%w from leaf hub '%s', generation '%d' - %s: '%s'`,
-					errFailedToHandleClustersPerPolicy, leafHubName, bundleGeneration, errClusterNotExist, clusterName)
+				return fmt.Errorf(`%w from leaf hub '%s', generation %d - cluster '%s' doesn't exist`,
+					errFailedToHandleClustersPerPolicy, leafHubName, bundleGeneration, clusterName)
 			}
 			// if we got here, cluster is found in managed clusters table but not found in compliance table
 			if err = dbConn.InsertPolicyCompliance(ctx, complianceTableName, leafHubName, clusterName,
