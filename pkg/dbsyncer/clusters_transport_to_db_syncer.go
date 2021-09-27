@@ -52,11 +52,12 @@ func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportIn
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	conflationManager.Register(&conflator.ConflationRegistration{
-		Priority:        conflator.ManagedClustersPriority,
-		BundleType:      helpers.GetBundleType(syncer.createBundleFunc()),
-		HandlerFunction: syncer.handleManagedClustersBundle,
-	})
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.ManagedClustersPriority,
+		helpers.GetBundleType(syncer.createBundleFunc()),
+		syncer.handleManagedClustersBundle,
+		nil, // no dependency for managed clusters bundle
+		nil))
 }
 
 func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,

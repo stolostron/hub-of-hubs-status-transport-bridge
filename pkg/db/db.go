@@ -46,4 +46,10 @@ type PoliciesStatusDB interface {
 	DeleteAllComplianceRows(ctx context.Context, tableName string, leafHubName string, policyID string) error
 	InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, leafHubName string, policyID string,
 		enforcement string, appliedClusters int, nonCompliantClusters int) error
+	InsertIntoSpecSchema(ctx context.Context, ID string, tableName string, leafHubName string,
+		payload interface{}) error
+	DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string, ID string) error
+	UpdateSingleSpecRow(ctx context.Context, ID string, leafHubName string, tableName string,
+		payload interface{}) error
+	GetDistinctIDsFromLH(ctx context.Context, tableName string, leafHubName string) ([]string, error)
 }

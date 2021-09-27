@@ -262,3 +262,55 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 
 	return nil
 }
+
+// GetDistinctIDsFromLH GetFromSpecByID this function returns distinct id entries in the local_spec schema.
+func (p *PostgreSQL) GetDistinctIDsFromLH(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
+	result := make([]string, 0)
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s WHERE leaf_hub_name=$1`,
+		tableName), leafHubName)
+
+	for rows.Next() {
+		nextID := ""
+		if err := rows.Scan(&nextID); err != nil {
+			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
+		}
+
+		result = append(result, nextID)
+	}
+
+	return result, nil
+}
+
+// InsertIntoSpecSchema inserts into one spec. table a row with id name IDType.
+func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, id string, tableName string,
+	leafHubName string, payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (id,leaf_hub_name,payload) 
+										values($1, $2, $3::jsonb)`, tableName), id, leafHubName, payload); err != nil {
+		return fmt.Errorf("failed inserting %s into %s database: %w", id, tableName, err)
+	}
+
+	return nil
+}
+
+// UpdateSingleSpecRow this function updates the row whose idType column contains id.
+func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, id string, leafHubName string,
+	tableName string, payload interface{}) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1 WHERE 
+			id=$2 AND leaf_hub_name=$3`, tableName), payload, id, leafHubName); err != nil {
+		return fmt.Errorf("failed to update row with id %s in table %s in database: %w", id, tableName, err)
+	}
+
+	return nil
+}
+
+// DeleteSingleSpecRow this function receives an idType (the name of the id column in table tableName) and deletes the
+// row that contains id.
+func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string,
+	id string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE id=$1 AND 
+			leaf_hub_name=$2`, tableName), id, leafHubName); err != nil {
+		return fmt.Errorf("failed to delete spec row from database: %w", err)
+	}
+
+	return nil
+}

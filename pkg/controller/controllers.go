@@ -46,6 +46,7 @@ func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationMa
 	dbSyncers := []dbsyncer.DBSyncer{
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed clusters db syncer")),
 		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies db syncer"), config),
+		dbsyncer.NewLocalSpecDBSyncer(ctrl.Log.WithName("local spec db syncer"), config),
 	}
 
 	for _, dbsyncerObj := range dbSyncers {
@@ -67,6 +68,7 @@ func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
 	return config, nil
 }
 
+
 func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	conflationReadyQueue *conflator.ConflationReadyQueue) error {
 	if err := mgr.Add(dispatcher.NewDispatcher(
@@ -75,7 +77,7 @@ func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 		dbWorkerPool,
 	)); err != nil {
 		return fmt.Errorf("failed to add dispatcher: %w", err)
-	}
+    }
 
 	return nil
 }
