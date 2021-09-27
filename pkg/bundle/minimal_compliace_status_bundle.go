@@ -29,10 +29,9 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetExplicitDependencyGeneration returns the bundle explicit dependency generation or NoGeneration in case there is no
-// dependency. in case the dependency is implicit, returns NoGeneration as well.
-func (bundle *MinimalComplianceStatusBundle) GetExplicitDependencyGeneration() uint64 {
-	return NoGeneration
+// GetDependency return the bundle dependency or nil in case there is no dependency.
+func (bundle *MinimalComplianceStatusBundle) GetDependency() *DependencyBundle {
+	return nil
 }
 
 // GetGeneration returns the bundle generation.
