@@ -3,9 +3,11 @@ package conflator
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
@@ -25,7 +27,8 @@ type ResultReporter interface {
 	ReportResult(metadata *BundleMetadata, err error)
 }
 
-func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*ConflationRegistration) *ConflationUnit {
+func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*ConflationRegistration,
+	statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
@@ -47,6 +50,7 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 		readyQueue:           readyQueue,
 		isInReadyQueue:       false,
 		lock:                 sync.Mutex{},
+		statistics:           statistics,
 	}
 }
 
@@ -57,6 +61,7 @@ type ConflationUnit struct {
 	readyQueue           *ConflationReadyQueue
 	isInReadyQueue       bool
 	lock                 sync.Mutex
+	statistics           *statistics.Statistics
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
@@ -76,12 +81,15 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 		return // insert bundle only if generation we got is newer than what we have in memory, otherwise do nothing.
 	}
 
+	bundle.SetConflationUnitInsertTime(time.Now())
+
 	// if we got here, we got bundle with newer generation
 	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
 	if cu.priorityQueue[priority].bundleMetadata != nil && !cu.priorityQueue[priority].isInProcess {
 		cu.priorityQueue[priority].bundleMetadata.update(bundle.GetGeneration(), metadata)
+		cu.statistics.IncrementNumberOfConflations(bundle)
 	} else {
 		cu.priorityQueue[priority].bundleMetadata = &BundleMetadata{
 			bundleType:              bundleType,
@@ -108,8 +116,11 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true
+	bundle = conflationElement.bundle
 
-	return conflationElement.bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
+	cu.statistics.AddConflationUnitMetrics(bundle, time.Since(bundle.GetConflationUnitInsertTime()), nil)
+
+	return bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
 }
 
 // ReportResult is used to report the result of bundle handling job.

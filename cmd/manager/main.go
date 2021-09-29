@@ -122,7 +122,7 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
-	conflationManager := conflator.NewConflationManager(conflationReadyQueue) // manage all Conflation Units
+	conflationManager := conflator.NewConflationManager(conflationReadyQueue, statistics) // manage all Conflation Units
 
 	// transport layer initialization
 	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager)

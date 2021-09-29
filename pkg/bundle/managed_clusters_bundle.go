@@ -13,6 +13,7 @@ func NewManagedClustersStatusBundle() *ManagedClustersStatusBundle {
 
 // ManagedClustersStatusBundle abstracts management of managed clusters bundle.
 type ManagedClustersStatusBundle struct {
+	BaseHohBundle
 	Objects     []*clusterv1.ManagedCluster `json:"objects"`
 	LeafHubName string                      `json:"leafHubName"`
 	Generation  uint64                      `json:"generation"`

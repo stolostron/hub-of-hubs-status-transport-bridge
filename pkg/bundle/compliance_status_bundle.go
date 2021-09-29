@@ -16,6 +16,7 @@ func NewComplianceStatusBundle() *ComplianceStatusBundle {
 // ComplianceStatusBundle abstracts management of compliance status bundle.
 type ComplianceStatusBundle struct {
 	statusbundle.BaseComplianceStatusBundle
+	BaseHohBundle
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.

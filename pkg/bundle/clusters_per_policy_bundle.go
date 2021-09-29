@@ -12,6 +12,7 @@ func NewClustersPerPolicyBundle() *ClustersPerPolicyBundle {
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
 	statusbundle.BaseClustersPerPolicyBundle
+	BaseHohBundle
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.

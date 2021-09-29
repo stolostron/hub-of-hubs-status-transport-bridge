@@ -59,15 +59,29 @@ func (tm *TimeMeasurement) average() float64 {
 }
 
 func (tm *TimeMeasurement) String() string {
-	return fmt.Sprintf("[failures=%d, successes=%d, average time=%.2f ms, max time=%d ms]",
+	return "[" + tm.toString() + "]"
+}
+
+func (tm *TimeMeasurement) toString() string {
+	return fmt.Sprintf("failures=%d, successes=%d, average time=%.2f ms, max time=%d ms",
 		tm.failures, tm.successes, tm.average(), tm.maxDuration)
+}
+
+// ConflationUnitMeasurement extends TimeMeasurement and adds conflation measurements.
+type ConflationUnitMeasurement struct {
+	TimeMeasurement
+	numOfConflations int64
+}
+
+func (cum *ConflationUnitMeasurement) String() string {
+	return fmt.Sprintf("[%s, num of conflations=%d]", cum.toString(), cum.numOfConflations)
 }
 
 // BundleMetrics aggregates metrics per specific bundle type.
 type BundleMetrics struct {
-	transport      TimeMeasurement // measures a time between bundle send from LH till it was received by HoH
-	conflationUnit TimeMeasurement // measures a time bundle waits in CU's priority queue
-	database       TimeMeasurement // measures a time took by db worker to process bundle
+	transport      TimeMeasurement           // measures a time between bundle send from LH till it was received by HoH
+	conflationUnit ConflationUnitMeasurement // measures a time and conflations while bundle waits in CU's priority queue
+	database       TimeMeasurement           // measures a time took by db worker to process bundle
 }
 
 // Statistics aggregates different statistics.
@@ -88,6 +102,34 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 	s.conflationReadyQueueSize = size
 }
 
+// AddTransportMetrics adds transport metrics of the specific bundle type.
+func (s *Statistics) AddTransportMetrics(bundle bundle.Bundle, time time.Duration, err error) {
+	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
+
+	bm.transport.add(time, err)
+}
+
+// AddConflationUnitMetrics adds conflation unit metrics of the specific bundle type.
+func (s *Statistics) AddConflationUnitMetrics(bundle bundle.Bundle, time time.Duration, err error) {
+	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
+
+	bm.conflationUnit.add(time, err)
+}
+
+// IncrementNumberOfConflations increments number of conflation of the specific bundle type.
+func (s *Statistics) IncrementNumberOfConflations(bundle bundle.Bundle) {
+	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
+
+	bm.conflationUnit.numOfConflations++
+}
+
+// AddDatabaseMetrics adds database metrics of the specific bundle type.
+func (s *Statistics) AddDatabaseMetrics(bundle bundle.Bundle, duration time.Duration, err error) {
+	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
+
+	bm.database.add(duration, err)
+}
+
 // Start starts the statistics.
 func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 	ctx, cancelContext := context.WithCancel(context.Background())
@@ -106,27 +148,6 @@ func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 	}
 }
 
-// AddTransportMetrics adds transport metrics of the specific bundle type.
-func (s *Statistics) AddTransportMetrics(bundle bundle.Bundle, time time.Duration, err error) {
-	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
-	bm.transport.add(time, err)
-}
-
-// AddConflationUnitMetrics adds conflation unit metrics of the specific bundle type.
-func (s *Statistics) AddConflationUnitMetrics(bundle bundle.Bundle, time time.Duration, err error) {
-	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
-	bm.conflationUnit.add(time, err)
-}
-
-// AddDatabaseMetrics adds database metrics of the specific bundle type.
-func (s *Statistics) AddDatabaseMetrics(bundle bundle.Bundle, duration time.Duration, err error) {
-	bm := s.bundleMetrics[helpers.GetBundleType(bundle)]
-
-	bm.database.add(duration, err)
-}
-
 func (s *Statistics) run(ctx context.Context) {
 	ticker := time.NewTicker(dumpIntervalSeconds * time.Second)
 
@@ -140,9 +161,9 @@ func (s *Statistics) run(ctx context.Context) {
 			metrics := ""
 
 			for bt, bm := range s.bundleMetrics {
-				metrics += "[" + bt + " (db process "
-				metrics += bm.database.String()
-				metrics += ")], "
+				metrics += "[" + bt
+				metrics += " (db process " + bm.database.String() + "),"
+				metrics += " (cu " + bm.conflationUnit.String() + ")], "
 			}
 
 			metrics = metrics[:len(metrics)-2]

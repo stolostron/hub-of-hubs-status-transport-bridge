@@ -12,6 +12,7 @@ func NewMinimalComplianceStatusBundle() *MinimalComplianceStatusBundle {
 // MinimalComplianceStatusBundle abstracts management of minimal compliance status bundle.
 type MinimalComplianceStatusBundle struct {
 	statusbundle.BaseMinimalComplianceStatusBundle
+	BaseHohBundle
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
