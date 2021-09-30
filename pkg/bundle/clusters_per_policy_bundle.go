@@ -29,11 +29,6 @@ func (bundle *ClustersPerPolicyBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependency return the bundle dependency or nil in case there is no dependency.
-func (bundle *ClustersPerPolicyBundle) GetDependency() *DependencyBundle {
-	return nil
-}
-
 // GetGeneration returns the bundle generation.
 func (bundle *ClustersPerPolicyBundle) GetGeneration() uint64 {
 	return bundle.Generation

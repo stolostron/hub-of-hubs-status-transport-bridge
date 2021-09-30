@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -13,7 +14,11 @@ const (
 	invalidPriority = -1
 )
 
-var errNoReadyBundle = errors.New("no bundle is ready to be processed")
+var (
+	errNoReadyBundle               = errors.New("no bundle is ready to be processed")
+	errDependencyCannotBeEvaluated = errors.New("bundles declares dependency in registration but doesn't " +
+		"implement DependantBundle")
+)
 
 // ResultReporter is an interface used to report the result of the handler function after it's invocation.
 // the idea is to have a clear separation of concerns and make sure dispatcher can only request for bundles and
@@ -25,23 +30,26 @@ type ResultReporter interface {
 	ReportResult(metadata *BundleMetadata, err error)
 }
 
-func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*ConflationRegistration) *ConflationUnit {
+func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
+	registrations []*ConflationRegistration) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
 	for _, registration := range registrations {
-		priorityQueue[registration.Priority] = &conflationElement{
-			bundleType:                    registration.BundleType,
+		priorityQueue[registration.priority] = &conflationElement{
+			bundleType:                    registration.bundleType,
 			bundle:                        nil,
 			bundleMetadata:                nil,
-			handlerFunction:               registration.HandlerFunction,
+			handlerFunction:               registration.handlerFunction,
+			dependency:                    registration.dependency, // nil if there is no dependency
 			isInProcess:                   false,
 			lastProcessedBundleGeneration: 0, // no generation was processed yet
 		}
-		bundleTypeToPriority[registration.BundleType] = registration.Priority
+		bundleTypeToPriority[registration.bundleType] = registration.priority
 	}
 
 	return &ConflationUnit{
+		log:                  log,
 		priorityQueue:        priorityQueue,
 		bundleTypeToPriority: bundleTypeToPriority,
 		readyQueue:           readyQueue,
@@ -52,6 +60,7 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
+	log                  logr.Logger
 	priorityQueue        []*conflationElement
 	bundleTypeToPriority map[string]conflationPriority
 	readyQueue           *ConflationReadyQueue
@@ -68,7 +77,7 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	priority := cu.bundleTypeToPriority[bundleType]
 
 	if bundle.GetGeneration() <= cu.priorityQueue[priority].lastProcessedBundleGeneration {
-		return // we got old bundle, a newer bundle was already processed.
+		return // we got old bundle, a newer (or equal) bundle was already processed.
 	}
 
 	if cu.priorityQueue[priority].bundle != nil &&
@@ -134,9 +143,6 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 		cu.priorityQueue[priority].bundleMetadata = nil
 	}
 
-	// TODO metadata should be sent to transport committer when the component is implemented
-	// transportCommitter.MarkAsConsumed(metadata)
-
 	cu.addCUToReadyQueueIfNeeded()
 }
 
@@ -165,30 +171,47 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 // returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
-		if conflationElement.bundle != nil && !conflationElement.isInProcess &&
-			cu.checkDependencies(conflationElement.bundle) {
+		if conflationElement.bundle != nil && !cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
+			cu.checkDependency(conflationElement) {
 			return priority // bundle in this priority is ready to be processed
-		} // bundle from this priority exists, we don't have previous generation in processing and dependencies exist
+		}
 	}
 
 	return invalidPriority
 }
 
-// dependencies are organized in a chain.
-func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
-	dependency := bundleToCheck.GetDependency()
-	if dependency == nil { // bundle has no dependency
+// isCurrentOrAnyDependencyInProcess checks if current element or any dependency from dependency chain is in process.
+func (cu *ConflationUnit) isCurrentOrAnyDependencyInProcess(conflationElement *conflationElement) bool {
+	if conflationElement.isInProcess { // current conflation element is in process
 		return true
 	}
 
-	dependencyIndex := cu.bundleTypeToPriority[dependency.BundleType]
-	if dependency.Generation > cu.priorityQueue[dependencyIndex].lastProcessedBundleGeneration {
-		return false // the needed dependency generation wasn't processed yet
+	if conflationElement.dependency == nil { // no more dependencies in chain, therefore no dependency in process
+		return false
 	}
 
-	if cu.priorityQueue[dependencyIndex].isInProcess {
-		return false // the needed dependency bundle is currently in process, waiting for its processing to finish.
+	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
+
+	return cu.isCurrentOrAnyDependencyInProcess(cu.priorityQueue[dependencyIndex])
+}
+
+// dependencies are organized in a chain.
+func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) bool {
+	if conflationElement.dependency == nil {
+		return true // bundle in this conflation element has no dependency
 	}
 
-	return true // dependency required generation was processed, and new generation of dependency is not in process
+	dependantBundle, ok := conflationElement.bundle.(bundle.DependantBundle)
+	if !ok { // this bundle declared it has a dependency but doesn't implement DependantBundle
+		cu.log.Error(errDependencyCannotBeEvaluated, "cannot evaluate bundle dependencies, not processing bundle",
+			"LeafHubName", conflationElement.bundle.GetLeafHubName(), "BundleType",
+			conflationElement.bundleType)
+
+		return false
+	}
+
+	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
+
+	// if the needed dependency generation wasn't processed yet return false, otherwise return true
+	return dependantBundle.GetDependencyGeneration() <= cu.priorityQueue[dependencyIndex].lastProcessedBundleGeneration
 }

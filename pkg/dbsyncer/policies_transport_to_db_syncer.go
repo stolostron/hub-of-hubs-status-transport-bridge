@@ -12,6 +12,7 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
@@ -85,21 +86,26 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	conflationManager.Register(&conflator.ConflationRegistration{
-		Priority:        conflator.ClustersPerPolicyPriority,
-		BundleType:      helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc()),
-		HandlerFunction: syncer.handleClustersPerPolicyBundle,
-	})
-	conflationManager.Register(&conflator.ConflationRegistration{
-		Priority:        conflator.ComplianceStatusPriority,
-		BundleType:      helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
-		HandlerFunction: syncer.handleComplianceBundle,
-	})
-	conflationManager.Register(&conflator.ConflationRegistration{
-		Priority:        conflator.MinimalComplianceStatusPriority,
-		BundleType:      helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
-		HandlerFunction: syncer.handleMinimalComplianceBundle,
-	})
+	clustersPerPolicyBundleType := helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc())
+
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.ClustersPerPolicyPriority,
+		clustersPerPolicyBundleType,
+		syncer.handleClustersPerPolicyBundle,
+	))
+
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.ComplianceStatusPriority,
+		helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
+		syncer.handleComplianceBundle).
+		WithDependency(dependency.NewDependency(clustersPerPolicyBundleType)), // comp depends on clusters per policy
+	)
+
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.MinimalComplianceStatusPriority,
+		helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
+		syncer.handleMinimalComplianceBundle,
+	))
 }
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.
