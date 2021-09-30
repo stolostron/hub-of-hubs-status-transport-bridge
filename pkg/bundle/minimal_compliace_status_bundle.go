@@ -30,11 +30,6 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependency return the bundle dependency or nil in case there is no dependency.
-func (bundle *MinimalComplianceStatusBundle) GetDependency() *DependencyBundle {
-	return nil
-}
-
 // GetGeneration returns the bundle generation.
 func (bundle *MinimalComplianceStatusBundle) GetGeneration() uint64 {
 	return bundle.Generation

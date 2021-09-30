@@ -9,7 +9,6 @@ type CreateBundleFunction func() Bundle
 type Bundle interface {
 	GetLeafHubName() string
 	GetObjects() []interface{}
-	GetDependency() *DependencyBundle
 	GetGeneration() uint64
 	SetConflationUnitInsertTime(time.Time)
 	GetConflationUnitInsertTime() time.Time
@@ -30,8 +29,10 @@ func (bundle *BaseHohBundle) GetConflationUnitInsertTime() time.Time {
 	return bundle.conflationUnitInsertTime
 }
 
-// DependencyBundle represents the dependency between different bundles.
-type DependencyBundle struct {
-	BundleType string
-	Generation uint64
+// DependantBundle is a bundle that depends on a different bundle.
+// to support bundles dependencies additional function is required - GetDependencyGeneration, in order to start
+// processing the dependant bundle only after it's required dependency (with required generation) was processed.
+type DependantBundle interface {
+	Bundle
+	GetDependencyGeneration() uint64
 }

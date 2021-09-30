@@ -34,11 +34,6 @@ func (bundle *ManagedClustersStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependency return the bundle dependency or nil in case there is no dependency.
-func (bundle *ManagedClustersStatusBundle) GetDependency() *DependencyBundle {
-	return nil
-}
-
 // GetGeneration returns the bundle generation.
 func (bundle *ManagedClustersStatusBundle) GetGeneration() uint64 {
 	return bundle.Generation
