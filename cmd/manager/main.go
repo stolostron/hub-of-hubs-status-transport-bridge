@@ -85,7 +85,7 @@ func initializeLogger() logr.Logger {
 }
 
 func startDBWorkerPool() (*workerpool.DBWorkerPool, error) {
-	dbWorkerPool, err := workerpool.NewDBWorkerPool()
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize DBWorkerPool - %w", err)
 	}
@@ -116,7 +116,7 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue()
-	conflationManager := conflator.NewConflationManager(conflationReadyQueue) // manage all Conflation Units
+	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue)
 	// transport layer initialization
 	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager)
 	if err != nil {

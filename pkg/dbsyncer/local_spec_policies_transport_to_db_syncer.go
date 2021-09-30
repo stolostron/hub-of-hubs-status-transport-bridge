@@ -71,16 +71,12 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
 		localPolicySpecBundleType,
-		syncer.handleLocalSpecBundle,
-		nil,
-		nil))
+		syncer.handleLocalSpecBundle))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRuleSpecPriority,
 		localPlacementRuleSpecBundleType,
-		syncer.handleLocalPlacementRule,
-		nil,
-		nil))
+		syncer.handleLocalPlacementRule))
 }
 
 func (syncer *LocalSpecDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle,

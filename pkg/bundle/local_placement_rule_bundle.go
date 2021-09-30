@@ -16,10 +16,6 @@ type LocalPlacementRuleBundle struct {
 	Generation  uint64                      `json:"generation"`
 }
 
-func (bundle *LocalPlacementRuleBundle) GetExplicitDependencyGeneration() uint64 {
-	return NoGeneration
-}
-
 // GetLeafHubName return the leaf hub that sent the bundle.
 func (bundle *LocalPlacementRuleBundle) GetLeafHubName() string {
 	return bundle.LeafHubName

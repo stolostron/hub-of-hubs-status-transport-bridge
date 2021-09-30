@@ -6,12 +6,11 @@ import (
 )
 
 type conflationElement struct {
-	bundleType                       string
-	bundle                           bundle.Bundle
-	bundleMetadata                   *BundleMetadata
-	handlerFunction                  BundleHandlerFunc
-	dependency                       *dependency.Dependency
-	implicitToExplicitDependencyFunc ImplicitToExplicitDependencyFunc
-	isInProcess                      bool
-	lastProcessedBundleGeneration    uint64
+	bundleType                    string
+	bundle                        bundle.Bundle
+	bundleMetadata                *BundleMetadata
+	handlerFunction               BundleHandlerFunc
+	dependency                    *dependency.Dependency
+	isInProcess                   bool
+	lastProcessedBundleGeneration uint64
 }

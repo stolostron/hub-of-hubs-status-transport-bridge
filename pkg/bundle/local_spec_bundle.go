@@ -16,10 +16,6 @@ type LocalSpecBundle struct {
 	Generation  uint64               `json:"generation"`
 }
 
-func (bundle *LocalSpecBundle) GetExplicitDependencyGeneration() uint64 {
-	return NoGeneration
-}
-
 // GetLeafHubName returns the leaf hub that the bundle originated from.
 func (bundle *LocalSpecBundle) GetLeafHubName() string {
 	return bundle.LeafHubName

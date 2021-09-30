@@ -56,8 +56,7 @@ func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflation
 		conflator.ManagedClustersPriority,
 		helpers.GetBundleType(syncer.createBundleFunc()),
 		syncer.handleManagedClustersBundle,
-		nil, // no dependency for managed clusters bundle
-		nil))
+	))
 }
 
 func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,
