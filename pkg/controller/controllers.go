@@ -68,7 +68,6 @@ func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
 	return config, nil
 }
 
-
 func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 	conflationReadyQueue *conflator.ConflationReadyQueue) error {
 	if err := mgr.Add(dispatcher.NewDispatcher(
@@ -77,7 +76,7 @@ func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 		dbWorkerPool,
 	)); err != nil {
 		return fmt.Errorf("failed to add dispatcher: %w", err)
-    }
+	}
 
 	return nil
 }

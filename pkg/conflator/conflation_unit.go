@@ -31,8 +31,8 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
 	for _, registration := range registrations {
-		priorityQueue[registration.priority] = &conflationElement{
-			bundleType:                       registration.bundleType,
+		priorityQueue[registration.Priority] = &conflationElement{
+			bundleType:                       registration.BundleType,
 			bundle:                           nil,
 			bundleMetadata:                   nil,
 			handlerFunction:                  registration.HandlerFunction,
@@ -41,7 +41,7 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 			isInProcess:                      false,
 			lastProcessedBundleGeneration:    bundle.NoGeneration, // no generation was processed yet
 		}
-		bundleTypeToPriority[registration.bundleType] = registration.priority
+		bundleTypeToPriority[registration.BundleType] = registration.Priority
 	}
 
 	return &ConflationUnit{

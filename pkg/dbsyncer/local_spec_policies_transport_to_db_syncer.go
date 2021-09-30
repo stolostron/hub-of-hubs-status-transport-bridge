@@ -3,12 +3,12 @@ package dbsyncer
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -67,23 +67,21 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	localPolicySpecBundleType := helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc())
 	localPlacementRuleSpecBundleType := helpers.GetBundleType(syncer.createLocalPlacementSpecBundleFunc())
-
 	// when getting an error that cluster does not exist, turn implicit dependency on MC bundle to explicit dependency
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
 		localPolicySpecBundleType,
 		syncer.handleLocalSpecBundle,
-		dependency.NewDependency(localPolicySpecBundleType, dependency.ImplicitDependency),
+		nil,
 		nil))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRuleSpecPriority,
 		localPlacementRuleSpecBundleType,
 		syncer.handleLocalPlacementRule,
-		dependency.NewDependency(localPlacementRuleSpecBundleType, dependency.ImplicitDependency),
+		nil,
 		nil))
 }
-
 
 func (syncer *LocalSpecDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle,
 	db db.StatusTransportBridgeDB) error {
@@ -135,31 +133,31 @@ func (syncer *LocalSpecDBSyncer) handleLocalSpecBundleHelper(ctx context.Context
 	}
 
 	for _, object := range b.GetObjects() {
-		usefulObj, ok := object.(specDBObj)
+		specificObj, ok := object.(specDBObj)
 		if !ok {
 			continue
 		}
 
-		usefulObjInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(usefulObj.GetUID()))
-		if err != nil { // usefulObj not found, new usefulObj id
-			if err = db.InsertIntoSpecSchema(ctx, string(usefulObj.GetUID()),
+		specificObjInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(specificObj.GetUID()))
+		if err != nil { // usefulObj not found, new specificObj id
+			if err = db.InsertIntoSpecSchema(ctx, string(specificObj.GetUID()),
 				tableName, leafHubName, object); err != nil {
 				return fmt.Errorf("failed inserting '%s' from leaf hub '%s' - %w",
-					usefulObj.GetName(), leafHubName, err)
+					specificObj.GetName(), leafHubName, err)
 			}
 			// we can continue since its not in objectIDsFromDB anyway
 			continue
 		}
 		// since this already exists in the db and in the bundle we need to update it
-		err = db.UpdateSingleSpecRow(ctx, string(usefulObj.GetUID()), leafHubName,
+		err = db.UpdateSingleSpecRow(ctx, string(specificObj.GetUID()), leafHubName,
 			tableName, object)
 		if err != nil {
 			return fmt.Errorf(`failed updating spec '%s' in leaf hub '%s' 
-					in db - %w`, string(usefulObj.GetUID()), leafHubName, err)
+					in db - %w`, string(specificObj.GetUID()), leafHubName, err)
 		}
 
 		// we dont want to delete it later
-		objectIDsFromDB = append(objectIDsFromDB[:usefulObjInd], objectIDsFromDB[usefulObjInd+1:]...)
+		objectIDsFromDB = append(objectIDsFromDB[:specificObjInd], objectIDsFromDB[specificObjInd+1:]...)
 	}
 
 	err = syncer.deleteLocalSpecRows(ctx, leafHubName, tableName, objectIDsFromDB, db)
@@ -182,5 +180,3 @@ func (syncer *LocalSpecDBSyncer) deleteLocalSpecRows(ctx context.Context, leafHu
 
 	return nil
 }
-
-

@@ -21,8 +21,8 @@ func NewConflationRegistration(priority conflationPriority, bundleType string, h
 	dependency *dependency.Dependency,
 	implicitToExplicitDependencyFunc ImplicitToExplicitDependencyFunc) *ConflationRegistration {
 	return &ConflationRegistration{
-		priority:                         priority,
-		bundleType:                       bundleType,
+		Priority:                         priority,
+		BundleType:                       bundleType,
 		HandlerFunction:                  handlerFunction,
 		dependency:                       dependency,
 		implicitToExplicitDependencyFunc: implicitToExplicitDependencyFunc,
@@ -31,8 +31,8 @@ func NewConflationRegistration(priority conflationPriority, bundleType string, h
 
 // ConflationRegistration is used to register a new conflated bundle type along with its priority and handler function.
 type ConflationRegistration struct {
-	priority                         conflationPriority
-	bundleType                       string
+	Priority                         conflationPriority
+	BundleType                       string
 	HandlerFunction                  BundleHandlerFunc
 	dependency                       *dependency.Dependency
 	implicitToExplicitDependencyFunc ImplicitToExplicitDependencyFunc
