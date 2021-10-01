@@ -10,23 +10,13 @@ type Bundle interface {
 	GetLeafHubName() string
 	GetObjects() []interface{}
 	GetGeneration() uint64
-	SetConflationUnitInsertTime(time.Time)
-	GetConflationUnitInsertTime() time.Time
 }
 
 // BaseHohBundle is a base bundle for all HoH bundles.
-type BaseHohBundle struct {
-	conflationUnitInsertTime time.Time
-}
-
-// SetConflationUnitInsertTime sets a time the bundle was inserted into conflation unit.
-func (bundle *BaseHohBundle) SetConflationUnitInsertTime(time time.Time) {
-	bundle.conflationUnitInsertTime = time
-}
-
-// GetConflationUnitInsertTime gets a time the bundle was inserted into conflation unit.
-func (bundle *BaseHohBundle) GetConflationUnitInsertTime() time.Time {
-	return bundle.conflationUnitInsertTime
+type BaseHohBundle interface {
+	Bundle
+	SetConflationUnitInsertTime(time.Time)
+	GetConflationUnitInsertTime() time.Time
 }
 
 // DependantBundle is a bundle that depends on a different bundle.

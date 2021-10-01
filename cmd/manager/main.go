@@ -102,8 +102,7 @@ func startDBWorkerPool(statistics *statistics.Statistics) (*workerpool.DBWorkerP
 	return dbWorkerPool, nil
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32,
-	workersPool *workerpool.DBWorkerPool,
+func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
 	statistics *statistics.Statistics) (ctrl.Manager, transport.Transport, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -122,8 +121,8 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
-	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"),
-		conflationReadyQueue, statistics) // manage all Conflation Units
+	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
+		statistics) // manage all Conflation Units
 
 	// transport layer initialization
 	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager)
@@ -131,8 +130,8 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, nil, fmt.Errorf("failed to initialize transport: %w", err)
 	}
 
-	if err := controller.Setup(mgr, workersPool, conflationManager, conflationReadyQueue,
-		transportObj, statistics); err != nil {
+	if err := controller.Setup(mgr, workersPool, conflationManager, conflationReadyQueue, transportObj,
+		statistics); err != nil {
 		return nil, nil, fmt.Errorf("failed to do initial setup of the manager: %w", err)
 	}
 
