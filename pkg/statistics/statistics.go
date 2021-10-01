@@ -60,11 +60,11 @@ func (s *Statistics) AddConflationUnitMetrics(bundle bundle.Bundle, time time.Du
 	bundleMetrics.conflationUnit.add(time, err)
 }
 
-// IncrementNumberOfConflations increments number of conflation of the specific bundle type.
+// IncrementNumberOfConflations increments number of conflations of the specific bundle type.
 func (s *Statistics) IncrementNumberOfConflations(bundle bundle.Bundle) {
 	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bundleMetrics.conflationUnit.numOfConflations++
+	bundleMetrics.conflationUnit.IncrementNumberOfConflations()
 }
 
 // AddDatabaseMetrics adds database metrics of the specific bundle type.

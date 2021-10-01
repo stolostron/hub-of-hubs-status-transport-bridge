@@ -2,6 +2,7 @@ package statistics
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -11,9 +12,20 @@ type timeMeasurement struct {
 	successes     int64 // number of successes
 	totalDuration int64 // in milliseconds
 	maxDuration   int64 // in milliseconds
+	mutex         sync.Mutex
+}
+
+func (tm *timeMeasurement) String() string {
+	tm.mutex.Lock()
+	defer tm.mutex.Unlock()
+
+	return tm.toString()
 }
 
 func (tm *timeMeasurement) add(duration time.Duration, err error) {
+	tm.mutex.Lock()
+	defer tm.mutex.Unlock()
+
 	if err != nil {
 		tm.failures++
 		return
@@ -29,19 +41,13 @@ func (tm *timeMeasurement) add(duration time.Duration, err error) {
 	}
 }
 
-func (tm *timeMeasurement) average() float64 {
-	if tm.successes == 0 {
-		return 0
+func (tm *timeMeasurement) toString() string {
+	average := 0.0
+
+	if tm.successes != 0 {
+		average = float64(tm.totalDuration / tm.successes)
 	}
 
-	return float64(tm.totalDuration / tm.successes)
-}
-
-func (tm *timeMeasurement) String() string {
-	return tm.toString()
-}
-
-func (tm *timeMeasurement) toString() string {
 	return fmt.Sprintf("failures=%d, successes=%d, average time=%.2f ms, max time=%d ms",
-		tm.failures, tm.successes, tm.average(), tm.maxDuration)
+		tm.failures, tm.successes, average, tm.maxDuration)
 }
