@@ -136,7 +136,7 @@ func (cu *ConflationUnit) GetNext() (bundle bndl.Bundle, metadata *BundleMetadat
 	if hohBundle, ok := bundle.(bndl.BaseHohBundle); ok {
 		cu.statistics.AddConflationUnitMetrics(bundle, time.Since(hohBundle.GetConflationUnitInsertTime()), nil)
 	} else {
-		cu.log.Error(errBaseHohBundleNotImplemented, "cannot calculate CU waiting time",
+		cu.log.Error(errBaseHohBundleNotImplemented, "cannot calculate CU waiting time (test PR)",
 			"BundleType", helpers.GetBundleType(bundle))
 	}
 
