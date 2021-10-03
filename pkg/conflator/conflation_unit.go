@@ -3,10 +3,9 @@ package conflator
 import (
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
-	bndl "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -20,7 +19,6 @@ var (
 	errNoReadyBundle               = errors.New("no bundle is ready to be processed")
 	errDependencyCannotBeEvaluated = errors.New("bundles declares dependency in registration but doesn't " +
 		"implement DependantBundle")
-	errBaseHohBundleNotImplemented = errors.New("bundle doesn't implement HohBaseBundle")
 )
 
 // ResultReporter is an interface used to report the result of the handler function after it's invocation.
@@ -74,7 +72,7 @@ type ConflationUnit struct {
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
-func (cu *ConflationUnit) insert(bundle bndl.Bundle, metadata transport.BundleMetadata) {
+func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.BundleMetadata) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
@@ -90,13 +88,8 @@ func (cu *ConflationUnit) insert(bundle bndl.Bundle, metadata transport.BundleMe
 		return // insert bundle only if generation we got is newer than what we have in memory, otherwise do nothing.
 	}
 
-	// mark a time the bundle was inserted into CU
-	if hohBundle, ok := bundle.(bndl.BaseHohBundle); ok {
-		hohBundle.SetConflationUnitInsertTime(time.Now())
-	} else {
-		cu.log.Error(errBaseHohBundleNotImplemented, "cannot calculate CU waiting time",
-			"BundleType", helpers.GetBundleType(bundle))
-	}
+	// start conflation unit metric for specific bundle type - overwrite it each time new bundle arrives
+	cu.statistics.StartConflationUnitMetrics(bundle)
 
 	// if we got here, we got bundle with newer generation
 	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
@@ -117,7 +110,7 @@ func (cu *ConflationUnit) insert(bundle bndl.Bundle, metadata transport.BundleMe
 }
 
 // GetNext returns the next ready to be processed bundle and its transport metadata.
-func (cu *ConflationUnit) GetNext() (bundle bndl.Bundle, metadata *BundleMetadata, handlerFunc BundleHandlerFunc,
+func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetadata, handlerFunc BundleHandlerFunc,
 	err error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
@@ -131,16 +124,11 @@ func (cu *ConflationUnit) GetNext() (bundle bndl.Bundle, metadata *BundleMetadat
 
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true
-	bundle = conflationElement.bundle
 
-	if hohBundle, ok := bundle.(bndl.BaseHohBundle); ok {
-		cu.statistics.AddConflationUnitMetrics(bundle, time.Since(hohBundle.GetConflationUnitInsertTime()), nil)
-	} else {
-		cu.log.Error(errBaseHohBundleNotImplemented, "cannot calculate CU waiting time",
-			"BundleType", helpers.GetBundleType(bundle))
-	}
+	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
+	cu.statistics.StopConflationUnitMetrics(conflationElement.bundle, nil)
 
-	return bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
+	return conflationElement.bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
 }
 
 // ReportResult is used to report the result of bundle handling job.
@@ -223,7 +211,7 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 		return true // bundle in this conflation element has no dependency
 	}
 
-	dependantBundle, ok := conflationElement.bundle.(bndl.DependantBundle)
+	dependantBundle, ok := conflationElement.bundle.(bundle.DependantBundle)
 	if !ok { // this bundle declared it has a dependency but doesn't implement DependantBundle
 		cu.log.Error(errDependencyCannotBeEvaluated, "cannot evaluate bundle dependencies, not processing bundle",
 			"LeafHubName", conflationElement.bundle.GetLeafHubName(), "BundleType",

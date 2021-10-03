@@ -1,8 +1,6 @@
 package bundle
 
 import (
-	"time"
-
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
@@ -14,7 +12,6 @@ func NewMinimalComplianceStatusBundle() *MinimalComplianceStatusBundle {
 // MinimalComplianceStatusBundle abstracts management of minimal compliance status bundle.
 type MinimalComplianceStatusBundle struct {
 	statusbundle.BaseMinimalComplianceStatusBundle
-	conflationUnitInsertTime time.Time
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -35,14 +32,4 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 // GetGeneration returns the bundle generation.
 func (bundle *MinimalComplianceStatusBundle) GetGeneration() uint64 {
 	return bundle.Generation
-}
-
-// SetConflationUnitInsertTime sets a time the bundle was inserted into conflation unit.
-func (bundle *MinimalComplianceStatusBundle) SetConflationUnitInsertTime(time time.Time) {
-	bundle.conflationUnitInsertTime = time
-}
-
-// GetConflationUnitInsertTime gets a time the bundle was inserted into conflation unit.
-func (bundle *MinimalComplianceStatusBundle) GetConflationUnitInsertTime() time.Time {
-	return bundle.conflationUnitInsertTime
 }

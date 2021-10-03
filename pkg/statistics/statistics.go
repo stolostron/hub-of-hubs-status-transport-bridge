@@ -46,25 +46,25 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 	s.conflationReadyQueueSize = size
 }
 
-// AddTransportMetrics adds transport metrics of the specific bundle type.
-func (s *Statistics) AddTransportMetrics(bundle bundle.Bundle, time time.Duration, err error) {
+// StartConflationUnitMetrics starts conflation unit metrics of the specific bundle type.
+func (s *Statistics) StartConflationUnitMetrics(bundle bundle.Bundle) {
 	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bundleMetrics.transport.add(time, err)
+	bundleMetrics.conflationUnit.start()
 }
 
-// AddConflationUnitMetrics adds conflation unit metrics of the specific bundle type.
-func (s *Statistics) AddConflationUnitMetrics(bundle bundle.Bundle, time time.Duration, err error) {
+// StopConflationUnitMetrics stops conflation unit metrics of the specific bundle type.
+func (s *Statistics) StopConflationUnitMetrics(bundle bundle.Bundle, err error) {
 	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bundleMetrics.conflationUnit.add(time, err)
+	bundleMetrics.conflationUnit.stop(err)
 }
 
 // IncrementNumberOfConflations increments number of conflations of the specific bundle type.
 func (s *Statistics) IncrementNumberOfConflations(bundle bundle.Bundle) {
 	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bundleMetrics.conflationUnit.IncrementNumberOfConflations()
+	bundleMetrics.conflationUnit.incrementNumberOfConflations()
 }
 
 // AddDatabaseMetrics adds database metrics of the specific bundle type.
@@ -102,15 +102,15 @@ func (s *Statistics) run(ctx context.Context) {
 			return
 
 		case <-ticker.C: // dump statistics
-			metrics := ""
+			var sb strings.Builder
 
 			for bundleType, bundleMetrics := range s.bundleMetrics {
-				metrics += fmt.Sprintf("[%s, (db process {%s}), (cu {%s})], ",
-					bundleType, bundleMetrics.database.String(), bundleMetrics.conflationUnit.String())
+				sb.WriteString(fmt.Sprintf("[%s, (db process {%s}), (cu {%s})], ",
+					bundleType, bundleMetrics.database.toString(), bundleMetrics.conflationUnit.toString()))
 			}
 
 			// remove redundant suffix after last metrics
-			metrics = strings.TrimSuffix(metrics, ", ")
+			metrics := strings.TrimSuffix(sb.String(), ", ")
 
 			s.log.Info("statistics:",
 				"conflation ready queue size", s.conflationReadyQueueSize,

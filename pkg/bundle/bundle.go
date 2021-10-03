@@ -1,7 +1,5 @@
 package bundle
 
-import "time"
-
 // CreateBundleFunction is a function that specifies how to create a bundle.
 type CreateBundleFunction func() Bundle
 
@@ -10,13 +8,6 @@ type Bundle interface {
 	GetLeafHubName() string
 	GetObjects() []interface{}
 	GetGeneration() uint64
-}
-
-// BaseHohBundle is a base bundle for all HoH bundles.
-type BaseHohBundle interface {
-	Bundle
-	SetConflationUnitInsertTime(time.Time)
-	GetConflationUnitInsertTime() time.Time
 }
 
 // DependantBundle is a bundle that depends on a different bundle.
