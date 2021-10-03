@@ -31,6 +31,7 @@ func (bundle *LocalSpecBundle) GetObjects() []interface{} {
 	return result
 }
 
+// GetGeneration returns the generation of the bundle.
 func (bundle *LocalSpecBundle) GetGeneration() uint64 {
 	return bundle.Generation
 }
