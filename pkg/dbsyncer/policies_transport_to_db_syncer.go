@@ -33,13 +33,17 @@ const (
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
-		log:                                 log,
-		config:                              config,
-		createClustersPerPolicyBundleFunc:   func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
-		createComplianceStatusBundleFunc:    func() bundle.Bundle { return bundle.NewComplianceStatusBundle() },
-		createMinComplianceStatusBundleFunc: func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
+		log:                                   log,
+		config:                                config,
+		createClustersPerPolicyBundleFunc:     func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
+		createComplianceStatusBundleFunc:      func() bundle.Bundle { return bundle.NewComplianceStatusBundle() },
+		createMinComplianceStatusBundleFunc:   func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
+		createLocalComplianceStatusBundleFunc: func() bundle.Bundle { return bundle.NewLocalComplianceStatusBundle() },
+		createLocalClustersPerPolicyBundle:    func() bundle.Bundle { return bundle.NewLocalClustersPerPolicyBundle() },
 	}
 
+	log.Info(fmt.Sprintf("type is %s", helpers.GetBundleType(dbSyncer.createLocalComplianceStatusBundleFunc())))
+	log.Info(fmt.Sprintf("type is %s", helpers.GetBundleType(dbSyncer.createLocalClustersPerPolicyBundle())))
 	log.Info("initialized policies db syncer")
 
 	return dbSyncer
@@ -47,11 +51,13 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 
 // PoliciesDBSyncer implements policies db sync business logic.
 type PoliciesDBSyncer struct {
-	log                                 logr.Logger
-	config                              *configv1.Config
-	createClustersPerPolicyBundleFunc   func() bundle.Bundle
-	createComplianceStatusBundleFunc    func() bundle.Bundle
-	createMinComplianceStatusBundleFunc func() bundle.Bundle
+	log                                   logr.Logger
+	config                                *configv1.Config
+	createClustersPerPolicyBundleFunc     func() bundle.Bundle
+	createComplianceStatusBundleFunc      func() bundle.Bundle
+	createMinComplianceStatusBundleFunc   func() bundle.Bundle
+	createLocalComplianceStatusBundleFunc func() bundle.Bundle
+	createLocalClustersPerPolicyBundle    func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -76,6 +82,18 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 		CreateBundleFunc: syncer.createMinComplianceStatusBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
+
+	transportInstance.Register(&transport.BundleRegistration{
+		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
+		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundle,
+		Predicate:        fullStatusPredicate,
+	})
+
+	transportInstance.Register(&transport.BundleRegistration{
+		MsgID:            datatypes.LocalPolicyComplianceMsgKey,
+		CreateBundleFunc: syncer.createLocalComplianceStatusBundleFunc,
+		Predicate:        fullStatusPredicate,
+	})
 }
 
 // RegisterBundleHandlerFunctions registers bundle handler functions within the dispatcher.
@@ -87,6 +105,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 // and if the object was changed, update the db with the current object.
 func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	clustersPerPolicyBundleType := helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc())
+	localClustersPerPolicyBundleType := helpers.GetBundleType(syncer.createLocalClustersPerPolicyBundle())
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority,
@@ -106,6 +125,47 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
 		syncer.handleMinimalComplianceBundle,
 	))
+
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.LocalClustersPerPolicyPriority,
+		localClustersPerPolicyBundleType,
+		syncer.handleLocalClustersPerPolicyBundle,
+	))
+
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.LocalComplianceStatusPriority,
+		helpers.GetBundleType(syncer.createLocalComplianceStatusBundleFunc()),
+		syncer.handleLocalComplianceBundle).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType)))
+}
+
+func (syncer *PoliciesDBSyncer) handleLocalClustersPerPolicyBundle(ctx context.Context, bundle bundle.Bundle,
+	dbConn db.StatusTransportBridgeDB) error {
+	syncer.log.Info("start handling 'LocalClustersPerPolicy' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleClustersPerPolicyBundleHelper(ctx, bundle, dbConn, LocalComplianceTableName); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'LocalClustersPerPolicy' bundle", "Leaf Hub", bundle.GetLeafHubName(),
+		"Generation", bundle.GetGeneration())
+
+	return nil
+}
+
+func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle bundle.Bundle,
+	dbConn db.StatusTransportBridgeDB) error {
+	syncer.log.Info("start handling 'ClustersPerPolicy' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleClustersPerPolicyBundleHelper(ctx, bundle, dbConn, complianceTableName); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'ClustersPerPolicy' bundle", "Leaf Hub", bundle.GetLeafHubName(),
+		"Generation", bundle.GetGeneration())
+
+	return nil
 }
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.
@@ -113,15 +173,12 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 // in case the row already exists (leafHubName, policyId, clusterName) -> then don't change anything since this bundle
 // don't have any information about the compliance status but only for the list of relevant clusters.
 // the compliance status will be handled in a different bundle and a different handler function.
-func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle bundle.Bundle,
-	dbConn db.StatusTransportBridgeDB) error {
+func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundleHelper(ctx context.Context, bundle bundle.Bundle,
+	dbConn db.StatusTransportBridgeDB, tableName string) error {
 	leafHubName := bundle.GetLeafHubName()
 	bundleGeneration := bundle.GetGeneration()
 
-	syncer.log.Info("start handling 'ClustersPerPolicy' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGeneration)
-
-	policyIDsFromDB, err := dbConn.GetPolicyIDsByLeafHub(ctx, complianceTableName, leafHubName)
+	policyIDsFromDB, err := dbConn.GetPolicyIDsByLeafHub(ctx, tableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s' policies from db - %w", leafHubName, err)
 	}
@@ -132,7 +189,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 			continue // do not handle objects other than ClustersPerPolicy
 		}
 
-		if err := syncer.handleClusterPerPolicy(ctx, dbConn, leafHubName, clustersPerPolicy); err != nil {
+		if err := syncer.handleClusterPerPolicy(ctx, dbConn, leafHubName, clustersPerPolicy, tableName); err != nil {
 			return fmt.Errorf("failed handling clusters per policy bundle - %w", err)
 		}
 
@@ -140,7 +197,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 		policyIDsFromDB.Delete(clustersPerPolicy.PolicyID)
 	}
 	// remove policies that were not sent in the bundle
-	if err := syncer.deletePoliciesFromDB(ctx, dbConn, leafHubName, policyIDsFromDB); err != nil {
+	if err := syncer.deletePoliciesFromDB(ctx, dbConn, leafHubName, policyIDsFromDB, tableName); err != nil {
 		return fmt.Errorf("failed deleting policies from db - %w", err)
 	}
 
@@ -151,8 +208,8 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 }
 
 func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbConn db.StatusTransportBridgeDB,
-	leafHubName string, clustersPerPolicy *statusbundle.ClustersPerPolicy) error {
-	clustersFromDB, err := dbConn.GetComplianceClustersByLeafHubAndPolicy(ctx, complianceTableName,
+	leafHubName string, clustersPerPolicy *statusbundle.ClustersPerPolicy, tableName string) error {
+	clustersFromDB, err := dbConn.GetComplianceClustersByLeafHubAndPolicy(ctx, tableName,
 		leafHubName, clustersPerPolicy.PolicyID) // compliance clusters are fetched from compliance table
 	if err != nil {
 		return fmt.Errorf("failed to get clusters by leaf hub and policy from db - %w", err)
@@ -160,7 +217,7 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 
 	for _, clusterName := range clustersPerPolicy.Clusters { // go over the clusters per policy from bundle
 		if !clustersFromDB.Exists(clusterName) { // check if cluster not found in the compliance table
-			if err = dbConn.InsertPolicyCompliance(ctx, complianceTableName, leafHubName, clusterName,
+			if err = dbConn.InsertPolicyCompliance(ctx, tableName, leafHubName, clusterName,
 				clustersPerPolicy.PolicyID, errorNone, unknown, syncer.getEnforcement(
 					clustersPerPolicy.RemediationAction), clustersPerPolicy.ResourceVersion); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' compliance to DB - %w",
@@ -175,7 +232,8 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 		clustersFromDB.Delete(clusterName)
 	}
 	// delete compliance rows that in the db but were not sent in the bundle (leaf hub sends only living resources)
-	err = syncer.deleteSelectedComplianceRows(ctx, dbConn, leafHubName, clustersPerPolicy.PolicyID, clustersFromDB)
+	err = syncer.deleteSelectedComplianceRows(ctx, dbConn, leafHubName, clustersPerPolicy.PolicyID, clustersFromDB,
+		tableName)
 	if err != nil {
 		return fmt.Errorf("failed deleting compliance rows of policy '%s', leaf hub '%s' from db - %w",
 			clustersPerPolicy.PolicyID, leafHubName, err)
@@ -193,9 +251,9 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 }
 
 func (syncer *PoliciesDBSyncer) deletePoliciesFromDB(ctx context.Context, dbConn db.StatusTransportBridgeDB,
-	leafHubName string, policyIDsFromDB datastructures.HashSet) error {
+	leafHubName string, policyIDsFromDB datastructures.HashSet, tableName string) error {
 	for policyID := range policyIDsFromDB {
-		if err := dbConn.DeleteAllComplianceRows(ctx, complianceTableName, leafHubName, policyID); err != nil {
+		if err := dbConn.DeleteAllComplianceRows(ctx, tableName, leafHubName, policyID); err != nil {
 			return fmt.Errorf("failed deleting compliance rows of policy '%s', leaf hub '%s' from db - %w",
 				policyID, leafHubName, err)
 		}
@@ -205,32 +263,33 @@ func (syncer *PoliciesDBSyncer) deletePoliciesFromDB(ctx context.Context, dbConn
 }
 
 func (syncer *PoliciesDBSyncer) deleteSelectedComplianceRows(ctx context.Context,
-	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, clusterNames datastructures.HashSet) error {
+	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, clusterNames datastructures.HashSet,
+	tableName string) error {
 	for clusterName := range clusterNames {
-		err := dbConn.DeleteComplianceRow(ctx, complianceTableName, leafHubName, clusterName, policyID)
+		err := dbConn.DeleteComplianceRow(ctx, tableName, leafHubName, clusterName, policyID)
 		if err != nil {
 			return fmt.Errorf("failed removing cluster '%s' of leaf hub '%s' from table status.%s - %w",
-				clusterName, leafHubName, complianceTableName, err)
+				clusterName, leafHubName, tableName, err)
 		}
 	}
 
 	return nil
 }
 
-// func (syncer *PoliciesDBSyncer) handleLocalComplianceBundle(ctx context.Context, bundle bundle.Bundle,
-//	dbConn db.StatusTransportBridgeDB) error {
-//	syncer.log.Info("start handling 'LocalComplianceStatus' bundle", "Leaf Hub",
-//		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
-//
-//	if err := syncer.handleComplianceBundleHelper(ctx, bundle, dbConn, LocalComplianceTableName); err != nil {
-//		return err
-//	}
-//
-//	syncer.log.Info("finished handling 'LocalComplianceStatus' bundle", "Leaf Hub",
-//		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
-//
-//	return nil
-//}
+func (syncer *PoliciesDBSyncer) handleLocalComplianceBundle(ctx context.Context, bundle bundle.Bundle,
+	dbConn db.StatusTransportBridgeDB) error {
+	syncer.log.Info("start handling 'LocalComplianceStatus' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	if err := syncer.handleComplianceBundleHelper(ctx, bundle, dbConn, LocalComplianceTableName); err != nil {
+		return err
+	}
+
+	syncer.log.Info("finished handling 'LocalComplianceStatus' bundle", "Leaf Hub",
+		bundle.GetLeafHubName(), "Generation", bundle.GetGeneration())
+
+	return nil
+}
 
 // a decorating function to reuse code in local versions.
 func (syncer *PoliciesDBSyncer) handleComplianceBundle(ctx context.Context, bundle bundle.Bundle,
@@ -344,14 +403,14 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 	// update in db non compliant clusters
 	if nonCompliantClustersFromDB, err = syncer.updateSelectedComplianceRowsAndRemovedFromDBList(ctx, dbConn,
 		leafHubName, policyComplianceStatus.PolicyID, nonCompliant, policyComplianceStatus.ResourceVersion,
-		policyComplianceStatus.NonCompliantClusters, nonCompliantClustersFromDB); err != nil {
+		policyComplianceStatus.NonCompliantClusters, nonCompliantClustersFromDB, tableName); err != nil {
 		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
 
 	// update in db unknown compliance clusters
 	if nonCompliantClustersFromDB, err = syncer.updateSelectedComplianceRowsAndRemovedFromDBList(ctx, dbConn,
 		leafHubName, policyComplianceStatus.PolicyID, unknown, policyComplianceStatus.ResourceVersion,
-		policyComplianceStatus.UnknownComplianceClusters, nonCompliantClustersFromDB); err != nil {
+		policyComplianceStatus.UnknownComplianceClusters, nonCompliantClustersFromDB, tableName); err != nil {
 		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
 
@@ -368,9 +427,10 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 
 func (syncer *PoliciesDBSyncer) updateSelectedComplianceRowsAndRemovedFromDBList(ctx context.Context,
 	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, compliance string, version string,
-	targetClusterNames []string, clustersFromDB datastructures.HashSet) (datastructures.HashSet, error) {
+	targetClusterNames []string, clustersFromDB datastructures.HashSet,
+	tableName string) (datastructures.HashSet, error) {
 	for _, clusterName := range targetClusterNames { // go over the target clusters
-		if err := dbConn.UpdateComplianceRow(ctx, complianceTableName, leafHubName, clusterName, policyID, compliance,
+		if err := dbConn.UpdateComplianceRow(ctx, tableName, leafHubName, clusterName, policyID, compliance,
 			version); err != nil {
 			return clustersFromDB, fmt.Errorf("failed updating compliance row in db - %w", err)
 		}
