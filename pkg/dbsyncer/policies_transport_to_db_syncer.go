@@ -42,8 +42,6 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 		createLocalClustersPerPolicyBundle:    func() bundle.Bundle { return bundle.NewLocalClustersPerPolicyBundle() },
 	}
 
-	log.Info(fmt.Sprintf("type is %s", helpers.GetBundleType(dbSyncer.createLocalComplianceStatusBundleFunc())))
-	log.Info(fmt.Sprintf("type is %s", helpers.GetBundleType(dbSyncer.createLocalClustersPerPolicyBundle())))
 	log.Info("initialized policies db syncer")
 
 	return dbSyncer
