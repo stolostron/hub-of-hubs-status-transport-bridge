@@ -34,16 +34,14 @@ type PoliciesStatusDB interface {
 	GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
 		policyID string) (datastructures.HashSet, error)
 	InsertPolicyCompliance(ctx context.Context, tableName string, leafHubName string, clusterName string,
-		policyID string, errorString string, compliance string, enforcement string, version string) error
-	UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, leafHubName string, policyID string,
-		enforcement string, version string) error
+		policyID string, errorString string, compliance string) error
 	UpdateComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string, policyID string,
-		compliance string, version string) error
+		compliance string) error
 	UpdatePolicyCompliance(ctx context.Context, tableName string, leafHubName string, policyID string,
 		compliance string) error
 	DeleteComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,
 		policyID string) error
 	DeleteAllComplianceRows(ctx context.Context, tableName string, leafHubName string, policyID string) error
 	InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, leafHubName string, policyID string,
-		enforcement string, appliedClusters int, nonCompliantClusters int) error
+		appliedClusters int, nonCompliantClusters int) error
 }
