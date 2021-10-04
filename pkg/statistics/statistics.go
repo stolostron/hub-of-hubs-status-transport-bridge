@@ -102,20 +102,17 @@ func (s *Statistics) run(ctx context.Context) {
 			return
 
 		case <-ticker.C: // dump statistics
-			var sb strings.Builder
+			var metrics strings.Builder
 
 			for bundleType, bundleMetrics := range s.bundleMetrics {
-				sb.WriteString(fmt.Sprintf("[%s, (db process {%s}), (cu {%s})], ",
+				metrics.WriteString(fmt.Sprintf("[%s, (db process {%s}), (cu {%s})], ",
 					bundleType, bundleMetrics.database.toString(), bundleMetrics.conflationUnit.toString()))
 			}
-
-			// remove redundant suffix after last metrics
-			metrics := strings.TrimSuffix(sb.String(), ", ")
 
 			s.log.Info("statistics:",
 				"conflation ready queue size", s.conflationReadyQueueSize,
 				"available db workers", s.numOfAvailableDBWorkers,
-				"metrics", metrics)
+				"metrics", strings.TrimSuffix(metrics.String(), ", "))
 		}
 	}
 }
