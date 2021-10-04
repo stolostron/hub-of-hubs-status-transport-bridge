@@ -20,7 +20,7 @@ type ManagedClustersStatusDB interface {
 	// GetManagedClustersByLeafHub returns a map from clusterName to its resourceVersion
 	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) (map[string]string, error)
 	InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
-		payload interface{}, version string) error
+		payload interface{}, errorString string, version string) error
 	UpdateManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
 		payload interface{}, version string) error
 	DeleteManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string) error

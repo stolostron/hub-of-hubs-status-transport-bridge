@@ -82,7 +82,7 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 
 		if !clusterExists { // cluster not found in the db table
 			if err = dbConn.InsertManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
-				cluster.GetResourceVersion()); err != nil {
+				errorNone, cluster.GetResourceVersion()); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' to the DB - %w", clusterName,
 					leafHubName, err)
 			}

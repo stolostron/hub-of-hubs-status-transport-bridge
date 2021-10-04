@@ -71,10 +71,10 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName 
 
 // InsertManagedCluster inserts managed cluster to the db.
 func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
-	payload interface{}, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (cluster_name,leaf_hub_name,payload,
-			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), clusterName, leafHubName, payload,
-		version); err != nil {
+	payload interface{}, errorString string, version string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%s (cluster_name,leaf_hub_name,payload,error
+			resource_version) values($1, $2, $3::jsonb, $4, $5)`, tableName), clusterName, leafHubName, payload,
+		errorString, version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
 

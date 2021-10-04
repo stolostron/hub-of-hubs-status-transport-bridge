@@ -18,8 +18,6 @@ import (
 )
 
 const (
-	errorNone = "none"
-
 	nonCompliant = "non_compliant"
 	compliant    = "compliant"
 	unknown      = "unknown"
