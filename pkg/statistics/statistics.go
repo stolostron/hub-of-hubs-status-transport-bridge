@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,12 +12,16 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
-const logIntervalSeconds = 10
+const (
+	conflationKeyDelimiter = '%'
+	logIntervalSeconds     = 10
+)
 
 // NewStatistics creates a new instance of Statistics.
 func NewStatistics(log logr.Logger) *Statistics {
 	statistics := &Statistics{
 		log:           log,
+		conflation:    conflation{startTimestamps: make(map[string]int64)},
 		bundleMetrics: make(map[string]*bundleMetrics),
 	}
 
@@ -30,10 +35,16 @@ func NewStatistics(log logr.Logger) *Statistics {
 
 // Statistics aggregates different statistics.
 type Statistics struct {
-	log                      logr.Logger
-	numOfAvailableDBWorkers  int
-	conflationReadyQueueSize int
-	bundleMetrics            map[string]*bundleMetrics
+	log                     logr.Logger
+	numOfAvailableDBWorkers int
+	conflation              conflation
+	bundleMetrics           map[string]*bundleMetrics
+}
+
+type conflation struct {
+	readyQueueSize  int
+	startTimestamps map[string]int64
+	mutex           sync.Mutex
 }
 
 // SetNumberOfAvailableDBWorkers sets number of available db workers.
@@ -43,21 +54,30 @@ func (s *Statistics) SetNumberOfAvailableDBWorkers(numOf int) {
 
 // SetConflationReadyQueueSize sets conflation ready queue size.
 func (s *Statistics) SetConflationReadyQueueSize(size int) {
-	s.conflationReadyQueueSize = size
+	s.conflation.readyQueueSize = size
 }
 
 // StartConflationUnitMetrics starts conflation unit metrics of the specific bundle type.
-func (s *Statistics) StartConflationUnitMetrics(bundle bundle.Bundle) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
+func (s *Statistics) StartConflationUnitMetrics(conflationUnitName string, bundle bundle.Bundle) {
+	s.conflation.mutex.Lock()
+	defer s.conflation.mutex.Unlock()
 
-	bundleMetrics.conflationUnit.start()
+	conflationKey := fmt.Sprintf("%s%c%s", conflationUnitName, conflationKeyDelimiter, helpers.GetBundleType(bundle))
+
+	s.conflation.startTimestamps[conflationKey] = time.Now().Unix()
 }
 
 // StopConflationUnitMetrics stops conflation unit metrics of the specific bundle type.
-func (s *Statistics) StopConflationUnitMetrics(bundle bundle.Bundle, err error) {
-	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
+func (s *Statistics) StopConflationUnitMetrics(conflationUnitName string, bundle bundle.Bundle, err error) {
+	s.conflation.mutex.Lock()
+	defer s.conflation.mutex.Unlock()
 
-	bundleMetrics.conflationUnit.stop(err)
+	bundleType := helpers.GetBundleType(bundle)
+	conflationKey := fmt.Sprintf("%s%c%s", conflationUnitName, conflationKeyDelimiter, bundleType)
+	startTme := s.conflation.startTimestamps[conflationKey]
+
+	bundleMetrics := s.bundleMetrics[bundleType]
+	bundleMetrics.conflationUnit.add(time.Since(time.Unix(startTme, 0)), err)
 }
 
 // IncrementNumberOfConflations increments number of conflations of the specific bundle type.
@@ -110,7 +130,7 @@ func (s *Statistics) run(ctx context.Context) {
 			}
 
 			s.log.Info("statistics:",
-				"conflation ready queue size", s.conflationReadyQueueSize,
+				"conflation ready queue size", s.conflation.readyQueueSize,
 				"available db workers", s.numOfAvailableDBWorkers,
 				"metrics", strings.TrimSuffix(metrics.String(), ", "))
 		}
