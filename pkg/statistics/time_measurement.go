@@ -19,6 +19,12 @@ func (tm *timeMeasurement) add(duration time.Duration, err error) {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
+	tm.addUnsafe(duration, err)
+}
+
+// addUnsafe is unsafe version of add() method which contains a common logic.
+// The method shouldn't be accessed directly, but using wrapper methods which lock shared mutex.
+func (tm *timeMeasurement) addUnsafe(duration time.Duration, err error) {
 	if err != nil {
 		tm.failures++
 		return

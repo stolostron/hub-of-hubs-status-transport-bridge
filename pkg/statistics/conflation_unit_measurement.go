@@ -2,12 +2,30 @@ package statistics
 
 import (
 	"fmt"
+	"time"
 )
 
 // conflationUnitMeasurement extends timeMeasurement and adds conflation measurements.
 type conflationUnitMeasurement struct {
 	timeMeasurement
 	numOfConflations int64
+	startTimestamps  map[string]int64
+}
+
+func (cum *conflationUnitMeasurement) start(conflationUnitName string) {
+	cum.mutex.Lock()
+	defer cum.mutex.Unlock()
+
+	cum.startTimestamps[conflationUnitName] = time.Now().Unix()
+}
+
+func (cum *conflationUnitMeasurement) stop(conflationUnitName string, err error) {
+	cum.mutex.Lock()
+	defer cum.mutex.Unlock()
+
+	startTme := cum.startTimestamps[conflationUnitName]
+
+	cum.addUnsafe(time.Since(time.Unix(startTme, 0)), err)
 }
 
 // incrementNumberOfConflations increments number of conflations.
