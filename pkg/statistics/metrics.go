@@ -6,6 +6,6 @@ type bundleMetrics struct {
 	database       timeMeasurement           // measures a time took by db worker to process bundle
 }
 
-func newBundleMetric() *bundleMetrics {
+func newBundleMetrics() *bundleMetrics {
 	return &bundleMetrics{conflationUnit: conflationUnitMeasurement{startTimestamps: make(map[string]int64)}}
 }
