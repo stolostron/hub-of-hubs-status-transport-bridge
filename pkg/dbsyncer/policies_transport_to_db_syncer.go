@@ -3,10 +3,8 @@ package dbsyncer
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
@@ -20,14 +18,9 @@ import (
 )
 
 const (
-	errorNone = "none"
-
 	nonCompliant = "non_compliant"
 	compliant    = "compliant"
 	unknown      = "unknown"
-
-	inform  = "inform"
-	enforce = "enforce"
 )
 
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
@@ -161,8 +154,7 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 	for _, clusterName := range clustersPerPolicy.Clusters { // go over the clusters per policy from bundle
 		if !clustersFromDB.Exists(clusterName) { // check if cluster not found in the compliance table
 			if err = dbConn.InsertPolicyCompliance(ctx, complianceTableName, leafHubName, clusterName,
-				clustersPerPolicy.PolicyID, errorNone, unknown, syncer.getEnforcement(
-					clustersPerPolicy.RemediationAction), clustersPerPolicy.ResourceVersion); err != nil {
+				clustersPerPolicy.PolicyID, errorNone, unknown); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' compliance to DB - %w",
 					clusterName, leafHubName, err)
 			}
@@ -180,14 +172,6 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 		return fmt.Errorf("failed deleting compliance rows of policy '%s', leaf hub '%s' from db - %w",
 			clustersPerPolicy.PolicyID, leafHubName, err)
 	}
-	// TODO test performance without updating the enforcement and resource version
-	// update enforcement and version of all rows with leafHub and policyId
-	// if err = dbConn.UpdateEnforcementAndResourceVersion(ctx, complianceTableName, leafHubName,
-	//	clustersPerPolicy.PolicyID, syncer.getEnforcement(clustersPerPolicy.RemediationAction),
-	//	clustersPerPolicy.ResourceVersion); err != nil {
-	//	return fmt.Errorf(`failed updating enforcement and resource version of policy '%s', leaf hub '%s'
-	//				in db - %w`, clustersPerPolicy.PolicyID, leafHubName, err)
-	//}
 
 	return nil
 }
@@ -277,8 +261,8 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 		}
 
 		if err := dbConn.InsertOrUpdateAggregatedPolicyCompliance(ctx, minimalComplianceTableName,
-			leafHubName, minPolicyCompliance.PolicyID, syncer.getEnforcement(minPolicyCompliance.RemediationAction),
-			minPolicyCompliance.AppliedClusters, minPolicyCompliance.NonCompliantClusters); err != nil {
+			leafHubName, minPolicyCompliance.PolicyID, minPolicyCompliance.AppliedClusters,
+			minPolicyCompliance.NonCompliantClusters); err != nil {
 			return fmt.Errorf("failed to update minimal compliance of policy '%s', leaf hub '%s' in db - %w",
 				minPolicyCompliance.PolicyID, leafHubName, err)
 		}
@@ -313,22 +297,22 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 
 	// update in db non compliant clusters
 	if nonCompliantClustersFromDB, err = syncer.updateSelectedComplianceRowsAndRemovedFromDBList(ctx, dbConn,
-		leafHubName, policyComplianceStatus.PolicyID, nonCompliant, policyComplianceStatus.ResourceVersion,
-		policyComplianceStatus.NonCompliantClusters, nonCompliantClustersFromDB); err != nil {
+		leafHubName, policyComplianceStatus.PolicyID, nonCompliant, policyComplianceStatus.NonCompliantClusters,
+		nonCompliantClustersFromDB); err != nil {
 		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
 
 	// update in db unknown compliance clusters
 	if nonCompliantClustersFromDB, err = syncer.updateSelectedComplianceRowsAndRemovedFromDBList(ctx, dbConn,
-		leafHubName, policyComplianceStatus.PolicyID, unknown, policyComplianceStatus.ResourceVersion,
-		policyComplianceStatus.UnknownComplianceClusters, nonCompliantClustersFromDB); err != nil {
+		leafHubName, policyComplianceStatus.PolicyID, unknown, policyComplianceStatus.UnknownComplianceClusters,
+		nonCompliantClustersFromDB); err != nil {
 		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
 
 	// other clusters are implicitly considered as compliant
 	for clusterName := range nonCompliantClustersFromDB { // clusters left in the non compliant from db list
 		if err := dbConn.UpdateComplianceRow(ctx, complianceTableName, leafHubName, clusterName, // change to compliant
-			policyComplianceStatus.PolicyID, compliant, policyComplianceStatus.ResourceVersion); err != nil {
+			policyComplianceStatus.PolicyID, compliant); err != nil {
 			return fmt.Errorf("failed updating compliance rows in db - %w", err)
 		}
 	}
@@ -337,11 +321,11 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 }
 
 func (syncer *PoliciesDBSyncer) updateSelectedComplianceRowsAndRemovedFromDBList(ctx context.Context,
-	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, compliance string, version string,
+	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, compliance string,
 	targetClusterNames []string, clustersFromDB datastructures.HashSet) (datastructures.HashSet, error) {
 	for _, clusterName := range targetClusterNames { // go over the target clusters
-		if err := dbConn.UpdateComplianceRow(ctx, complianceTableName, leafHubName, clusterName, policyID, compliance,
-			version); err != nil {
+		err := dbConn.UpdateComplianceRow(ctx, complianceTableName, leafHubName, clusterName, policyID, compliance)
+		if err != nil {
 			return clustersFromDB, fmt.Errorf("failed updating compliance row in db - %w", err)
 		}
 
@@ -349,14 +333,4 @@ func (syncer *PoliciesDBSyncer) updateSelectedComplianceRowsAndRemovedFromDBList
 	}
 
 	return clustersFromDB, nil
-}
-
-func (syncer *PoliciesDBSyncer) getEnforcement(remediationAction policiesv1.RemediationAction) string {
-	if strings.ToLower(string(remediationAction)) == inform {
-		return inform
-	} else if strings.ToLower(string(remediationAction)) == enforce {
-		return enforce
-	}
-
-	return unknown
 }
