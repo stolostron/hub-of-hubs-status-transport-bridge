@@ -8,6 +8,9 @@ const (
 	// MinimalComplianceTableName table for minimal policy compliance status.
 	minimalComplianceTableName = "status.aggregated_compliance"
 
+	// errorNone is default value when no error occurs.
+	errorNone = "none"
+
 	// LocalComplianceTableName table for policy compliance status.
 	LocalComplianceTableName = "local_status.compliance"
 	// LocalPolicySpecTableName the name of the local policy spec table.

@@ -20,7 +20,7 @@ type ManagedClustersStatusDB interface {
 	// GetManagedClustersByLeafHub returns a map from clusterName to its resourceVersion
 	GetManagedClustersByLeafHub(ctx context.Context, tableName string, leafHubName string) (map[string]string, error)
 	InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
-		payload interface{}, version string) error
+		payload interface{}, errorString string, version string) error
 	UpdateManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
 		payload interface{}, version string) error
 	DeleteManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string) error
@@ -34,11 +34,9 @@ type PoliciesStatusDB interface {
 	GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
 		policyID string) (datastructures.HashSet, error)
 	InsertPolicyCompliance(ctx context.Context, tableName string, leafHubName string, clusterName string,
-		policyID string, errorString string, compliance string, enforcement string, version string) error
-	UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, leafHubName string, policyID string,
-		enforcement string, version string) error
+		policyID string, errorString string, compliance string) error
 	UpdateComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string, policyID string,
-		compliance string, version string) error
+		compliance string) error
 	UpdatePolicyCompliance(ctx context.Context, tableName string, leafHubName string, policyID string,
 		compliance string) error
 	DeleteComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,

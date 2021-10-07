@@ -20,8 +20,6 @@ import (
 )
 
 const (
-	errorNone = "none"
-
 	nonCompliant = "non_compliant"
 	compliant    = "compliant"
 	unknown      = "unknown"
@@ -216,8 +214,7 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(ctx context.Context, dbCo
 	for _, clusterName := range clustersPerPolicy.Clusters { // go over the clusters per policy from bundle
 		if !clustersFromDB.Exists(clusterName) { // check if cluster not found in the compliance table
 			if err = dbConn.InsertPolicyCompliance(ctx, tableName, leafHubName, clusterName,
-				clustersPerPolicy.PolicyID, errorNone, unknown, syncer.getEnforcement(
-					clustersPerPolicy.RemediationAction), clustersPerPolicy.ResourceVersion); err != nil {
+				clustersPerPolicy.PolicyID, errorNone, unknown); err != nil {
 				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' compliance to DB - %w",
 					clusterName, leafHubName, err)
 			}
@@ -400,14 +397,14 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 
 	// update in db non compliant clusters
 	if nonCompliantClustersFromDB, err = syncer.updateSelectedComplianceRowsAndRemovedFromDBList(ctx, dbConn,
-		leafHubName, policyComplianceStatus.PolicyID, nonCompliant, policyComplianceStatus.ResourceVersion,
+		leafHubName, policyComplianceStatus.PolicyID, nonCompliant,
 		policyComplianceStatus.NonCompliantClusters, nonCompliantClustersFromDB, tableName); err != nil {
 		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
 
 	// update in db unknown compliance clusters
 	if nonCompliantClustersFromDB, err = syncer.updateSelectedComplianceRowsAndRemovedFromDBList(ctx, dbConn,
-		leafHubName, policyComplianceStatus.PolicyID, unknown, policyComplianceStatus.ResourceVersion,
+		leafHubName, policyComplianceStatus.PolicyID, unknown,
 		policyComplianceStatus.UnknownComplianceClusters, nonCompliantClustersFromDB, tableName); err != nil {
 		return fmt.Errorf("failed updating compliance rows in db - %w", err)
 	}
@@ -415,7 +412,7 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 	// other clusters are implicitly considered as compliant
 	for clusterName := range nonCompliantClustersFromDB { // clusters left in the non compliant from db list
 		if err := dbConn.UpdateComplianceRow(ctx, tableName, leafHubName, clusterName, // change to compliant
-			policyComplianceStatus.PolicyID, compliant, policyComplianceStatus.ResourceVersion); err != nil {
+			policyComplianceStatus.PolicyID, compliant); err != nil {
 			return fmt.Errorf("failed updating compliance rows in db - %w", err)
 		}
 	}
@@ -424,12 +421,11 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 }
 
 func (syncer *PoliciesDBSyncer) updateSelectedComplianceRowsAndRemovedFromDBList(ctx context.Context,
-	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, compliance string, version string,
+	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, compliance string,
 	targetClusterNames []string, clustersFromDB datastructures.HashSet,
 	tableName string) (datastructures.HashSet, error) {
 	for _, clusterName := range targetClusterNames { // go over the target clusters
-		if err := dbConn.UpdateComplianceRow(ctx, tableName, leafHubName, clusterName, policyID, compliance,
-			version); err != nil {
+		if err := dbConn.UpdateComplianceRow(ctx, tableName, leafHubName, clusterName, policyID, compliance); err != nil {
 			return clustersFromDB, fmt.Errorf("failed updating compliance row in db - %w", err)
 		}
 
