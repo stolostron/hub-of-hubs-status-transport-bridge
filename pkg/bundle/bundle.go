@@ -15,6 +15,7 @@ type Bundle interface {
 
 // DependencyBundle represents the dependency between different bundles.
 type DependencyBundle struct {
-	BundleType string
+	RequiresExactVersion bool
+	BundleType           string
 	*status.BundleVersion
 }

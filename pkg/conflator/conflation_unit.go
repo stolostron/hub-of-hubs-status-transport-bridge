@@ -33,12 +33,10 @@ func newConflationUnit(readyQueue *ConflationReadyQueue, registrations []*Confla
 
 	for _, registration := range registrations {
 		priorityQueue[registration.Priority] = &conflationElement{
-			bundleType:                 registration.BundleType,
-			bundle:                     nil,
-			bundleMetadata:             nil,
-			handlerFunction:            registration.HandlerFunction,
-			isInProcess:                false,
-			lastProcessedBundleVersion: initBundleVersion,
+			bundleInfo: NewBundleInfo(registration.BundleType, registration.SyncMode,
+				initBundleVersion),
+			handlerFunction: registration.HandlerFunction,
+			isInProcess:     false,
 		}
 		bundleTypeToPriority[registration.BundleType] = registration.Priority
 	}
@@ -71,26 +69,19 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	bundleType := helpers.GetBundleType(bundle)
 	priority := cu.bundleTypeToPriority[bundleType]
 	conflationElement := cu.priorityQueue[priority]
+	conflationElementBundle := conflationElement.bundleInfo.GetBundle()
 
-	if conflationElement.bundle != nil && (conflationElement.bundle.GetVersion().NewerThan(bundle.GetVersion()) ||
-		conflationElement.bundle.GetVersion().Equals(bundle.GetVersion())) {
+	if conflationElementBundle != nil && !bundle.GetVersion().NewerThan(conflationElementBundle.GetVersion()) {
 		return // insert bundle only if the generation we got is newer, otherwise do nothing.
 	}
 
 	// if we got here, we got bundle with newer generation
-	conflationElement.bundle = bundle // update the bundle in the priority queue.
+	// update the bundle in the priority queue.
+	if err := conflationElement.bundleInfo.UpdateInfo(bundle, metadata, conflationElement.isInProcess); err != nil {
+		return
+	}
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
-	bundleVersion := bundle.GetVersion()
-	if conflationElement.bundleMetadata != nil && !conflationElement.isInProcess {
-		conflationElement.bundleMetadata.update(bundleVersion, metadata)
-	} else {
-		conflationElement.bundleMetadata = &BundleMetadata{
-			bundleType:              bundleType,
-			bundleVersion:           bundleVersion,
-			transportBundleMetadata: metadata,
-		}
-	}
 
 	cu.addCUToReadyQueueIfNeeded()
 }
@@ -111,7 +102,8 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true
 
-	return conflationElement.bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
+	return conflationElement.bundleInfo.GetBundle(), conflationElement.bundleInfo.GetMetadataToDispatch(),
+		conflationElement.handlerFunction, nil
 }
 
 // ReportResult is used to report the result of bundle handling job.
@@ -124,18 +116,18 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	conflationElement.isInProcess = false // finished processing bundle
 
 	if err != nil {
+		conflationElement.bundleInfo.HandleFailure(metadata)
 		cu.addCUToReadyQueueIfNeeded()
+
 		return
 	}
 	// otherwise, err is nil, means bundle processing finished successfully
-	if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedBundleVersion) {
-		conflationElement.lastProcessedBundleVersion = metadata.bundleVersion
+	if metadata.bundleVersion.NewerThan(conflationElement.bundleInfo.LastProcessedBundleVersion) {
+		conflationElement.bundleInfo.LastProcessedBundleVersion = metadata.bundleVersion
 	}
-	// if bundle wasn't updated since GetNext was called - delete bundle + metadata since it was already processed
-	if metadata.bundleVersion.Equals(conflationElement.lastProcessedBundleVersion) {
-		// we won't throw the metadata since the committer may use it
-		conflationElement.bundleMetadata.transportBundleMetadata.MarkAsProcessed()
-		conflationElement.bundle = nil
+	// if bundle wasn't updated since GetNext was called then the bundle was processed
+	if metadata.bundleVersion.Equals(conflationElement.bundleInfo.LastProcessedBundleVersion) {
+		conflationElement.bundleInfo.MarkAsProcessed(metadata)
 	}
 
 	cu.addCUToReadyQueueIfNeeded()
@@ -149,11 +141,9 @@ func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
 	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
 
 	for _, element := range cu.priorityQueue {
-		if element.bundleMetadata == nil {
-			continue
+		if transportMetadata := element.bundleInfo.GetTransportMetadata(); transportMetadata != nil {
+			bundlesMetadata = append(bundlesMetadata, transportMetadata)
 		}
-
-		bundlesMetadata = append(bundlesMetadata, element.bundleMetadata.transportBundleMetadata)
 	}
 
 	return bundlesMetadata
@@ -183,8 +173,8 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
-		if conflationElement.bundle != nil && !conflationElement.isInProcess &&
-			cu.checkDependencies(conflationElement.bundle) {
+		if conflationElement.bundleInfo.GetBundle() != nil && !conflationElement.isInProcess &&
+			cu.checkDependencies(conflationElement.bundleInfo.GetBundle()) {
 			return priority // bundle in this priority is ready to be processed
 		} // bundle from this priority exists, we don't have previous generation in processing and dependencies exist
 	}
@@ -201,16 +191,21 @@ func (cu *ConflationUnit) checkDependencies(bundleToCheck bundle.Bundle) bool {
 
 	dependencyIndex := cu.bundleTypeToPriority[dependency.BundleType]
 	dependencyConflationElement := cu.priorityQueue[dependencyIndex]
+	lastProcessedDependencyBundleVersion := dependencyConflationElement.bundleInfo.LastProcessedBundleVersion
 
-	if dependencyConflationElement.lastProcessedBundleVersion == nil {
-		return true // if no version was set then the dependency should be skipped
+	if lastProcessedDependencyBundleVersion == nil {
+		return true // if no version was set then the dependency check is okay
 	}
 
-	if dependency.BundleVersion.NewerThan(dependencyConflationElement.lastProcessedBundleVersion) {
+	if dependency.RequiresExactVersion {
+		if !dependency.BundleVersion.Equals(lastProcessedDependencyBundleVersion) {
+			return false // dependency requires exact version check, which was not met
+		}
+	} else if dependency.BundleVersion.NewerThan(lastProcessedDependencyBundleVersion) {
 		return false // the needed dependency generation wasn't processed yet
 	}
 
-	if cu.priorityQueue[dependencyIndex].isInProcess {
+	if dependencyConflationElement.isInProcess {
 		return false // the needed dependency bundle is currently in process, waiting for its processing to finish.
 	}
 

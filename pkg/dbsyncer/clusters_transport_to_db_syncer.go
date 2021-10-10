@@ -56,6 +56,7 @@ func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflation
 		Priority:        conflator.ManagedClustersPriority,
 		BundleType:      helpers.GetBundleType(syncer.createBundleFunc()),
 		HandlerFunction: syncer.handleManagedClustersBundle,
+		SyncMode:        conflator.CompleteStateSyncMode,
 	})
 }
 

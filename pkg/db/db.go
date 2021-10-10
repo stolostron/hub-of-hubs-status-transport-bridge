@@ -39,6 +39,8 @@ type PoliciesStatusDB interface {
 		enforcement string, version string) error
 	UpdateComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string, policyID string,
 		compliance string, version string) error
+	UpdateComplianceSet(ctx context.Context, tableName string, leafHubName string, clusterNames []string,
+		policyID string, compliance string, version string) error
 	UpdatePolicyCompliance(ctx context.Context, tableName string, leafHubName string, policyID string,
 		compliance string) error
 	DeleteComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,

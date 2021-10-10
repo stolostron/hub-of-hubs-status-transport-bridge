@@ -7,8 +7,12 @@ type (
 )
 
 // NewHashSet returns a new instance of HashSet.
-func NewHashSet() HashSet {
-	return map[string]void{}
+func NewHashSet(capacity ...int) HashSet {
+	if len(capacity) == 0 {
+		return map[string]void{}
+	}
+
+	return make(HashSet, capacity[0])
 }
 
 // Add adds an item to the hash set in case it doesn't exist. if it exists add is a no-op.

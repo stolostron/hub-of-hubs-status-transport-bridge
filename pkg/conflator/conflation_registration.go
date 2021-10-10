@@ -15,4 +15,5 @@ type ConflationRegistration struct {
 	Priority        conflationPriority
 	BundleType      string
 	HandlerFunction BundleHandlerFunc
+	SyncMode
 }

@@ -92,7 +92,7 @@ spec:
             - name: KAFKA_CONSUMER_TOPIC
               value: "status"
             - name: COMMITTER_INTERVAL
-              value: "10s"
+              value: "20s"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST

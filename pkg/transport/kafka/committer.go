@@ -82,7 +82,7 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			pendingBundleMetadataToCommit := make(map[int32]*BundleMetadata)
+			bundleMetadataToCommit := make(map[int32]*BundleMetadata)
 
 			// fill map with the lowest offsets per partition via iterating over all registered consumers
 			for Consumer := range c.consumers {
@@ -92,16 +92,20 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 				// processed bundles
 				lowestPendingMetadataPerPartition,
 					highestNonPendingMetadataPerPartition := c.filterMetadataPerPartition(bundlesMetadata)
-				// update pendingBundleMetadataToCommit map with both, the same way. patch the map by lowest metadata
+				// update bundleMetadataToCommit map with both, the same way. patch the map by lowest metadata
 				// per partition, so if two bundles on the same partition are in each collection above, the lowest is
 				// committed (pending bundle offset - 1 or non-pending bundle offset)
 				// NOTICE: the non-pending must be patched first so that the pending ones can overwrite.
-				c.patchCommitMetadataMap(pendingBundleMetadataToCommit, highestNonPendingMetadataPerPartition, false)
-				c.patchCommitMetadataMap(pendingBundleMetadataToCommit, lowestPendingMetadataPerPartition, true)
+				c.patchCommitMetadataMap(bundleMetadataToCommit, highestNonPendingMetadataPerPartition, false)
+				c.patchCommitMetadataMap(bundleMetadataToCommit, lowestPendingMetadataPerPartition, true)
 			}
 
-			if err := c.commitPositionsFunc(pendingBundleMetadataToCommit); err != nil {
-				c.log.Error(err, "failed to commit offsets")
+			if err := c.commitPositionsFunc(bundleMetadataToCommit); err != nil {
+				c.log.Error(err, "committer failed", "bundles metadata sent", *bundleMetadataToCommit[0])
+			}
+
+			if len(bundleMetadataToCommit) > 0 {
+				c.log.Info("attempted commit", "bundles metadata sent", *bundleMetadataToCommit[0])
 			}
 		}
 	}

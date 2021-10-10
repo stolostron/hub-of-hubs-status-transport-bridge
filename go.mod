@@ -11,7 +11,7 @@ require (
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26
 	github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20210926123616-36d90502da94
 	github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.0
-	github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20210926104512-12ba0baca146
+	github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211005065437-ad2cc212eb1d
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2
 	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 	github.com/operator-framework/operator-sdk v0.19.4

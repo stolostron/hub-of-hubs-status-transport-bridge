@@ -12,9 +12,3 @@ type BundleMetadata struct {
 	// transport metadata is information we need for marking bundle as consumed in transport (e.g. commit offset)
 	transportBundleMetadata transport.BundleMetadata
 }
-
-func (metadata *BundleMetadata) update(bundleVersion *status.BundleVersion,
-	transportMetadata transport.BundleMetadata) {
-	metadata.bundleVersion = bundleVersion
-	metadata.transportBundleMetadata = transportMetadata
-}

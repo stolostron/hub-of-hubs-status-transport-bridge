@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
@@ -199,6 +200,20 @@ func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, 
 			leaf_hub_name=$3 AND cluster_name=$4 AND policy_id=$5`, tableName), compliance, version, leafHubName,
 		clusterName, policyID); err != nil {
 		return fmt.Errorf("failed to update compliance row in database: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateComplianceSet updates compliance status for a set of clusters (multiple rows) in the db.
+func (p *PostgreSQL) UpdateComplianceSet(ctx context.Context, tableName string, leafHubName string,
+	clusterNames []string, policyID string, compliance string, version string) error {
+	query := fmt.Sprintf(`UPDATE status.%s SET compliance=$1,resource_version=$2 WHERE 
+			policy_id=$3 AND leaf_hub_name=$4 AND (cluster_name='%s')`, tableName,
+		strings.Join(clusterNames, "' OR cluster_name='")) // the join op takes care of all except for the first
+
+	if _, err := p.conn.Exec(ctx, query, compliance, version, policyID, leafHubName); err != nil {
+		return fmt.Errorf("failed to update compliance set in database: %w", err)
 	}
 
 	return nil

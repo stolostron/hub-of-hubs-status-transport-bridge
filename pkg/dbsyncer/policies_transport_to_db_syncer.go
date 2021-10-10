@@ -35,11 +35,20 @@ var errFailedToHandleClustersPerPolicy = errors.New("failed to handle 'ClustersP
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
-		log:                                 log,
-		config:                              config,
-		createClustersPerPolicyBundleFunc:   func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
-		createComplianceStatusBundleFunc:    func() bundle.Bundle { return bundle.NewCompleteComplianceStatusBundle() },
-		createMinComplianceStatusBundleFunc: func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
+		log:    log,
+		config: config,
+		createClustersPerPolicyBundleFunc: func() bundle.Bundle {
+			return bundle.NewClustersPerPolicyBundle()
+		},
+		createCompleteComplianceStatusBundleFunc: func() bundle.Bundle {
+			return bundle.NewCompleteComplianceStatusBundle()
+		},
+		createDeltaComplianceStatusBundleFunc: func() bundle.Bundle {
+			return bundle.NewDeltaComplianceStatusBundle()
+		},
+		createMinComplianceStatusBundleFunc: func() bundle.Bundle {
+			return bundle.NewMinimalComplianceStatusBundle()
+		},
 	}
 
 	log.Info("initialized policies db syncer")
@@ -49,11 +58,12 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 
 // PoliciesDBSyncer implements policies db sync business logic.
 type PoliciesDBSyncer struct {
-	log                                 logr.Logger
-	config                              *configv1.Config
-	createClustersPerPolicyBundleFunc   func() bundle.Bundle
-	createComplianceStatusBundleFunc    func() bundle.Bundle
-	createMinComplianceStatusBundleFunc func() bundle.Bundle
+	log                                      logr.Logger
+	config                                   *configv1.Config
+	createClustersPerPolicyBundleFunc        func() bundle.Bundle
+	createCompleteComplianceStatusBundleFunc func() bundle.Bundle
+	createDeltaComplianceStatusBundleFunc    func() bundle.Bundle
+	createMinComplianceStatusBundleFunc      func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -69,7 +79,13 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.PolicyCompleteComplianceMsgKey,
-		CreateBundleFunc: syncer.createComplianceStatusBundleFunc,
+		CreateBundleFunc: syncer.createCompleteComplianceStatusBundleFunc,
+		Predicate:        fullStatusPredicate,
+	})
+
+	transportInstance.Register(&transport.BundleRegistration{
+		MsgID:            datatypes.PolicyDeltaComplianceMsgKey,
+		CreateBundleFunc: syncer.createDeltaComplianceStatusBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
@@ -92,16 +108,25 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		Priority:        conflator.ClustersPerPolicyPriority,
 		BundleType:      helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc()),
 		HandlerFunction: syncer.handleClustersPerPolicyBundle,
+		SyncMode:        conflator.CompleteStateSyncMode,
 	})
 	conflationManager.Register(&conflator.ConflationRegistration{
 		Priority:        conflator.CompleteComplianceStatusPriority,
-		BundleType:      helpers.GetBundleType(syncer.createComplianceStatusBundleFunc()),
+		BundleType:      helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc()),
 		HandlerFunction: syncer.handleCompleteComplianceBundle,
+		SyncMode:        conflator.CompleteStateSyncMode,
+	})
+	conflationManager.Register(&conflator.ConflationRegistration{
+		Priority:        conflator.DeltaComplianceStatusPriority,
+		BundleType:      helpers.GetBundleType(syncer.createDeltaComplianceStatusBundleFunc()),
+		HandlerFunction: syncer.handleDeltaComplianceBundle,
+		SyncMode:        conflator.DeltaStateSyncMode,
 	})
 	conflationManager.Register(&conflator.ConflationRegistration{
 		Priority:        conflator.MinimalComplianceStatusPriority,
 		BundleType:      helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
 		HandlerFunction: syncer.handleMinimalComplianceBundle,
+		SyncMode:        conflator.CompleteStateSyncMode,
 	})
 }
 
@@ -235,7 +260,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 	dbConn db.StatusTransportBridgeDB) error {
 	leafHubName := bundle.GetLeafHubName()
 	version := bundle.GetVersion()
-	syncer.log.Info("start handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName, "Version",
+	syncer.log.Info("start handling 'CompleteComplianceStatus' bundle", "Leaf Hub", leafHubName, "Version",
 		helpers.FormatBundleVersion(version))
 
 	policyIDsFromDB, err := dbConn.GetPolicyIDsByLeafHub(ctx, complianceTableName, leafHubName)
@@ -263,7 +288,46 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 		}
 	}
 
-	syncer.log.Info("finished handling 'ComplianceStatus' bundle", "Leaf Hub", leafHubName,
+	syncer.log.Info("finished handling 'CompleteComplianceStatus' bundle", "Leaf Hub", leafHubName,
+		"Version", helpers.FormatBundleVersion(version))
+
+	return nil
+}
+
+// if we got to the handler function, then the bundle pre-conditions were satisfied.
+func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle bundle.Bundle,
+	dbConn db.StatusTransportBridgeDB) error {
+	leafHubName := bundle.GetLeafHubName()
+	version := bundle.GetVersion()
+	syncer.log.Info("start handling 'DeltaComplianceStatus' bundle", "Leaf Hub", leafHubName, "Version",
+		helpers.FormatBundleVersion(version))
+
+	for _, object := range bundle.GetObjects() { // every object in bundle is policy delta compliance status
+		policyComplianceStatus, ok := object.(*statusbundle.PolicyDeltaComplianceStatus)
+		if !ok {
+			continue // do not handle objects other than PolicyDeltaComplianceStatus
+		}
+
+		err := syncer.handleDeltaPolicyComplianceStatus(ctx, dbConn, leafHubName, policyComplianceStatus.PolicyID,
+			compliant, policyComplianceStatus.ResourceVersion, policyComplianceStatus.CompliantClusters)
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+
+		err = syncer.handleDeltaPolicyComplianceStatus(ctx, dbConn, leafHubName, policyComplianceStatus.PolicyID,
+			nonCompliant, policyComplianceStatus.ResourceVersion, policyComplianceStatus.NonCompliantClusters)
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+
+		err = syncer.handleDeltaPolicyComplianceStatus(ctx, dbConn, leafHubName, policyComplianceStatus.PolicyID,
+			unknown, policyComplianceStatus.ResourceVersion, policyComplianceStatus.UnknownComplianceClusters)
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+	}
+
+	syncer.log.Info("finished handling 'DeltaComplianceStatus' bundle", "Leaf Hub", leafHubName,
 		"Version", helpers.FormatBundleVersion(version))
 
 	return nil
@@ -344,6 +408,28 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(ctx context.Context
 			return fmt.Errorf("failed updating compliance rows in db - %w", err)
 		}
 	}
+
+	return nil
+}
+
+// handleDeltaPolicyComplianceStatus updates db with leaf hub's given clusters with the given status as-is.
+func (syncer *PoliciesDBSyncer) handleDeltaPolicyComplianceStatus(ctx context.Context,
+	dbConn db.StatusTransportBridgeDB, leafHubName string, policyID string, compliance string, version string,
+	targetClusterNames []string) error {
+	if len(targetClusterNames) == 0 {
+		return nil
+	}
+
+	if err := dbConn.UpdateComplianceSet(ctx, complianceTableName, leafHubName, targetClusterNames,
+		policyID, compliance, version); err != nil {
+		return fmt.Errorf("failed updating compliance set in db - %w", err)
+	}
+
+	syncer.log.Info("updated clusters compliance in database (FOR DEMO ONLY)",
+		"leaf hub", leafHubName,
+		"policy", policyID,
+		"clusters", targetClusterNames,
+		"compliance", compliance)
 
 	return nil
 }

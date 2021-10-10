@@ -41,7 +41,8 @@ func (bundle *CompleteComplianceStatusBundle) GetVersion() *statusbundle.BundleV
 // GetDependency return the bundle dependency or nil in case there is no dependency.
 func (bundle *CompleteComplianceStatusBundle) GetDependency() *DependencyBundle {
 	return &DependencyBundle{
-		BundleType:    clustersPerPolicyBundleType,
-		BundleVersion: statusbundle.NewBundleVersion(bundle.Incarnation, bundle.BaseBundleGeneration),
+		RequiresExactVersion: false,
+		BundleType:           clustersPerPolicyBundleType,
+		BundleVersion:        statusbundle.NewBundleVersion(bundle.Incarnation, bundle.BaseBundleGeneration),
 	}
 }
