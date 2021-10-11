@@ -1,0 +1,145 @@
+package batch
+
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+)
+
+const (
+	policyUUIDColumnIndex                  = 1
+	policyDeleteRowKey                     = "id"
+	deleteClusterCompliancePrefixArgsCount = 2
+)
+
+// NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.
+func NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string) *PoliciesBatchBuilder {
+	tableSpecialColumns := make(map[int]string)
+	tableSpecialColumns[policyUUIDColumnIndex] = db.UUID
+
+	return &PoliciesBatchBuilder{
+		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
+			policyDeleteRowKey),
+		updateClusterComplianceArgs:      make([]interface{}, 0),
+		updateClusterComplianceRowsCount: 0,
+		deleteClusterComplianceArgs:      make(map[string][]interface{}),
+	}
+}
+
+// PoliciesBatchBuilder is the PostgreSQL implementation of the PoliciesBatchBuilder interface.
+type PoliciesBatchBuilder struct {
+	*baseBatchBuilder
+	updateClusterComplianceArgs      []interface{}
+	updateClusterComplianceRowsCount int
+	deleteClusterComplianceArgs      map[string][]interface{} // map from policyID to clusters
+}
+
+// Insert adds the given (policyID, clusterName, errorString, compliance) to the batch to be inserted to the db.
+func (builder *PoliciesBatchBuilder) Insert(policyID string, clusterName string, errorString string,
+	compliance string) {
+	builder.insert(policyID, clusterName, builder.leafHubName, errorString, compliance)
+}
+
+// UpdatePolicyCompliance adds the given row args to be updated in the batch.
+func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, compliance string) {
+	// use the builder base update args to implement the policy updates. for specific clusters rows use different vars.
+	builder.update(policyID, builder.leafHubName, compliance)
+}
+
+// UpdateClusterCompliance adds the given row args to be updated in the batch.
+func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, clusterName string, compliance string) {
+	builder.updateClusterComplianceArgs = append(builder.updateClusterComplianceArgs, policyID, clusterName,
+		builder.leafHubName, compliance)
+	builder.updateClusterComplianceRowsCount++
+}
+
+// DeletePolicy adds delete statement to the batch to delete the given policyId from db.
+func (builder *PoliciesBatchBuilder) DeletePolicy(policyID string) {
+	// use the builder base delete args to implement the policy delete. for specific clusters rows use different vars.
+	builder.delete(policyID)
+}
+
+// DeleteClusterStatus adds delete statement to the batch to delete the given (policyId,clusterName) from db.
+func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, clusterName string) {
+	_, found := builder.deleteClusterComplianceArgs[policyID]
+	if !found {
+		// first args of the delete statement are leafHubName and policyID
+		builder.deleteClusterComplianceArgs[policyID] = append(make([]interface{}, 0), builder.leafHubName, policyID)
+	}
+
+	builder.deleteClusterComplianceArgs[policyID] = append(builder.deleteClusterComplianceArgs[policyID], clusterName)
+}
+
+// Build builds the batch object.
+func (builder *PoliciesBatchBuilder) Build() interface{} {
+	batch := builder.build(builder.generateUpdatePolicyComplianceStatement)
+
+	if builder.updateClusterComplianceRowsCount > 0 {
+		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
+		log.Println(builder.generateUpdateClusterComplianceStatement())
+		log.Println(builder.updateClusterComplianceArgs...)
+	}
+
+	if len(builder.deleteClusterComplianceArgs) > 0 {
+		for policyID := range builder.deleteClusterComplianceArgs {
+			batch.Queue(builder.generateDeleteClusterComplianceStatement(policyID),
+				builder.deleteClusterComplianceArgs[policyID]...)
+			log.Println(builder.generateDeleteClusterComplianceStatement(policyID))
+			log.Println(builder.deleteClusterComplianceArgs[policyID]...)
+		}
+	}
+
+	return batch
+}
+
+func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() string {
+	var stringBuilder strings.Builder
+
+	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET compliance=new.compliance FROM (values ",
+		builder.schema, builder.tableName))
+
+	specialColumns := make(map[int]string)
+	specialColumns[policyUUIDColumnIndex] = db.UUID
+	specialColumns[3] = db.StatusComplianceType // compliance column index
+
+	numberOfColumns := len(builder.updateArgs) / builder.updateRowsCount // total num of args divided by num of rows
+	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
+		specialColumns))
+
+	stringBuilder.WriteString(") AS new(id,leaf_hub_name,compliance) ")
+	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name AND old.id=new.id")
+
+	return stringBuilder.String()
+}
+
+func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() string {
+	var stringBuilder strings.Builder
+
+	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET compliance=new.compliance FROM (values ",
+		builder.schema, builder.tableName))
+
+	specialColumns := make(map[int]string)
+	specialColumns[policyUUIDColumnIndex] = db.UUID
+	specialColumns[4] = db.StatusComplianceType // compliance column index
+
+	// num of columns is total num of args divided by num of rows
+	columnCount := len(builder.updateClusterComplianceArgs) / builder.updateClusterComplianceRowsCount
+	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateClusterComplianceRowsCount, columnCount,
+		specialColumns))
+
+	stringBuilder.WriteString(") AS new(id,cluster_name,leaf_hub_name,compliance) ")
+	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name ")
+	stringBuilder.WriteString("AND old.id=new.id AND old.cluster_name=new.cluster_name")
+
+	return stringBuilder.String()
+}
+
+func (builder *PoliciesBatchBuilder) generateDeleteClusterComplianceStatement(policyID string) string {
+	deletedClustersCount := len(builder.deleteClusterComplianceArgs[policyID]) - deleteClusterCompliancePrefixArgsCount
+
+	return fmt.Sprintf("DELETE from %s.%s WHERE leaf_hub_name=$1 AND id=$2 AND cluster_name IN (%s)",
+		builder.schema, builder.tableName, builder.generateArgsList(deletedClustersCount, 3,
+			make(map[int]string)))
+}
