@@ -10,6 +10,10 @@ import (
 
 type generateStatementFunc func() string
 
+const (
+	deleteStartingIndex = 2
+)
+
 func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns map[int]string, leafHubName string,
 	deleteRowKey string) *baseBatchBuilder {
 	return &baseBatchBuilder{
@@ -88,7 +92,7 @@ func (builder *baseBatchBuilder) generateInsertStatement() string {
 
 func (builder *baseBatchBuilder) generateDeleteStatement() string {
 	return fmt.Sprintf("DELETE from %s.%s WHERE leaf_hub_name=$1 AND %s IN (%s)", builder.schema,
-		builder.tableName, builder.deleteRowKey, builder.generateArgsList(builder.deleteRowsCount, 2,
+		builder.tableName, builder.deleteRowKey, builder.generateArgsList(builder.deleteRowsCount, deleteStartingIndex,
 			make(map[int]string)))
 }
 
