@@ -2,7 +2,6 @@ package batch
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
@@ -78,16 +77,12 @@ func (builder *PoliciesBatchBuilder) Build() interface{} {
 
 	if builder.updateClusterComplianceRowsCount > 0 {
 		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
-		log.Println(builder.generateUpdateClusterComplianceStatement())
-		log.Println(builder.updateClusterComplianceArgs...)
 	}
 
 	if len(builder.deleteClusterComplianceArgs) > 0 {
 		for policyID := range builder.deleteClusterComplianceArgs {
 			batch.Queue(builder.generateDeleteClusterComplianceStatement(policyID),
 				builder.deleteClusterComplianceArgs[policyID]...)
-			log.Println(builder.generateDeleteClusterComplianceStatement(policyID))
-			log.Println(builder.deleteClusterComplianceArgs[policyID]...)
 		}
 	}
 
