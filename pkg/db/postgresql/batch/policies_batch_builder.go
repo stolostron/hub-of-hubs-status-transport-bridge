@@ -11,6 +11,8 @@ const (
 	policyUUIDColumnIndex                  = 1
 	policyDeleteRowKey                     = "id"
 	deleteClusterCompliancePrefixArgsCount = 2
+	updatePolicyComplianceTypeColumnIndex  = 3
+	updateClusterComplianceTypeColumnIndex = 4
 )
 
 // NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.
@@ -97,7 +99,7 @@ func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() s
 
 	specialColumns := make(map[int]string)
 	specialColumns[policyUUIDColumnIndex] = db.UUID
-	specialColumns[3] = db.StatusComplianceType // compliance column index
+	specialColumns[updatePolicyComplianceTypeColumnIndex] = db.StatusComplianceType // compliance column index
 
 	numberOfColumns := len(builder.updateArgs) / builder.updateRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
@@ -117,7 +119,7 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 
 	specialColumns := make(map[int]string)
 	specialColumns[policyUUIDColumnIndex] = db.UUID
-	specialColumns[4] = db.StatusComplianceType // compliance column index
+	specialColumns[updateClusterComplianceTypeColumnIndex] = db.StatusComplianceType // compliance column index
 
 	// num of columns is total num of args divided by num of rows
 	columnCount := len(builder.updateClusterComplianceArgs) / builder.updateClusterComplianceRowsCount
