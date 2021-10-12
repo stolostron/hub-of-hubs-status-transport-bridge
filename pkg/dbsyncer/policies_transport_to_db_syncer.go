@@ -94,7 +94,9 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.MinimalComplianceStatusPriority,
 		helpers.GetBundleType(syncer.createMinComplianceStatusBundleFunc()),
-		syncer.handleMinimalComplianceBundle,
+		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			return syncer.handleMinimalComplianceBundle(ctx, bundle, dbClient)
+		},
 	))
 }
 
@@ -104,7 +106,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 // don't have any information about the compliance status but only for the list of relevant clusters.
 // the compliance status will be handled in a different bundle and a different handler function.
 func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.StatusTransportBridgeDB, dbSchema string, dbTableName string) error {
+	dbClient db.PoliciesStatusDB, dbSchema string, dbTableName string) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
@@ -175,7 +177,7 @@ func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder db.PoliciesB
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
 func (syncer *PoliciesDBSyncer) handleComplianceBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.StatusTransportBridgeDB, dbSchema string, dbTableName string) error {
+	dbClient db.PoliciesStatusDB, dbSchema string, dbTableName string) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
@@ -255,7 +257,7 @@ func (syncer *PoliciesDBSyncer) handlePolicyComplianceStatus(batchBuilder db.Pol
 
 // if we got the the handler function, then the bundle pre-conditions are satisfied.
 func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.StatusTransportBridgeDB) error {
+	dbClient db.AggregatedPoliciesStatusDB) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 

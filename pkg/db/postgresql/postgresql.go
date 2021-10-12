@@ -66,6 +66,7 @@ func (p *PostgreSQL) SendBatch(ctx context.Context, batch interface{}) error {
 	}
 
 	batchResult := p.conn.SendBatch(ctx, postgreSQLBatch)
+	defer batchResult.Close()
 
 	errorStringBuilder := strings.Builder{}
 
