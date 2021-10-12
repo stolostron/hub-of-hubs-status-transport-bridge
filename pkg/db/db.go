@@ -10,15 +10,20 @@ import (
 type StatusTransportBridgeDB interface {
 	GetPoolSize() int32
 	Stop()
-	SendBatch(ctx context.Context, batch interface{}) error
 
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
 }
 
+// BatchSenderDB is the db interface required for sending batch updates.
+type BatchSenderDB interface {
+	SendBatch(ctx context.Context, batch interface{}) error
+}
+
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
 type ManagedClustersStatusDB interface {
+	BatchSenderDB
 	// GetManagedClustersByLeafHub returns a map from of clusterName to its resourceVersion.
 	GetManagedClustersByLeafHub(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
@@ -28,6 +33,7 @@ type ManagedClustersStatusDB interface {
 
 // PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
 type PoliciesStatusDB interface {
+	BatchSenderDB
 	// GetComplianceClustersByLeafHub returns a map of policies, each maps to a set of clusters.
 	GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]set.Set, error)
