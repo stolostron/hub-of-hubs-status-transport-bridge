@@ -20,13 +20,17 @@ func NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string
 	tableSpecialColumns := make(map[int]string)
 	tableSpecialColumns[policyUUIDColumnIndex] = db.UUID
 
-	return &PoliciesBatchBuilder{
+	builder := &PoliciesBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
 			policyDeleteRowKey),
 		updateClusterComplianceArgs:      make([]interface{}, 0),
 		updateClusterComplianceRowsCount: 0,
 		deleteClusterComplianceArgs:      make(map[string][]interface{}),
 	}
+
+	builder.setUpdateStatementFunc(builder.generateUpdatePolicyComplianceStatement)
+
+	return builder
 }
 
 // PoliciesBatchBuilder is the PostgreSQL implementation of the PoliciesBatchBuilder interface.
@@ -54,6 +58,12 @@ func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, cl
 	builder.updateClusterComplianceArgs = append(builder.updateClusterComplianceArgs, policyID, clusterName,
 		builder.leafHubName, compliance)
 	builder.updateClusterComplianceRowsCount++
+	// if we exceeded max args, create update statement from current args and zero the count/args.
+	if len(builder.updateClusterComplianceArgs) > maxArgsInStatement {
+		builder.batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
+		builder.updateClusterComplianceArgs = make([]interface{}, 0)
+		builder.updateClusterComplianceRowsCount = 0
+	}
 }
 
 // DeletePolicy adds delete statement to the batch to delete the given policyId from db.
@@ -75,7 +85,7 @@ func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, cluste
 
 // Build builds the batch object.
 func (builder *PoliciesBatchBuilder) Build() interface{} {
-	batch := builder.build(builder.generateUpdatePolicyComplianceStatement)
+	batch := builder.build()
 
 	if builder.updateClusterComplianceRowsCount > 0 {
 		batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)

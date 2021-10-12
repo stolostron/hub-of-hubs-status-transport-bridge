@@ -17,10 +17,14 @@ func NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName
 	tableSpecialColumns := make(map[int]string)
 	tableSpecialColumns[managedClustersJsonbColumnIndex] = db.Jsonb
 
-	return &ManagedClustersBatchBuilder{
+	builder := &ManagedClustersBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
 			managedClustersDeleteRowKey),
 	}
+
+	builder.setUpdateStatementFunc(builder.generateUpdateStatement)
+
+	return builder
 }
 
 // ManagedClustersBatchBuilder is the PostgreSQL implementation of the ManagedClustersBatchBuilder interface.
@@ -45,7 +49,7 @@ func (builder *ManagedClustersBatchBuilder) Delete(clusterName string) {
 
 // Build builds the batch object.
 func (builder *ManagedClustersBatchBuilder) Build() interface{} {
-	return builder.build(builder.generateUpdateStatement)
+	return builder.build()
 }
 
 func (builder *ManagedClustersBatchBuilder) generateUpdateStatement() string {
