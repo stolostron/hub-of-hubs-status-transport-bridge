@@ -11,6 +11,7 @@ import (
 type generateStatementFunc func() string
 
 const (
+	maxArgsInStatement  = 50000
 	deleteStartingIndex = 2
 )
 
@@ -33,42 +34,61 @@ func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns ma
 }
 
 type baseBatchBuilder struct {
-	batch               *pgx.Batch
-	schema              string
-	tableName           string
-	tableSpecialColumns map[int]string
-	leafHubName         string
-	insertArgs          []interface{}
-	insertRowsCount     int
-	updateArgs          []interface{}
-	updateRowsCount     int
-	deleteArgs          []interface{}
-	deleteRowsCount     int
-	deleteRowKey        string
+	batch                   *pgx.Batch
+	schema                  string
+	tableName               string
+	tableSpecialColumns     map[int]string
+	leafHubName             string
+	insertArgs              []interface{}
+	insertRowsCount         int
+	updateArgs              []interface{}
+	updateRowsCount         int
+	generateUpdateStatement generateStatementFunc
+	deleteArgs              []interface{}
+	deleteRowsCount         int
+	deleteRowKey            string
 }
 
 func (builder *baseBatchBuilder) insert(insertArgs ...interface{}) {
 	builder.insertArgs = append(builder.insertArgs, insertArgs...)
 	builder.insertRowsCount++
+	// if we exceeded max args, create insert statement from current args and zero the count/args.
+	if len(builder.insertArgs) > maxArgsInStatement {
+		builder.batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
+		builder.insertArgs = make([]interface{}, 0)
+		builder.insertRowsCount = 0
+	}
 }
 
 func (builder *baseBatchBuilder) update(updateArgs ...interface{}) {
 	builder.updateArgs = append(builder.updateArgs, updateArgs...)
 	builder.updateRowsCount++
+	// if we exceeded max args, create update statement from current args and zero the count/args.
+	if len(builder.updateArgs) > maxArgsInStatement {
+		builder.batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
+		builder.updateArgs = make([]interface{}, 0)
+		builder.updateRowsCount = 0
+	}
 }
 
 func (builder *baseBatchBuilder) delete(deleteArgs ...interface{}) {
 	builder.deleteArgs = append(builder.deleteArgs, deleteArgs...)
 	builder.deleteRowsCount++
+	// if we exceeded max args, create delete statement from current args and zero the delete count/args.
+	if len(builder.deleteArgs) > maxArgsInStatement {
+		builder.batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
+		builder.deleteArgs = append(make([]interface{}, 0), builder.leafHubName) // leafHubName is first arg in delete
+		builder.deleteRowsCount = 0
+	}
 }
 
-func (builder *baseBatchBuilder) build(generateUpdateStatement generateStatementFunc) *pgx.Batch {
+func (builder *baseBatchBuilder) build() *pgx.Batch {
 	if builder.insertRowsCount > 0 { // generate INSERT statement for multiple rows into the batch
 		builder.batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
 	}
 
 	if builder.updateRowsCount > 0 { // generate UPDATE statement for multiple rows into the batch
-		builder.batch.Queue(generateUpdateStatement(), builder.updateArgs...)
+		builder.batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
 	}
 
 	if builder.deleteRowsCount > 0 { // generate DELETE statement for multiple rows into the batch
@@ -76,6 +96,10 @@ func (builder *baseBatchBuilder) build(generateUpdateStatement generateStatement
 	}
 
 	return builder.batch
+}
+
+func (builder *baseBatchBuilder) setUpdateStatementFunc(generateUpdateStatementFunc generateStatementFunc) {
+	builder.generateUpdateStatement = generateUpdateStatementFunc
 }
 
 func (builder *baseBatchBuilder) generateInsertStatement() string {
