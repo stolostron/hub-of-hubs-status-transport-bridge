@@ -137,6 +137,6 @@ func (builder *PoliciesBatchBuilder) generateDeleteClusterComplianceStatement(po
 	deletedClustersCount := len(builder.deleteClusterComplianceArgs[policyID]) - deleteClusterCompliancePrefixArgsCount
 
 	return fmt.Sprintf("DELETE from %s.%s WHERE leaf_hub_name=$1 AND id=$2 AND cluster_name IN (%s)",
-		builder.schema, builder.tableName, builder.generateArgsList(deletedClustersCount, 3,
-			make(map[int]string)))
+		builder.schema, builder.tableName, builder.generateArgsList(deletedClustersCount,
+			deleteClusterCompliancePrefixArgsCount+1, make(map[int]string)))
 }
