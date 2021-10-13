@@ -13,7 +13,7 @@ const (
 	deleteClusterCompliancePrefixArgsCount = 2
 	updatePolicyComplianceTypeColumnIndex  = 3
 	updateClusterComplianceTypeColumnIndex = 4
-	clusterComplianceUpdateArgsCount = 4
+	clusterComplianceUpdateArgsCount       = 4
 )
 
 // NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.

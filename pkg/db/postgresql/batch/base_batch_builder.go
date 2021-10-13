@@ -11,7 +11,7 @@ import (
 type generateStatementFunc func() string
 
 const (
-	// according to postgresql docs, client can update at most 2^16 columns in a single query
+	// according to postgresql docs, client can update at most 2^16 columns in a single query.
 	maxColumnsUpdateInStatement = 65536
 	deleteStartingIndex         = 2
 )
