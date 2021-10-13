@@ -13,6 +13,7 @@ const (
 	deleteClusterCompliancePrefixArgsCount = 2
 	updatePolicyComplianceTypeColumnIndex  = 3
 	updateClusterComplianceTypeColumnIndex = 4
+	clusterComplianceUpdateArgsCount = 4
 )
 
 // NewPoliciesBatchBuilder creates a new instance of PostgreSQL PoliciesBatchBuilder.
@@ -55,15 +56,16 @@ func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, com
 
 // UpdateClusterCompliance adds the given row args to be updated in the batch.
 func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, clusterName string, compliance string) {
-	builder.updateClusterComplianceArgs = append(builder.updateClusterComplianceArgs, policyID, clusterName,
-		builder.leafHubName, compliance)
-	builder.updateClusterComplianceRowsCount++
-	// if we exceeded max args, create update statement from current args and zero the count/args.
-	if len(builder.updateClusterComplianceArgs) > maxArgsInStatement {
+	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
+	if len(builder.updateClusterComplianceArgs)+clusterComplianceUpdateArgsCount >= maxColumnsUpdateInStatement {
 		builder.batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)
 		builder.updateClusterComplianceArgs = make([]interface{}, 0)
 		builder.updateClusterComplianceRowsCount = 0
 	}
+
+	builder.updateClusterComplianceArgs = append(builder.updateClusterComplianceArgs, policyID, clusterName,
+		builder.leafHubName, compliance)
+	builder.updateClusterComplianceRowsCount++
 }
 
 // DeletePolicy adds delete statement to the batch to delete the given policyId from db.

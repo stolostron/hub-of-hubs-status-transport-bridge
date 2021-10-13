@@ -11,8 +11,9 @@ import (
 type generateStatementFunc func() string
 
 const (
-	maxArgsInStatement  = 50000
-	deleteStartingIndex = 2
+	// according to postgresql docs, client can update at most 2^16 columns in a single query
+	maxColumnsUpdateInStatement = 65536
+	deleteStartingIndex         = 2
 )
 
 func newBaseBatchBuilder(schema string, tableName string, tableSpecialColumns map[int]string, leafHubName string,
@@ -50,36 +51,39 @@ type baseBatchBuilder struct {
 }
 
 func (builder *baseBatchBuilder) insert(insertArgs ...interface{}) {
-	builder.insertArgs = append(builder.insertArgs, insertArgs...)
-	builder.insertRowsCount++
-	// if we exceeded max args, create insert statement from current args and zero the count/args.
-	if len(builder.insertArgs) > maxArgsInStatement {
+	// if adding args will exceeded max args limit, create insert statement from current args and zero the count/args.
+	if len(builder.insertArgs)+len(insertArgs) >= maxColumnsUpdateInStatement {
 		builder.batch.Queue(builder.generateInsertStatement(), builder.insertArgs...)
 		builder.insertArgs = make([]interface{}, 0)
 		builder.insertRowsCount = 0
 	}
+
+	builder.insertArgs = append(builder.insertArgs, insertArgs...)
+	builder.insertRowsCount++
 }
 
 func (builder *baseBatchBuilder) update(updateArgs ...interface{}) {
-	builder.updateArgs = append(builder.updateArgs, updateArgs...)
-	builder.updateRowsCount++
-	// if we exceeded max args, create update statement from current args and zero the count/args.
-	if len(builder.updateArgs) > maxArgsInStatement {
+	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
+	if len(builder.updateArgs)+len(updateArgs) >= maxColumnsUpdateInStatement {
 		builder.batch.Queue(builder.generateUpdateStatement(), builder.updateArgs...)
 		builder.updateArgs = make([]interface{}, 0)
 		builder.updateRowsCount = 0
 	}
+
+	builder.updateArgs = append(builder.updateArgs, updateArgs...)
+	builder.updateRowsCount++
 }
 
 func (builder *baseBatchBuilder) delete(deleteArgs ...interface{}) {
-	builder.deleteArgs = append(builder.deleteArgs, deleteArgs...)
-	builder.deleteRowsCount++
-	// if we exceeded max args, create delete statement from current args and zero the delete count/args.
-	if len(builder.deleteArgs) > maxArgsInStatement {
+	// if adding args will exceeded max args limit, create delete statement from current args and zero the count/args.
+	if len(builder.deleteArgs)+len(deleteArgs) >= maxColumnsUpdateInStatement {
 		builder.batch.Queue(builder.generateDeleteStatement(), builder.deleteArgs...)
 		builder.deleteArgs = append(make([]interface{}, 0), builder.leafHubName) // leafHubName is first arg in delete
 		builder.deleteRowsCount = 0
 	}
+
+	builder.deleteArgs = append(builder.deleteArgs, deleteArgs...)
+	builder.deleteRowsCount++
 }
 
 func (builder *baseBatchBuilder) build() *pgx.Batch {
