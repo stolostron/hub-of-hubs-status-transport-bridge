@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
@@ -31,7 +32,7 @@ type ResultReporter interface {
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
-	registrations []*ConflationRegistration) *ConflationUnit {
+	registrations []*ConflationRegistration, statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
@@ -55,6 +56,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 		readyQueue:           readyQueue,
 		isInReadyQueue:       false,
 		lock:                 sync.Mutex{},
+		statistics:           statistics,
 	}
 }
 
@@ -66,6 +68,7 @@ type ConflationUnit struct {
 	readyQueue           *ConflationReadyQueue
 	isInReadyQueue       bool
 	lock                 sync.Mutex
+	statistics           *statistics.Statistics
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
@@ -85,12 +88,16 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 		return // insert bundle only if generation we got is newer than what we have in memory, otherwise do nothing.
 	}
 
+	// start conflation unit metric for specific bundle type - overwrite it each time new bundle arrives
+	cu.statistics.StartConflationUnitMetrics(bundle)
+
 	// if we got here, we got bundle with newer generation
 	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
 	if cu.priorityQueue[priority].bundleMetadata != nil && !cu.priorityQueue[priority].isInProcess {
 		cu.priorityQueue[priority].bundleMetadata.update(bundle.GetGeneration(), metadata)
+		cu.statistics.IncrementNumberOfConflations(bundle)
 	} else {
 		cu.priorityQueue[priority].bundleMetadata = &BundleMetadata{
 			bundleType:              bundleType,
@@ -117,6 +124,9 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true
+
+	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
+	cu.statistics.StopConflationUnitMetrics(conflationElement.bundle)
 
 	return conflationElement.bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
 }

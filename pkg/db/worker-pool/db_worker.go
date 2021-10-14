@@ -2,23 +2,26 @@ package workerpool
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 )
 
 // NewDBWorker creates a new instance of DBWorker.
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
 // to RunAsync, otherwise it will yield cpu to other go routines.
 func NewDBWorker(log logr.Logger, workerID int32, dbWorkersPool chan *DBWorker,
-	dbConnPool db.StatusTransportBridgeDB) *DBWorker {
+	dbConnPool db.StatusTransportBridgeDB, statistics *statistics.Statistics) *DBWorker {
 	return &DBWorker{
 		log:           log,
 		workerID:      workerID,
 		dbWorkersPool: dbWorkersPool,
 		dbConnPool:    dbConnPool,
 		jobsQueue:     make(chan *DBJob, 1),
+		statistics:    statistics,
 	}
 }
 
@@ -29,6 +32,7 @@ type DBWorker struct {
 	dbWorkersPool chan *DBWorker
 	dbConnPool    db.StatusTransportBridgeDB
 	jobsQueue     chan *DBJob
+	statistics    *statistics.Statistics
 }
 
 // RunAsync runs DBJob and reports status to the given CU. once the job processing is finished worker returns to the
@@ -46,6 +50,7 @@ func (worker *DBWorker) start(ctx context.Context) {
 			// this is done in each iteration after the worker finished handling a job (or at startup),
 			// for receiving a new job to handle.
 			worker.dbWorkersPool <- worker
+			worker.statistics.SetNumberOfAvailableDBWorkers(len(worker.dbWorkersPool))
 
 			select {
 			case <-ctx.Done(): // we have received a signal to stop
@@ -57,7 +62,9 @@ func (worker *DBWorker) start(ctx context.Context) {
 					helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(), "Generation",
 					job.bundle.GetGeneration())
 
+				startTime := time.Now()
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
+				worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
 				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 
 				if err != nil {
