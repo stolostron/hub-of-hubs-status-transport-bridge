@@ -47,17 +47,17 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 }
 
 // StartConflationUnitMetrics starts conflation unit metrics of the specific bundle type.
-func (s *Statistics) StartConflationUnitMetrics(conflationUnitName string, bundle bundle.Bundle) {
+func (s *Statistics) StartConflationUnitMetrics(bundle bundle.Bundle) {
 	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bundleMetrics.conflationUnit.start(conflationUnitName)
+	bundleMetrics.conflationUnit.start(bundle.GetLeafHubName())
 }
 
 // StopConflationUnitMetrics stops conflation unit metrics of the specific bundle type.
-func (s *Statistics) StopConflationUnitMetrics(conflationUnitName string, bundle bundle.Bundle, err error) {
+func (s *Statistics) StopConflationUnitMetrics(bundle bundle.Bundle) {
 	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
 
-	bundleMetrics.conflationUnit.stop(conflationUnitName, err)
+	bundleMetrics.conflationUnit.stop(bundle.GetLeafHubName())
 }
 
 // IncrementNumberOfConflations increments number of conflations of the specific bundle type.

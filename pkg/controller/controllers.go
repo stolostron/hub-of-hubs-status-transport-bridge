@@ -9,10 +9,10 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller/dispatcher"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/dbsyncer"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
@@ -34,14 +34,14 @@ func AddToScheme(s *runtime.Scheme) error {
 // functions within the transport.
 func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationManager *conflator.ConflationManager,
 	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport,
-	statistics *statistics.Statistics) error {
+	statistics manager.Runnable) error {
 	// register config controller within the runtime manager
 	config, err := addConfigController(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
 	}
 	// register statistics within the runtime manager
-	if err := addStatistics(mgr, statistics); err != nil {
+	if err := mgr.Add(statistics); err != nil {
 		return fmt.Errorf("failed to add statistics to manager - %w", err)
 	}
 	// register dispatcher within the runtime manager
@@ -81,14 +81,6 @@ func addDispatcher(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool,
 		dbWorkerPool,
 	)); err != nil {
 		return fmt.Errorf("failed to add dispatcher: %w", err)
-	}
-
-	return nil
-}
-
-func addStatistics(mgr ctrl.Manager, statistics *statistics.Statistics) error {
-	if err := mgr.Add(statistics); err != nil {
-		return fmt.Errorf("failed to add statistics: %w", err)
 	}
 
 	return nil

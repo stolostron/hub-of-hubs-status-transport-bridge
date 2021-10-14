@@ -19,13 +19,13 @@ func (cum *conflationUnitMeasurement) start(conflationUnitName string) {
 	cum.startTimestamps[conflationUnitName] = time.Now().Unix()
 }
 
-func (cum *conflationUnitMeasurement) stop(conflationUnitName string, err error) {
+func (cum *conflationUnitMeasurement) stop(conflationUnitName string) {
 	cum.mutex.Lock()
 	defer cum.mutex.Unlock()
 
 	startTme := cum.startTimestamps[conflationUnitName]
 
-	cum.addUnsafe(time.Since(time.Unix(startTme, 0)), err)
+	cum.addUnsafe(time.Since(time.Unix(startTme, 0)), nil)
 }
 
 // incrementNumberOfConflations increments number of conflations.

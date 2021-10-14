@@ -31,7 +31,7 @@ type ResultReporter interface {
 	ReportResult(metadata *BundleMetadata, err error)
 }
 
-func newConflationUnit(name string, log logr.Logger, readyQueue *ConflationReadyQueue,
+func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	registrations []*ConflationRegistration, statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
@@ -50,7 +50,6 @@ func newConflationUnit(name string, log logr.Logger, readyQueue *ConflationReady
 	}
 
 	return &ConflationUnit{
-		name:                 name,
 		log:                  log,
 		priorityQueue:        priorityQueue,
 		bundleTypeToPriority: bundleTypeToPriority,
@@ -63,7 +62,6 @@ func newConflationUnit(name string, log logr.Logger, readyQueue *ConflationReady
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	name                 string
 	log                  logr.Logger
 	priorityQueue        []*conflationElement
 	bundleTypeToPriority map[string]conflationPriority
@@ -91,7 +89,7 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	}
 
 	// start conflation unit metric for specific bundle type - overwrite it each time new bundle arrives
-	cu.statistics.StartConflationUnitMetrics(cu.name, bundle)
+	cu.statistics.StartConflationUnitMetrics(bundle)
 
 	// if we got here, we got bundle with newer generation
 	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
@@ -128,7 +126,7 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 	conflationElement.isInProcess = true
 
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
-	cu.statistics.StopConflationUnitMetrics(cu.name, conflationElement.bundle, nil)
+	cu.statistics.StopConflationUnitMetrics(conflationElement.bundle)
 
 	return conflationElement.bundle, conflationElement.bundleMetadata, conflationElement.handlerFunction, nil
 }
