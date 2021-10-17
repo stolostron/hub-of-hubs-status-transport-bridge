@@ -78,8 +78,8 @@ func (builder *PoliciesBatchBuilder) DeletePolicy(policyID string) {
 func (builder *PoliciesBatchBuilder) DeleteClusterStatus(policyID string, clusterName string) {
 	_, found := builder.deleteClusterComplianceArgs[policyID]
 	if !found {
-		// first args of the delete statement are leafHubName and policyID
-		builder.deleteClusterComplianceArgs[policyID] = append(make([]interface{}, 0), builder.leafHubName, policyID)
+		// first args of the delete statement are policyID and leafHubName
+		builder.deleteClusterComplianceArgs[policyID] = append(make([]interface{}, 0), policyID, builder.leafHubName)
 	}
 
 	builder.deleteClusterComplianceArgs[policyID] = append(builder.deleteClusterComplianceArgs[policyID], clusterName)
@@ -118,7 +118,7 @@ func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() s
 		specialColumns))
 
 	stringBuilder.WriteString(") AS new(id,leaf_hub_name,compliance) ")
-	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name AND old.id=new.id")
+	stringBuilder.WriteString("WHERE old.id=new.id AND old.leaf_hub_name=new.leaf_hub_name")
 
 	return stringBuilder.String()
 }
@@ -139,8 +139,8 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 		specialColumns))
 
 	stringBuilder.WriteString(") AS new(id,cluster_name,leaf_hub_name,compliance) ")
-	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name ")
-	stringBuilder.WriteString("AND old.id=new.id AND old.cluster_name=new.cluster_name")
+	stringBuilder.WriteString("WHERE old.id=new.id AND old.leaf_hub_name=new.leaf_hub_name ")
+	stringBuilder.WriteString("AND old.cluster_name=new.cluster_name")
 
 	return stringBuilder.String()
 }
@@ -148,7 +148,7 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 func (builder *PoliciesBatchBuilder) generateDeleteClusterComplianceStatement(policyID string) string {
 	deletedClustersCount := len(builder.deleteClusterComplianceArgs[policyID]) - deleteClusterCompliancePrefixArgsCount
 
-	return fmt.Sprintf("DELETE from %s.%s WHERE leaf_hub_name=$1 AND id=$2 AND cluster_name IN (%s)",
+	return fmt.Sprintf("DELETE from %s.%s WHERE id=$1 AND leaf_hub_name=$2 AND cluster_name IN (%s)",
 		builder.schema, builder.tableName, builder.generateArgsList(deletedClustersCount,
 			deleteClusterCompliancePrefixArgsCount+1, make(map[int]string)))
 }
