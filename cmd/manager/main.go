@@ -10,6 +10,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	hohSyncService "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -43,8 +44,12 @@ func doMain() int {
 		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
 		return 1
 	}
+
+	// create statistics
+	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+
 	// db layer initialization - worker pool + connection pool
-	dbWorkerPool, err := startDBWorkerPool()
+	dbWorkerPool, err := startDBWorkerPool(stats)
 	if err != nil {
 		log.Error(err, "initialization error")
 		return 1
@@ -52,7 +57,7 @@ func doMain() int {
 
 	defer dbWorkerPool.Stop()
 
-	mgr, transportObj, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool)
+	mgr, transportObj, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, stats)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -84,8 +89,8 @@ func initializeLogger() logr.Logger {
 	return log
 }
 
-func startDBWorkerPool() (*workerpool.DBWorkerPool, error) {
-	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"))
+func startDBWorkerPool(statistics *statistics.Statistics) (*workerpool.DBWorkerPool, error) {
+	dbWorkerPool, err := workerpool.NewDBWorkerPool(ctrl.Log.WithName("db-worker-pool"), statistics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize DBWorkerPool - %w", err)
 	}
@@ -97,8 +102,8 @@ func startDBWorkerPool() (*workerpool.DBWorkerPool, error) {
 	return dbWorkerPool, nil
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32,
-	workersPool *workerpool.DBWorkerPool) (ctrl.Manager, transport.Transport, error) {
+func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
+	statistics *statistics.Statistics) (ctrl.Manager, transport.Transport, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		LeaderElection:          true,
@@ -115,15 +120,18 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		return nil, nil, fmt.Errorf("failed to add schemes: %w", err)
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
-	conflationReadyQueue := conflator.NewConflationReadyQueue()
-	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue)
+	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
+	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
+		statistics) // manage all Conflation Units
+
 	// transport layer initialization
 	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize transport: %w", err)
 	}
 
-	if err := controller.Setup(mgr, workersPool, conflationManager, conflationReadyQueue, transportObj); err != nil {
+	if err := controller.Setup(mgr, workersPool, conflationManager, conflationReadyQueue, transportObj,
+		statistics); err != nil {
 		return nil, nil, fmt.Errorf("failed to do initial setup of the manager: %w", err)
 	}
 

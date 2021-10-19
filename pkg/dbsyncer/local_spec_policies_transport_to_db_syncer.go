@@ -71,62 +71,33 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
 		localPolicySpecBundleType,
-		syncer.handleLocalSpecBundle))
+		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			return syncer.handleLocalSpecBundle(ctx, bundle, db.LocalSpecScheme, db.LocalPolicySpecTableName, dbClient)
+		}))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRuleSpecPriority,
 		localPlacementRuleSpecBundleType,
-		syncer.handleLocalPlacementRule))
-}
-
-func (syncer *LocalSpecDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle,
-	db db.StatusTransportBridgeDB) error {
-	leafHubName := b.GetLeafHubName()
-	bundleGen := b.GetGeneration()
-
-	syncer.log.Info("start handling 'LocalPolicySpec' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGen)
-
-	if err := syncer.handleLocalSpecBundleHelper(ctx, b, LocalPolicySpecTableName, db); err != nil {
-		return err
-	}
-
-	syncer.log.Info("finished handling 'LocalPolicySpec' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGen)
-
-	return nil
-}
-
-func (syncer *LocalSpecDBSyncer) handleLocalPlacementRule(ctx context.Context, b bundle.Bundle,
-	db db.StatusTransportBridgeDB) error {
-	leafHubName := b.GetLeafHubName()
-	bundleGen := b.GetGeneration()
-
-	syncer.log.Info("start handling 'LocalPlacementRule' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGen)
-
-	if err := syncer.handleLocalSpecBundleHelper(ctx, b, LocalPlacementRuleTableName, db); err != nil {
-		return err
-	}
-
-	syncer.log.Info("finished handling 'LocalPlacementRule' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundleGen)
-
-	return nil
+		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			return syncer.handleLocalSpecBundle(ctx, bundle, db.LocalSpecScheme, db.LocalPlacementRuleTableName, dbClient)
+		}))
 }
 
 // if the row doesn't exist then add it.
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 // saves the json file in the DB.
-func (syncer *LocalSpecDBSyncer) handleLocalSpecBundleHelper(ctx context.Context, b bundle.Bundle,
-	tableName string, db db.StatusTransportBridgeDB) error {
+func (syncer *LocalSpecDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle, scheme string,
+	tableName string, dbCLient db.LocalPoliciesDB) error {
+	logBundleHandlingMessage(syncer.log, b, startBundleHandlingMessage)
 	leafHubName := b.GetLeafHubName()
 
-	objectIDsFromDB, err := db.GetDistinctIDsFromLH(ctx, tableName, leafHubName)
+	objectIDsFromDB, err := dbCLient.GetDistinctIDsFromLH(ctx, scheme, tableName, leafHubName)
 	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s' IDs from db - %w", leafHubName, err)
+		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from dbCLient - %w", scheme, leafHubName, err)
 	}
+
+	batchBuilder := dbCLient.NewLocalBatchBuilder(scheme, tableName, leafHubName)
 
 	for _, object := range b.GetObjects() {
 		specificObj, ok := object.(specDBObj)
@@ -136,43 +107,25 @@ func (syncer *LocalSpecDBSyncer) handleLocalSpecBundleHelper(ctx context.Context
 
 		specificObjInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(specificObj.GetUID()))
 		if err != nil { // usefulObj not found, new specificObj id
-			if err = db.InsertIntoSpecSchema(ctx, string(specificObj.GetUID()),
-				tableName, leafHubName, object); err != nil {
-				return fmt.Errorf("failed inserting '%s' from leaf hub '%s' - %w",
-					specificObj.GetName(), leafHubName, err)
-			}
+			batchBuilder.InsertLocal(string(specificObj.GetUID()), object)
 			// we can continue since its not in objectIDsFromDB anyway
 			continue
 		}
-		// since this already exists in the db and in the bundle we need to update it
-		err = db.UpdateSingleSpecRow(ctx, string(specificObj.GetUID()), leafHubName,
-			tableName, object)
-		if err != nil {
-			return fmt.Errorf(`failed updating spec '%s' in leaf hub '%s' 
-					in db - %w`, string(specificObj.GetUID()), leafHubName, err)
-		}
-
+		// since this already exists in the dbCLient and in the bundle we need to update it
+		batchBuilder.UpdateLocal(string(specificObj.GetUID()), object)
 		// we dont want to delete it later
 		objectIDsFromDB = append(objectIDsFromDB[:specificObjInd], objectIDsFromDB[specificObjInd+1:]...)
 	}
 
-	err = syncer.deleteLocalSpecRows(ctx, leafHubName, tableName, objectIDsFromDB, db)
-	if err != nil {
-		return err
+	for _, id := range objectIDsFromDB {
+		batchBuilder.DeleteLocal(id)
 	}
 
-	return nil
-}
-
-func (syncer *LocalSpecDBSyncer) deleteLocalSpecRows(ctx context.Context, leafHubName string,
-	tableName string, policyIDToDelete []string, db db.StatusTransportBridgeDB) error {
-	for _, id := range policyIDToDelete {
-		err := db.DeleteSingleSpecRow(ctx, leafHubName, tableName, id)
-		if err != nil {
-			return fmt.Errorf("failed deleting policy with id %s from leaf hub %s from table %s - %w", id,
-				leafHubName, tableName, err)
-		}
+	if err := dbCLient.SendBatch(ctx, batchBuilder.Build()); err != nil {
+		return fmt.Errorf("failed to perform batch - %w", err)
 	}
+
+	logBundleHandlingMessage(syncer.log, b, finishBundleHandlingMessage)
 
 	return nil
 }

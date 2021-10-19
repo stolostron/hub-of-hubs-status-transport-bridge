@@ -5,17 +5,20 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 // NewConflationManager creates a new instance of ConflationManager.
-func NewConflationManager(log logr.Logger, conflationUnitsReadyQueue *ConflationReadyQueue) *ConflationManager {
+func NewConflationManager(log logr.Logger, conflationUnitsReadyQueue *ConflationReadyQueue,
+	statistics *statistics.Statistics) *ConflationManager {
 	return &ConflationManager{
 		log:             log,
 		conflationUnits: make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
 		registrations:   make([]*ConflationRegistration, 0),
 		readyQueue:      conflationUnitsReadyQueue,
 		lock:            sync.Mutex{}, // lock to be used to find/create conflation units
+		statistics:      statistics,
 	}
 }
 
@@ -26,6 +29,7 @@ type ConflationManager struct {
 	registrations   []*ConflationRegistration
 	readyQueue      *ConflationReadyQueue
 	lock            sync.Mutex
+	statistics      *statistics.Statistics
 }
 
 // Register registers bundle type with priority and handler function within the conflation manager.
@@ -47,7 +51,7 @@ func (cm *ConflationManager) getConflationUnit(leafHubName string) *ConflationUn
 		return conflationUnit
 	}
 	// otherwise, need to create conflation unit
-	conflationUnit := newConflationUnit(cm.log, cm.readyQueue, cm.registrations)
+	conflationUnit := newConflationUnit(cm.log, cm.readyQueue, cm.registrations, cm.statistics)
 	cm.conflationUnits[leafHubName] = conflationUnit
 
 	return conflationUnit

@@ -12,6 +12,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
@@ -32,11 +33,16 @@ func AddToScheme(s *runtime.Scheme) error {
 // adds controllers and/or runnables to the manager, registers handler functions within the dispatcher and create bundle
 // functions within the transport.
 func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationManager *conflator.ConflationManager,
-	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport) error {
+	conflationReadyQueue *conflator.ConflationReadyQueue, transport transport.Transport,
+	statistics manager.Runnable) error {
 	// register config controller within the runtime manager
 	config, err := addConfigController(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
+	}
+	// register statistics within the runtime manager
+	if err := mgr.Add(statistics); err != nil {
+		return fmt.Errorf("failed to add statistics to manager - %w", err)
 	}
 	// register dispatcher within the runtime manager
 	if err := addDispatcher(mgr, dbWorkerPool, conflationReadyQueue); err != nil {

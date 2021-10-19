@@ -55,72 +55,56 @@ func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflation
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ManagedClustersPriority,
 		helpers.GetBundleType(syncer.createBundleFunc()),
-		syncer.handleManagedClustersBundle,
+		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			return syncer.handleManagedClustersBundle(ctx, bundle, dbClient)
+		},
 	))
 }
 
 func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,
-	dbConn db.StatusTransportBridgeDB) error {
+	dbClient db.ManagedClustersStatusDB) error {
+	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
-	syncer.log.Info("start handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName, "Generation",
-		bundle.GetGeneration())
 
-	clustersFromDB, err := dbConn.GetManagedClustersByLeafHub(ctx, managedClustersTableName, leafHubName)
+	clustersFromDB, err := dbClient.GetManagedClustersByLeafHub(ctx, db.StatusSchema, db.ManagedClustersTable,
+		leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
+	// batch is per leaf hub, therefore no need to specify leafHubName in Insert/Update/Delete
+	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema, db.ManagedClustersTable, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
 		cluster, ok := object.(*managedclustersv1.ManagedCluster)
 		if !ok {
-			syncer.log.Error(errObjectNotManagedCluster, "skipping object")
+			syncer.log.Error(errObjectNotManagedCluster, "skipping object...")
 			continue // do not handle objects other than ManagedCluster
 		}
 
-		clusterName := cluster.GetName()
-		resourceVersionFromDB, clusterExists := clustersFromDB[clusterName]
-
-		if !clusterExists { // cluster not found in the db table
-			if err = dbConn.InsertManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
-				errorNone, cluster.GetResourceVersion()); err != nil {
-				return fmt.Errorf("failed to insert cluster '%s' from leaf hub '%s' to the DB - %w", clusterName,
-					leafHubName, err)
-			}
-
+		resourceVersionFromDB, clusterExistsInDB := clustersFromDB[cluster.GetName()]
+		if !clusterExistsInDB { // cluster not found in the db table
+			batchBuilder.Insert(cluster, db.ErrorNone)
 			continue
 		}
-		// if we got here, the managed cluster exists both in db and in the received bundle.
-		delete(clustersFromDB, clusterName)
+
+		delete(clustersFromDB, cluster.GetName()) // if we got here, cluster exists both in db and in received bundle.
 
 		if cluster.GetResourceVersion() == resourceVersionFromDB {
-			continue // sync cluster to db only if what we got is a different version of the resource
+			continue // update cluster in db only if what we got is a different (newer) version of the resource
 		}
 
-		if err = dbConn.UpdateManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName, object,
-			cluster.GetResourceVersion()); err != nil {
-			return fmt.Errorf("failed to update cluster '%s' from leaf hub '%s' in the DB - %w", clusterName,
-				leafHubName, err)
-		}
+		batchBuilder.Update(cluster.GetName(), cluster)
 	}
 	// delete clusters that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	if err = syncer.deleteClustersFromDB(ctx, dbConn, leafHubName, clustersFromDB); err != nil {
-		return fmt.Errorf("failed deleting clusters from db - %w", err)
-	}
-
-	syncer.log.Info("finished handling 'ManagedClusters' bundle", "Leaf Hub", leafHubName,
-		"Generation", bundle.GetGeneration())
-
-	return nil
-}
-
-func (syncer *ManagedClustersDBSyncer) deleteClustersFromDB(ctx context.Context, dbConn db.StatusTransportBridgeDB,
-	leafHubName string, clustersFromDB map[string]string) error {
 	for clusterName := range clustersFromDB {
-		if err := dbConn.DeleteManagedCluster(ctx, managedClustersTableName, leafHubName, clusterName); err != nil {
-			return fmt.Errorf("failed to delete cluster '%s' from leaf hub '%s' from the DB - %w",
-				clusterName, leafHubName, err)
-		}
+		batchBuilder.Delete(clusterName)
 	}
+	// batch contains at most number of statements as the number of managed cluster per LH
+	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
+		return fmt.Errorf("failed to perform batch - %w", err)
+	}
+
+	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 
 	return nil
 }
