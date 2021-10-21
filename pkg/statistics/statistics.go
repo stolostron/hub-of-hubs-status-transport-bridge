@@ -36,6 +36,13 @@ type Statistics struct {
 	bundleMetrics            map[string]*bundleMetrics
 }
 
+// IncrementNumberOfReceivedBundles increments total number of received bundles of the specific type via transport.
+func (s *Statistics) IncrementNumberOfReceivedBundles(bundle bundle.Bundle) {
+	bundleMetrics := s.bundleMetrics[helpers.GetBundleType(bundle)]
+
+	bundleMetrics.totalReceived++
+}
+
 // SetNumberOfAvailableDBWorkers sets number of available db workers.
 func (s *Statistics) SetNumberOfAvailableDBWorkers(numOf int) {
 	s.numOfAvailableDBWorkers = numOf
@@ -83,13 +90,12 @@ func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 
 	go s.run(ctx)
 
-	for {
-		<-stopChannel // blocking wait until getting stop event on the stop channel
-		cancelContext()
-		s.log.Info("stopped statistics")
+	// blocking wait until getting stop event on the stop channel
+	<-stopChannel
+	cancelContext()
+	s.log.Info("stopped statistics")
 
-		return nil
-	}
+	return nil
 }
 
 func (s *Statistics) run(ctx context.Context) {
@@ -105,8 +111,9 @@ func (s *Statistics) run(ctx context.Context) {
 			var metrics strings.Builder
 
 			for bundleType, bundleMetrics := range s.bundleMetrics {
-				metrics.WriteString(fmt.Sprintf("[%s, (db process {%s}), (cu {%s})], ",
-					bundleType, bundleMetrics.database.toString(), bundleMetrics.conflationUnit.toString()))
+				metrics.WriteString(fmt.Sprintf("[%s, (transport {total received=%d}), (cu {%s}), (db process {%s})], ",
+					bundleType, bundleMetrics.totalReceived, bundleMetrics.conflationUnit.toString(),
+					bundleMetrics.database.toString()))
 			}
 
 			s.log.Info("statistics:",
