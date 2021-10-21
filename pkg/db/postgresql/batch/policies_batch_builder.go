@@ -44,18 +44,19 @@ type PoliciesBatchBuilder struct {
 
 // Insert adds the given (policyID, clusterName, errorString, compliance) to the batch to be inserted to the db.
 func (builder *PoliciesBatchBuilder) Insert(policyID string, clusterName string, errorString string,
-	compliance string) {
+	compliance db.ComplianceStatus) {
 	builder.insert(policyID, clusterName, builder.leafHubName, errorString, compliance)
 }
 
 // UpdatePolicyCompliance adds the given row args to be updated in the batch.
-func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, compliance string) {
+func (builder *PoliciesBatchBuilder) UpdatePolicyCompliance(policyID string, compliance db.ComplianceStatus) {
 	// use the builder base update args to implement the policy updates. for specific clusters rows use different vars.
 	builder.update(policyID, builder.leafHubName, compliance)
 }
 
 // UpdateClusterCompliance adds the given row args to be updated in the batch.
-func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, clusterName string, compliance string) {
+func (builder *PoliciesBatchBuilder) UpdateClusterCompliance(policyID string, clusterName string,
+	compliance db.ComplianceStatus) {
 	// if adding args will exceeded max args limit, create update statement from current args and zero the count/args.
 	if len(builder.updateClusterComplianceArgs)+clusterComplianceUpdateArgsCount >= maxColumnsUpdateInStatement {
 		builder.batch.Queue(builder.generateUpdateClusterComplianceStatement(), builder.updateClusterComplianceArgs...)

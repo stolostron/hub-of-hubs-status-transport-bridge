@@ -121,26 +121,13 @@ func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 
 // GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
 func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
-	leafHubName string) (map[string]set.Set, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name FROM %s.%s WHERE leaf_hub_name=$1`, schema,
-		tableName), leafHubName)
+	leafHubName string) (map[string]*db.PolicyClustersSets, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE 
+			leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	result := make(map[string]set.Set)
-
-	for rows.Next() {
-		var policyID, clusterName string
-
-		if err := rows.Scan(&policyID, &clusterName); err != nil {
-			return nil, fmt.Errorf("error in reading compliance table rows - %w", err)
-		}
-
-		policyClusters, found := result[policyID]
-		if !found {
-			policyClusters = set.NewSet()
-			result[policyID] = policyClusters
-		}
-
-		policyClusters.Add(clusterName)
+	result, err := p.buildComplianceClustersSetsFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compliance rows - %w", err)
 	}
 
 	return result, nil
@@ -148,30 +135,38 @@ func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema st
 
 // GetNonCompliantClustersByLeafHub returns a map of policies, each maps to sets of (NonCompliant,Unknown) clusters.
 func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schema string, tableName string,
-	leafHubName string) (map[string]*db.NonCompliantClusterSets, error) {
+	leafHubName string) (map[string]*db.PolicyClustersSets, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE leaf_hub_name=$1
 			 AND compliance!='compliant'`, schema, tableName), leafHubName)
 
-	result := make(map[string]*db.NonCompliantClusterSets)
+	result, err := p.buildComplianceClustersSetsFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compliance rows - %w", err)
+	}
+
+	return result, nil
+}
+
+func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (map[string]*db.PolicyClustersSets, error) {
+	result := make(map[string]*db.PolicyClustersSets)
 
 	for rows.Next() {
-		var policyID, clusterName, compliance string
+		var (
+			policyID, clusterName string
+			complianceStatus      db.ComplianceStatus
+		)
 
-		if err := rows.Scan(&policyID, &clusterName, &compliance); err != nil {
+		if err := rows.Scan(&policyID, &clusterName, &complianceStatus); err != nil {
 			return nil, fmt.Errorf("error in reading compliance table rows - %w", err)
 		}
 
-		policyNonCompliantClusterSets, found := result[policyID]
+		policyClustersSets, found := result[policyID]
 		if !found {
-			policyNonCompliantClusterSets = db.NewNonCompliantClusterSets()
-			result[policyID] = policyNonCompliantClusterSets
+			policyClustersSets = db.NewPolicyClusterSets()
+			result[policyID] = policyClustersSets
 		}
 
-		if compliance == db.NonCompliant {
-			policyNonCompliantClusterSets.AddNonCompliantCluster(clusterName)
-		} else if compliance == db.Unknown {
-			policyNonCompliantClusterSets.AddUnknownCluster(clusterName)
-		}
+		policyClustersSets.AddCluster(clusterName, complianceStatus)
 	}
 
 	return result, nil

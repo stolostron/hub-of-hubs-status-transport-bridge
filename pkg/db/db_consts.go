@@ -22,14 +22,17 @@ const (
 	ErrorNone = "none"
 )
 
+// ComplianceStatus represents the possible options for compliance status.
+type ComplianceStatus string
+
 // compliance states.
 const (
 	// NonCompliant non compliant state.
-	NonCompliant = "non_compliant"
+	NonCompliant ComplianceStatus = "non_compliant"
 	// Compliant compliant state.
-	Compliant = "compliant"
+	Compliant ComplianceStatus = "compliant"
 	// Unknown unknown compliance state.
-	Unknown = "unknown"
+	Unknown ComplianceStatus = "unknown"
 )
 
 // unique db types.
