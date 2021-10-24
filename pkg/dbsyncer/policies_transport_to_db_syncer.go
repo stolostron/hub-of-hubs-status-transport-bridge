@@ -92,8 +92,8 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType)), // comp depends on clusters per policy
-	)
+		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)),
+	) // compliance depends on clusters per policy. should be processed only when there is an exact match
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.MinimalComplianceStatusPriority,
