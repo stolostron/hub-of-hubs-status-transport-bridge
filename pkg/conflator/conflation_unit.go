@@ -226,16 +226,12 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
-		{
-			return dependantBundle.GetDependencyGeneration() == dependencyLastProcessedGeneration
-		}
+		return dependantBundle.GetDependencyGeneration() == dependencyLastProcessedGeneration
+
 	case dependency.AtLeast:
-		{
-			return dependantBundle.GetDependencyGeneration() <= dependencyLastProcessedGeneration
-		}
+		fallthrough // default case is AtLeast
+
 	default:
-		{ // default case is AtLeast
-			return dependantBundle.GetDependencyGeneration() <= dependencyLastProcessedGeneration
-		}
+		return dependantBundle.GetDependencyGeneration() <= dependencyLastProcessedGeneration
 	}
 }
