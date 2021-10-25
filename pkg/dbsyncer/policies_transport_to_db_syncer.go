@@ -49,6 +49,9 @@ type PoliciesDBSyncer struct {
 func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	fullStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Minimal }
+	localPredicate := func() bool {
+		return syncer.config.Spec.AggregationLevel == configv1.Full && syncer.config.Spec.EnableLocalPolicies
+	}
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.ClustersPerPolicyMsgKey,
@@ -70,13 +73,13 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundle,
-		Predicate:        fullStatusPredicate,
+		Predicate:        localPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalPolicyComplianceMsgKey,
 		CreateBundleFunc: syncer.createLocalComplianceStatusBundleFunc,
-		Predicate:        fullStatusPredicate,
+		Predicate:        localPredicate,
 	})
 }
 
@@ -91,6 +94,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	clustersPerPolicyBundleType := helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc())
 	bund := syncer.createLocalClustersPerPolicyBundle()
 	localClustersPerPolicyBundleType := helpers.GetBundleType(bund)
+
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority,
 		clustersPerPolicyBundleType,
