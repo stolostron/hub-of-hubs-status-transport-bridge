@@ -125,7 +125,7 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 		statistics) // manage all Conflation Units
 
 	// transport layer initialization
-	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager)
+	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager, statistics)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize transport: %w", err)
 	}

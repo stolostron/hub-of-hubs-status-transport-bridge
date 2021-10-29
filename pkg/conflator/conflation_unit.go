@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -18,7 +19,7 @@ const (
 var (
 	errNoReadyBundle               = errors.New("no bundle is ready to be processed")
 	errDependencyCannotBeEvaluated = errors.New("bundles declares dependency in registration but doesn't " +
-		"implement DependantBundle")
+		"implement DependantBundle interface")
 )
 
 // ResultReporter is an interface used to report the result of the handler function after it's invocation.
@@ -221,7 +222,16 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	}
 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
+	dependencyLastProcessedGeneration := cu.priorityQueue[dependencyIndex].lastProcessedBundleGeneration
 
-	// if the needed dependency generation wasn't processed yet return false, otherwise return true
-	return dependantBundle.GetDependencyGeneration() <= cu.priorityQueue[dependencyIndex].lastProcessedBundleGeneration
+	switch conflationElement.dependency.DependencyType {
+	case dependency.ExactMatch:
+		return dependantBundle.GetDependencyGeneration() == dependencyLastProcessedGeneration
+
+	case dependency.AtLeast:
+		fallthrough // default case is AtLeast
+
+	default:
+		return dependantBundle.GetDependencyGeneration() <= dependencyLastProcessedGeneration
+	}
 }

@@ -37,10 +37,10 @@ type PoliciesStatusDB interface {
 	BatchSenderDB
 	// GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
 	GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
-		leafHubName string) (map[string]set.Set, error)
+		leafHubName string) (map[string]*PolicyClustersSets, error)
 	// GetNonCompliantClustersByLeafHub returns a map of policies, each maps to sets of (NonCompliant,Unknown) clusters.
 	GetNonCompliantClustersByLeafHub(ctx context.Context, schema string, tableName string,
-		leafHubName string) (map[string]*NonCompliantClusterSets, error)
+		leafHubName string) (map[string]*PolicyClustersSets, error)
 	// NewPoliciesBatchBuilder returns policies status batch builder.
 	NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string) PoliciesBatchBuilder
 }

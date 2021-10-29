@@ -47,13 +47,13 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalPlacementRulesMsgKey,
 		CreateBundleFunc: syncer.createLocalPlacementSpecBundleFunc,
-		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies }, // temporary
+		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies },
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalSpecPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
-		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies }, // temporary
+		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies },
 	})
 }
 

@@ -1,11 +1,12 @@
 package dependency
 
-// Type represents type of dependency. possible types are ImplicitDependency or ExplicitDependency.
-type Type uint8
+type dependencyType string
 
 const (
-	// ImplicitDependency represents an implicit dependency, means it doesn't rely on specific generation.
-	ImplicitDependency Type = iota // ImplicitDependency = 0
-	// ExplicitDependency represent an explicit dependency, means it relies on a specific bundle generation.
-	ExplicitDependency Type = iota // ExplicitDependency = 1
+
+	// ExactMatch used to specify that dependant bundle requires the exact version of the dependency to be the
+	// last processed bundle.
+	ExactMatch dependencyType = "ExactMatch"
+	// AtLeast used to specify that dependant bundle requires at least some version of the dependency to be processed.
+	AtLeast dependencyType = "AtLeast"
 )
