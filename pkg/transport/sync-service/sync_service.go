@@ -102,10 +102,12 @@ func readEnvVars() (string, string, uint16, int, error) {
 }
 
 // Start function starts sync service.
-func (s *SyncService) Start() {
+func (s *SyncService) Start() error {
 	s.startOnce.Do(func() {
 		go s.handleBundles()
 	})
+
+	return nil
 }
 
 // Stop function stops sync service.
@@ -156,7 +158,7 @@ func (s *SyncService) handleBundles() {
 				continue
 			}
 
-			s.conflationManager.Insert(receivedBundle, objectMetaData)
+			s.conflationManager.Insert(receivedBundle, &BundleMetadata{})
 
 			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
 				s.log.Error(err, "failed to report object received to sync service")

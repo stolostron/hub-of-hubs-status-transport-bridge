@@ -22,7 +22,7 @@ IMAGE_TAG ?= latest
 IMAGE := ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
 
 .PHONY: all				##formats the code, runs liners, downloads vendor libs, and builds executable
-all: vendor fmt lint build
+all: vendor fmt build
 
 .PHONY: fmt				##formats the code
 fmt:
