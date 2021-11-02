@@ -65,9 +65,6 @@ func (syncer *ApplicationDBSyncer) handleSubscriptionBundle(ctx context.Context,
 		return fmt.Errorf("failed fetching leaf hub '%s' IDs from db - %w", leafHubName, err)
 	}
 
-	syncer.log.Info(fmt.Sprintf("amount is %d and leaf hub name is %s", len(objectIDsFromDB), leafHubName))
-	syncer.log.Info(fmt.Sprintf("%#v", objectIDsFromDB[0]))
-
 	for _, object := range bundle.GetObjects() {
 		subscription, ok := object.(*subv1.Subscription)
 		if !ok {
@@ -76,11 +73,10 @@ func (syncer *ApplicationDBSyncer) handleSubscriptionBundle(ctx context.Context,
 
 		subscriptionInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(subscription.GetUID()))
 		if err != nil { // subscription not found, new subscription id
-			syncer.log.Info("ASDASDASD")
-
+			// change to state instead of name.
 			if err = dbConn.InsertNewSubscriptionRow(ctx, string(subscription.GetUID()), leafHubName,
-				subscription, string(subscription.Status.Phase), subscription.ResourceVersion,
-				subscriptionTableName); err != nil {
+				subscription, fmt.Sprintf("%s.%s", subscription.GetName(), subscription.GetNamespace()),
+				subscription.ResourceVersion, subscriptionTableName); err != nil {
 				return fmt.Errorf("failed inserting '%s' from leaf hub '%s' - %w",
 					subscription.GetName(), leafHubName, err)
 			}
@@ -88,8 +84,9 @@ func (syncer *ApplicationDBSyncer) handleSubscriptionBundle(ctx context.Context,
 			continue
 		}
 		// since this already exists in the db and in the bundle we need to update it
-		err = dbConn.UpdateSingleSpecRow(ctx, string(subscription.GetUID()), leafHubName,
-			subscriptionTableName, object)
+		err = dbConn.UpdateSingleSubscriptionRow(ctx, subscriptionTableName, string(subscription.GetUID()),
+			leafHubName, fmt.Sprintf("%s.%s", subscription.GetName(), subscription.GetNamespace()),
+			object, subscription.GetResourceVersion())
 		if err != nil {
 			return fmt.Errorf(`failed updating status '%s' in leaf hub '%s' 
 					in db - %w`, string(subscription.GetUID()), leafHubName, err)
@@ -98,8 +95,6 @@ func (syncer *ApplicationDBSyncer) handleSubscriptionBundle(ctx context.Context,
 		// we dont want to delete it later
 		objectIDsFromDB = append(objectIDsFromDB[:subscriptionInd], objectIDsFromDB[subscriptionInd+1:]...)
 	}
-
-	syncer.log.Info("END")
 
 	err = syncer.deleteSubscriptionRows(ctx, leafHubName, subscriptionTableName, objectIDsFromDB, dbConn)
 	if err != nil {
@@ -112,7 +107,7 @@ func (syncer *ApplicationDBSyncer) handleSubscriptionBundle(ctx context.Context,
 func (syncer *ApplicationDBSyncer) deleteSubscriptionRows(ctx context.Context, leafHubName string,
 	tableName string, policyIDToDelete []string, dbConn db.StatusTransportBridgeDB) error {
 	for _, id := range policyIDToDelete {
-		err := dbConn.DeleteSingleSubscriptionRow(ctx, leafHubName, tableName, id)
+		err := dbConn.DeleteSingleSubscriptionRow(ctx, leafHubName, id, tableName)
 		if err != nil {
 			return fmt.Errorf("failed deleting %s from leaf hub %s from table %s - %w", id,
 				leafHubName, tableName, err)

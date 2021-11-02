@@ -168,8 +168,9 @@ func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Conte
 }
 
 // InsertPolicyCompliance inserts a compliance row to the db.
-func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName string, policyID string, clusterName string,
-	leafHubName string, errorString string, compliance string, enforcement string, version string) error {
+func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName string, leafHubName string,
+	clusterName string, policyID string, errorString string, compliance string, enforcement string,
+	version string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,cluster_name,leaf_hub_name,error,
 			compliance,enforcement,resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName),
 		policyID, clusterName, leafHubName, errorString, compliance, enforcement, version); err != nil {
@@ -215,8 +216,8 @@ func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(ctx context.Context, ta
 }
 
 // UpdateComplianceRow updates a compliance status row in the db.
-func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string,
-	leafHubName string, compliance string, version string) error {
+func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,
+	policyID string, compliance string, version string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET compliance=$1,resource_version=$2 WHERE 
 			policy_id=$3 AND leaf_hub_name=$4 AND cluster_name=$5`, tableName), compliance, version, policyID,
 		leafHubName, clusterName); err != nil {
@@ -238,8 +239,8 @@ func (p *PostgreSQL) UpdatePolicyCompliance(ctx context.Context, tableName strin
 }
 
 // DeleteComplianceRow deletes a compliance row from the db.
-func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, policyID string, clusterName string,
-	leafHubName string) error {
+func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,
+	policyID string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE policy_id=$1 AND cluster_name=$2 AND 
 			leaf_hub_name=$3`, tableName), policyID, clusterName, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete compliance row from database: %w", err)
@@ -249,8 +250,8 @@ func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, 
 }
 
 // DeleteAllComplianceRows delete all compliance rows from the db by leaf hub and policy.
-func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, tableName string, policyID string,
-	leafHubName string) error {
+func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, tableName string, leafHubName string,
+	policyID string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE policy_id=$1 AND leaf_hub_name=$2`,
 		tableName), policyID, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete compliance rows from database: %w", err)
@@ -294,7 +295,7 @@ func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) e
 	return nil
 }
 
-// GetFromSpecByID this function returns distinct id entries in the local_spec schema.
+// GetDistinctIDsFromLH this function returns distinct id entries in the local_spec schema.
 func (p *PostgreSQL) GetDistinctIDsFromLH(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
 	result := make([]string, 0)
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s WHERE leaf_hub_name=$1`,
@@ -336,37 +337,35 @@ func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string
 }
 
 // InsertNewSubscriptionRow inserts a new subscription to the db.
-func (p *PostgreSQL) InsertNewSubscriptionRow(ctx context.Context, ID string, leafHubName string, payload interface{},
+func (p *PostgreSQL) InsertNewSubscriptionRow(ctx context.Context, id string, leafHubName string, payload interface{},
 	propagationState string, version string, tableName string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (id,leaf_hub_name,
-			status, propagation_state,resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName), ID,
+			payloaD, propagation_state,resource_version) values($1, $2, $3, $4, $5)`, tableName), id,
 		leafHubName, payload, propagationState, version); err != nil {
 		return fmt.Errorf("failed to insert into database: %w", err)
 	}
 
 	return nil
-
 }
 
-// DeleteSingleSubscriptionRow deletes a single status.subscription row
-func (p *PostgreSQL) DeleteSingleSubscriptionRow(ctx context.Context, leafHubName string, ID string,
+// DeleteSingleSubscriptionRow deletes a single status.subscription row.
+func (p *PostgreSQL) DeleteSingleSubscriptionRow(ctx context.Context, leafHubName string, id string,
 	tableName string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE id=$1 AND 
-			leaf_hub_name=$2`, tableName), ID, leafHubName); err != nil {
+			leaf_hub_name=$2`, tableName), id, leafHubName); err != nil {
 		return fmt.Errorf("failed to delete subscription row from database: %w", err)
 	}
 
 	return nil
-
 }
 
 // UpdateSingleSubscriptionRow Updates a single subscription row according to its id.
-func (p *PostgreSQL) UpdateSingleSubscriptionRow(ctx context.Context, tableName string, ID string, leafHubName string,
+func (p *PostgreSQL) UpdateSingleSubscriptionRow(ctx context.Context, tableName string, id string, leafHubName string,
 	propagationState string, payload interface{}, version string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1, propagation_state=$2, 
 											resource_version=$3 WHERE id=$4 AND leaf_hub_name=$5`, tableName),
-		payload, propagationState, version, ID, leafHubName); err != nil {
-		return fmt.Errorf("failed to update row with id %s in table %s in database: %w", ID, tableName, err)
+		payload, propagationState, version, id, leafHubName); err != nil {
+		return fmt.Errorf("failed to update row with id %s in table %s in database: %w", id, tableName, err)
 	}
 
 	return nil
