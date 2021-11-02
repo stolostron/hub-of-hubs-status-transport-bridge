@@ -88,7 +88,7 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 // if the row isn't in the bundle then delete it.
 // saves the json file in the DB.
 func (syncer *LocalSpecDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle, scheme string,
-	tableName string, dbCLient db.LocalPoliciesDB) error {
+	tableName string, dbCLient db.GenericDBTransport) error {
 	logBundleHandlingMessage(syncer.log, b, startBundleHandlingMessage)
 	leafHubName := b.GetLeafHubName()
 

@@ -14,7 +14,7 @@ type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
-	LocalPoliciesDB
+	GenericDBTransport
 }
 
 // BatchSenderDB is the db interface required for sending batch updates.
@@ -54,8 +54,8 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// LocalPoliciesDB is the db interface required to manage local policy and placement rule.
-type LocalPoliciesDB interface {
+// GenericDBTransport is the db interface required to manage local policy and placement rule.
+type GenericDBTransport interface {
 	BatchSenderDB
 	GetDistinctIDsFromLH(ctx context.Context, schema string, tableName string, leafHubName string) ([]string, error)
 	NewLocalBatchBuilder(schema string, tableName string, leafHubName string) LocalBatchBuilder
