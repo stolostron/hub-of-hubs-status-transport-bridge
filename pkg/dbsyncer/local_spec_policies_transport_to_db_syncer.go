@@ -18,7 +18,7 @@ func NewLocalSpecDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 	dbSyncer := &LocalSpecDBSyncer{
 		log:                                log,
 		config:                             config,
-		createLocalPolicySpecBundleFunc:    func() bundle.Bundle { return bundle.NewLocalSpecBundle() },
+		createLocalPolicySpecBundleFunc:    func() bundle.Bundle { return bundle.NewLocalPolicySpecBundle() },
 		createLocalPlacementSpecBundleFunc: func() bundle.Bundle { return bundle.NewLocalPlacementRuleBundle() },
 	}
 

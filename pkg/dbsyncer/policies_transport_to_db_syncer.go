@@ -128,7 +128,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 	))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.LocalComplianceStatusPriority,
+		conflator.LocalCompleteComplianceStatusPriority,
 		helpers.GetBundleType(syncer.createLocalComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
