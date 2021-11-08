@@ -32,10 +32,10 @@ type PoliciesBatchBuilder interface {
 	DeleteClusterStatus(policyID string, clusterName string)
 }
 
-// LocalBatchBuilder is an interface for building a batch to update policies status information in db.
-type LocalBatchBuilder interface {
+// GenericBatchBuilder is an interface for building a batch to update policies status information in db.
+type GenericBatchBuilder interface {
 	BatchBuilder
-	InsertLocal(id string, payload interface{})
-	DeleteLocal(id string)
-	UpdateLocal(id string, payload interface{})
+	Insert(id string, payload interface{})
+	Delete(id string)
+	Update(id string, payload interface{})
 }

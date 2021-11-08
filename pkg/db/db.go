@@ -54,9 +54,9 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// GenericDBTransport is the db interface required to manage local policy and placement rule.
+// GenericDBTransport is the db interface required to manage generic data with the db.
 type GenericDBTransport interface {
 	BatchSenderDB
 	GetDistinctIDsFromLH(ctx context.Context, schema string, tableName string, leafHubName string) ([]string, error)
-	NewLocalBatchBuilder(schema string, tableName string, leafHubName string) LocalBatchBuilder
+	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
 }

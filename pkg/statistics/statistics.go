@@ -26,7 +26,7 @@ func NewStatistics(log logr.Logger) *Statistics {
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.MinimalComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalPlacementRuleBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalClustersPerPolicyBundle{})] = newBundleMetrics()
-	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalComplianceStatusBundle{})] = newBundleMetrics()
+	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalCompleteComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalSpecBundle{})] = newBundleMetrics()
 
 	return statistics

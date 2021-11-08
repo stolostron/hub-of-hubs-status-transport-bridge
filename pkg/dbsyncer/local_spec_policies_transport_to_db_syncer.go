@@ -2,7 +2,6 @@ package dbsyncer
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
@@ -12,13 +11,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
-	"k8s.io/apimachinery/pkg/types"
 )
-
-type specDBObj interface {
-	GetName() string
-	GetUID() types.UID
-}
 
 // NewLocalSpecDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewLocalSpecDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
@@ -51,7 +44,7 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalSpecPerPolicyMsgKey,
+		MsgID:            datatypes.LocalPolicySpecMsgKey,
 		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
 		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies },
 	})
@@ -72,60 +65,15 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 		conflator.LocalPolicySpecPriority,
 		localPolicySpecBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handleLocalSpecBundle(ctx, bundle, db.LocalSpecScheme, db.LocalPolicySpecTableName, dbClient)
+			return GenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPolicySpecTableName, dbClient,
+				syncer.log)
 		}))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRuleSpecPriority,
 		localPlacementRuleSpecBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handleLocalSpecBundle(ctx, bundle, db.LocalSpecScheme, db.LocalPlacementRuleTableName, dbClient)
+			return GenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPlacementRuleTableName, dbClient,
+				syncer.log)
 		}))
-}
-
-// if the row doesn't exist then add it.
-// if the row exists then update it.
-// if the row isn't in the bundle then delete it.
-// saves the json file in the DB.
-func (syncer *LocalSpecDBSyncer) handleLocalSpecBundle(ctx context.Context, b bundle.Bundle, scheme string,
-	tableName string, dbCLient db.GenericDBTransport) error {
-	logBundleHandlingMessage(syncer.log, b, startBundleHandlingMessage)
-	leafHubName := b.GetLeafHubName()
-
-	objectIDsFromDB, err := dbCLient.GetDistinctIDsFromLH(ctx, scheme, tableName, leafHubName)
-	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from dbCLient - %w", scheme, leafHubName, err)
-	}
-
-	batchBuilder := dbCLient.NewLocalBatchBuilder(scheme, tableName, leafHubName)
-
-	for _, object := range b.GetObjects() {
-		specificObj, ok := object.(specDBObj)
-		if !ok {
-			continue
-		}
-
-		specificObjInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(specificObj.GetUID()))
-		if err != nil { // usefulObj not found, new specificObj id
-			batchBuilder.InsertLocal(string(specificObj.GetUID()), object)
-			// we can continue since its not in objectIDsFromDB anyway
-			continue
-		}
-		// since this already exists in the dbCLient and in the bundle we need to update it
-		batchBuilder.UpdateLocal(string(specificObj.GetUID()), object)
-		// we dont want to delete it later
-		objectIDsFromDB = append(objectIDsFromDB[:specificObjInd], objectIDsFromDB[specificObjInd+1:]...)
-	}
-
-	for _, id := range objectIDsFromDB {
-		batchBuilder.DeleteLocal(id)
-	}
-
-	if err := dbCLient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
-	}
-
-	logBundleHandlingMessage(syncer.log, b, finishBundleHandlingMessage)
-
-	return nil
 }

@@ -1,9 +1,9 @@
 package bundle
 
-// LocalClustersPerPolicyBundle defined ClustersPerPolicy again to avoid bugs.
+// LocalClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type LocalClustersPerPolicyBundle struct{ ClustersPerPolicyBundle }
 
-// NewLocalClustersPerPolicyBundle defined again to avoid bugs.
+// NewLocalClustersPerPolicyBundle creates a new clusters per policy bundle with no data in it.
 func NewLocalClustersPerPolicyBundle() *LocalClustersPerPolicyBundle {
 	return &LocalClustersPerPolicyBundle{}
 }

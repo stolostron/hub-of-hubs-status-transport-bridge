@@ -882,6 +882,12 @@ github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.2021102507034
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211025070346-60d0cacb5152/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211025080255-3b72d5df4ae0 h1:L7fi1NJwL6+0xtFABlgaRC3g9yj7Dxwg4G4LDNJ3kMI=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211025080255-3b72d5df4ae0/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211108073955-1ed213c1959c h1:Z0Rro7pX0mnEfha/mbUFCib0n7q0rzTPkV/opjuAnNY=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211108073955-1ed213c1959c/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211108075258-24f7571051c8 h1:9L+Fc7HmzFTr2TcJcxJFjUbpdn1GgYB5hcyqTk29Kyg=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211108075258-24f7571051c8/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211108112640-1368f19eaf23 h1:ssFTHCcBEbvOvywwFjOqdrV8tGAJkLyS+SsZxNY+rTg=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.1.1-0.20211108112640-1368f19eaf23/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20210901074215-697b945c76dc h1:QVZdeEGVSQCR8AIptjsopUWXCzmz1lgQhHV29exuD8Q=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20210901074215-697b945c76dc/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211019094407-2ce74095398f h1:KQVVvAlAAQDjNbaN+eGWKlnl2EjoZwBC1ShOTq3c8qo=

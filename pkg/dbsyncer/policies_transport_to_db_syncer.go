@@ -24,7 +24,7 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 		config:                                   config,
 		createClustersPerPolicyBundleFunc:        func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
 		createMinimalComplianceStatusBundleFunc:  func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
-		createLocalComplianceStatusBundleFunc:    func() bundle.Bundle { return bundle.NewLocalComplianceStatusBundle() },
+		createLocalComplianceStatusBundleFunc:    func() bundle.Bundle { return bundle.NewLocalCompleteComplianceStatusBundle() },
 		createLocalClustersPerPolicyBundle:       func() bundle.Bundle { return bundle.NewLocalClustersPerPolicyBundle() },
 		createCompleteComplianceStatusBundleFunc: func() bundle.Bundle { return bundle.NewCompleteComplianceStatusBundle() },
 	}
@@ -77,7 +77,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalCompletePolicyComplianceMsgKey,
+		MsgID:            datatypes.LocalPolicyCompleteComplianceMsgKey,
 		CreateBundleFunc: syncer.createLocalComplianceStatusBundleFunc,
 		Predicate:        localPredicate,
 	})
@@ -122,8 +122,8 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		conflator.LocalClustersPerPolicyPriority,
 		localClustersPerPolicyBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusScheme,
-				db.LocalComplianceTableName)
+			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
+				db.ComplianceTable)
 		},
 	))
 
@@ -131,8 +131,8 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		conflator.LocalComplianceStatusPriority,
 		helpers.GetBundleType(syncer.createLocalComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusScheme,
-				db.LocalComplianceTableName)
+			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
+				db.ComplianceTable)
 		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType,
 		dependency.ExactMatch))) // comp depends on clusters per policy
 }
