@@ -101,7 +101,8 @@ func (worker *DBWorker) startProcess(job *DBJob) {
 		worker.pool.cuJobsMap[job.bundle.GetLeafHubName()] = count
 
 		if count > 1 {
-			worker.log.Error(errConflationUnitConcurrentProcess, "cu", job.bundle.GetLeafHubName())
+			worker.log.Error(errConflationUnitConcurrentProcess, "cu", job.bundle.GetLeafHubName(),
+				"count", count)
 		}
 	}
 }
