@@ -11,7 +11,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 )
 
-var errConflationUnitConcurrentProcess = errors.New("CU is being processed concurrently by more than 2 db workers")
+var errConflationUnitConcurrentProcess = errors.New("CU is being processed concurrently by more than 1 db worker")
 
 // NewDBWorker creates a new instance of DBWorker.
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
