@@ -5,7 +5,7 @@ import (
 )
 
 // NewLocalPlacementRuleBundle returns a new empty localPlacementRule bundle.
-func NewLocalPlacementRuleBundle() *LocalPlacementRuleBundle {
+func NewLocalPlacementRuleBundle() Bundle {
 	return &LocalPlacementRuleBundle{}
 }
 

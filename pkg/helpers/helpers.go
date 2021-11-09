@@ -1,14 +1,12 @@
 package helpers
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 )
-
-var errObjectNotFound = errors.New("object not found")
 
 // GetBundleType returns the concrete type of a bundle.
 func GetBundleType(bundle bundle.Bundle) string {
@@ -16,13 +14,19 @@ func GetBundleType(bundle bundle.Bundle) string {
 	return array[len(array)-1]
 }
 
-// GetObjectIndex return object index if exists, otherwise an error.
-func GetObjectIndex(slice []string, toBeFound string) (int, error) {
-	for i, object := range slice {
-		if object == toBeFound {
-			return i, nil
+func CreateMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	for rows.Next() {
+		key := "" // the key of the current row.
+		val := "" // the value of the current row.
+
+		if err := rows.Scan(&key, &val); err != nil {
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
 		}
+
+		result[key] = val
 	}
 
-	return -1, fmt.Errorf("%w - %s", errObjectNotFound, toBeFound)
+	return result, nil
 }

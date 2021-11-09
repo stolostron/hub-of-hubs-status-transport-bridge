@@ -4,6 +4,6 @@ package bundle
 type LocalCompleteComplianceStatusBundle struct{ CompleteComplianceStatusBundle }
 
 // NewLocalCompleteComplianceStatusBundle creates a new complete compliance status bundle with no data in it.
-func NewLocalCompleteComplianceStatusBundle() *LocalCompleteComplianceStatusBundle {
+func NewLocalCompleteComplianceStatusBundle() Bundle {
 	return &LocalCompleteComplianceStatusBundle{}
 }

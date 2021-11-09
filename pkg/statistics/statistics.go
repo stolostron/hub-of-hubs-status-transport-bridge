@@ -119,11 +119,11 @@ func (s *Statistics) run(ctx context.Context) {
 					bundleType, bundleMetrics.totalReceived, bundleMetrics.conflationUnit.toString(),
 					bundleMetrics.database.toString()))
 			}
-
-			s.log.Info("statistics:",
-				"conflation ready queue size", s.conflationReadyQueueSize,
-				"available db workers", s.numOfAvailableDBWorkers,
-				"metrics", strings.TrimSuffix(metrics.String(), ", "))
 		}
 	}
 }
+
+// s.log.Info("statistics:",
+//	"conflation ready queue size", s.conflationReadyQueueSize,
+//	"available db workers", s.numOfAvailableDBWorkers,
+//	"metrics", strings.TrimSuffix(metrics.String(), ", "))

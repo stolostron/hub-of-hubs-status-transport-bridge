@@ -32,7 +32,7 @@ type PoliciesBatchBuilder interface {
 	DeleteClusterStatus(policyID string, clusterName string)
 }
 
-// GenericBatchBuilder is an interface for building a batch to update policies status information in db.
+// GenericBatchBuilder is a generic interface to build a batch and update the db.
 type GenericBatchBuilder interface {
 	BatchBuilder
 	Insert(id string, payload interface{})

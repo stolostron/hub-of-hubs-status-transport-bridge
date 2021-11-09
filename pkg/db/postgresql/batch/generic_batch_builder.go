@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	JsonbColumnIndex = 2
+	JsonbColumnIndex = 3
 	UUIDColumnIndex  = 1
-	DeleteRowKey     = "id::text"
+	DeleteRowKey     = "payload->'metadata'->>'uid'"
 )
 
 // NewGenericBatchBuilder creates a new instance of PostgreSQL ManagedClustersBatchBuilder.
@@ -35,12 +35,12 @@ type GenericBatchBuilder struct {
 
 // Insert adds the given (cluster payload, error string) to the batch to be inserted to the db.
 func (builder *GenericBatchBuilder) Insert(id string, payload interface{}) {
-	builder.insert(id, payload, builder.leafHubName)
+	builder.insert(id, builder.leafHubName, payload)
 }
 
 // Update adds the given arguments to the batch to update clusterName with the given payload in db.
 func (builder *GenericBatchBuilder) Update(id string, payload interface{}) {
-	builder.update(id, payload, builder.leafHubName)
+	builder.update(id, builder.leafHubName, payload)
 }
 
 // Delete adds delete statement to the batch to delete the given cluster from db.
@@ -63,9 +63,9 @@ func (builder *GenericBatchBuilder) generateUpdateStatement() string {
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
 		builder.tableSpecialColumns))
 
-	stringBuilder.WriteString(") AS new(id,payload,leaf_hub_name) ")
+	stringBuilder.WriteString(") AS new(id,leaf_hub_name,payload) ")
 	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name ")
-	stringBuilder.WriteString("AND old.id=new.id")
+	stringBuilder.WriteString("AND old.payload->'metadata'->>'uid'=new.payload->'metadata'->>'uid'")
 
 	return stringBuilder.String()
 }

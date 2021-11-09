@@ -20,13 +20,13 @@ import (
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
-		log:                                      log,
-		config:                                   config,
-		createClustersPerPolicyBundleFunc:        func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
-		createMinimalComplianceStatusBundleFunc:  func() bundle.Bundle { return bundle.NewMinimalComplianceStatusBundle() },
-		createLocalComplianceStatusBundleFunc:    func() bundle.Bundle { return bundle.NewLocalCompleteComplianceStatusBundle() },
-		createLocalClustersPerPolicyBundle:       func() bundle.Bundle { return bundle.NewLocalClustersPerPolicyBundle() },
-		createCompleteComplianceStatusBundleFunc: func() bundle.Bundle { return bundle.NewCompleteComplianceStatusBundle() },
+		log:                                           log,
+		config:                                        config,
+		createClustersPerPolicyBundleFunc:             bundle.NewClustersPerPolicyBundle,
+		createCompleteComplianceStatusBundleFunc:      bundle.NewCompleteComplianceStatusBundle,
+		createMinimalComplianceStatusBundleFunc:       bundle.NewMinimalComplianceStatusBundle,
+		createLocalClustersPerPolicyBundleFunc:        bundle.NewLocalClustersPerPolicyBundle,
+		createLocalCompleteComplianceStatusBundleFunc: bundle.NewLocalCompleteComplianceStatusBundle,
 	}
 
 	log.Info("initialized policies db syncer")
@@ -36,13 +36,13 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 
 // PoliciesDBSyncer implements policies db sync business logic.
 type PoliciesDBSyncer struct {
-	log                                      logr.Logger
-	config                                   *configv1.Config
-	createClustersPerPolicyBundleFunc        func() bundle.Bundle
-	createLocalComplianceStatusBundleFunc    func() bundle.Bundle
-	createLocalClustersPerPolicyBundle       func() bundle.Bundle
-	createCompleteComplianceStatusBundleFunc func() bundle.Bundle
-	createMinimalComplianceStatusBundleFunc  func() bundle.Bundle
+	log                                           logr.Logger
+	config                                        *configv1.Config
+	createClustersPerPolicyBundleFunc             func() bundle.Bundle
+	createCompleteComplianceStatusBundleFunc      func() bundle.Bundle
+	createMinimalComplianceStatusBundleFunc       func() bundle.Bundle
+	createLocalClustersPerPolicyBundleFunc        func() bundle.Bundle
+	createLocalCompleteComplianceStatusBundleFunc func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -72,13 +72,13 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	})
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
-		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundle,
+		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
 		Predicate:        localPredicate,
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalPolicyCompleteComplianceMsgKey,
-		CreateBundleFunc: syncer.createLocalComplianceStatusBundleFunc,
+		CreateBundleFunc: syncer.createLocalCompleteComplianceStatusBundleFunc,
 		Predicate:        localPredicate,
 	})
 }
@@ -92,8 +92,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 // and if the object was changed, update the db with the current object.
 func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	clustersPerPolicyBundleType := helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc())
-	bund := syncer.createLocalClustersPerPolicyBundle()
-	localClustersPerPolicyBundleType := helpers.GetBundleType(bund)
+	localClustersPerPolicyBundleType := helpers.GetBundleType(syncer.createLocalClustersPerPolicyBundleFunc())
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority,
@@ -129,13 +128,14 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalCompleteComplianceStatusPriority,
-		helpers.GetBundleType(syncer.createLocalComplianceStatusBundleFunc()),
+		helpers.GetBundleType(syncer.createLocalCompleteComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
 				db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType,
-		dependency.ExactMatch))) // comp depends on clusters per policy
+		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
 }
+
+// compliance depends on clusters per policy
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.
 // handling clusters per policy bundle only inserts or deletes rows from/to the compliance table.

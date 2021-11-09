@@ -5,7 +5,7 @@ import (
 )
 
 // NewLocalPolicySpecBundle returns a new empty Local Spec bundle.
-func NewLocalPolicySpecBundle() *LocalPolicySpecBundle {
+func NewLocalPolicySpecBundle() Bundle {
 	return &LocalPolicySpecBundle{}
 }
 

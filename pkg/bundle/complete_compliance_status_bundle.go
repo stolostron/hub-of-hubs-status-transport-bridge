@@ -5,7 +5,7 @@ import (
 )
 
 // NewCompleteComplianceStatusBundle creates a new complete compliance status bundle with no data in it.
-func NewCompleteComplianceStatusBundle() *CompleteComplianceStatusBundle {
+func NewCompleteComplianceStatusBundle() Bundle {
 	return &CompleteComplianceStatusBundle{}
 }
 

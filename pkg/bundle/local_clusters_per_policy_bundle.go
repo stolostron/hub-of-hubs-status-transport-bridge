@@ -4,6 +4,6 @@ package bundle
 type LocalClustersPerPolicyBundle struct{ ClustersPerPolicyBundle }
 
 // NewLocalClustersPerPolicyBundle creates a new clusters per policy bundle with no data in it.
-func NewLocalClustersPerPolicyBundle() *LocalClustersPerPolicyBundle {
+func NewLocalClustersPerPolicyBundle() Bundle {
 	return &LocalClustersPerPolicyBundle{}
 }

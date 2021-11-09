@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql/batch"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
 const (
@@ -97,20 +98,12 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	result := make(map[string]string)
-
-	for rows.Next() {
-		clusterName := ""
-		resourceVersion := ""
-
-		if err := rows.Scan(&clusterName, &resourceVersion); err != nil {
-			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
-		}
-
-		result[clusterName] = resourceVersion
+	dbMap, err := helpers.CreateMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
-	return result, nil
+	return dbMap, nil
 }
 
 // NewPoliciesBatchBuilder creates a new instance of PoliciesBatchBuilder.
@@ -235,21 +228,16 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 	return nil
 }
 
-// GetDistinctIDsFromLH GetFromSpecByID this function returns distinct id entries in the local_spec schema.
-func (p *PostgreSQL) GetDistinctIDsFromLH(ctx context.Context, scheme string,
-	tableName string, leafHubName string) ([]string, error) {
-	result := make([]string, 0)
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s.%s WHERE leaf_hub_name=$1`,
-		scheme, tableName), leafHubName)
+// GetDistinctIDAndVersion this function returns a map of id and resource version.
+func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	for rows.Next() {
-		nextID := ""
-		if err := rows.Scan(&nextID); err != nil {
-			return nil, fmt.Errorf("error reading from table %s.%s - %w", scheme, tableName, err)
-		}
-
-		result = append(result, nextID)
+	dbMap, err := helpers.CreateMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
-	return result, nil
+	return dbMap, nil
 }

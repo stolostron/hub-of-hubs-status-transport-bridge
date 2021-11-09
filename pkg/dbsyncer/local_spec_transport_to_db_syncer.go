@@ -16,10 +16,10 @@ import (
 // NewLocalSpecDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewLocalSpecDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 	dbSyncer := &LocalSpecDBSyncer{
-		log:                                log,
-		config:                             config,
-		createLocalPolicySpecBundleFunc:    func() bundle.Bundle { return bundle.NewLocalPolicySpecBundle() },
-		createLocalPlacementSpecBundleFunc: func() bundle.Bundle { return bundle.NewLocalPlacementRuleBundle() },
+		log:                                    log,
+		config:                                 config,
+		createLocalPolicySpecBundleFunc:        bundle.NewLocalPolicySpecBundle,
+		createLocalPlacementRuleSpecBundleFunc: bundle.NewLocalPlacementRuleBundle,
 	}
 
 	log.Info("initialized local spec db syncer")
@@ -29,24 +29,29 @@ func NewLocalSpecDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 
 // LocalSpecDBSyncer implements policies db sync business logic.
 type LocalSpecDBSyncer struct {
-	log                                logr.Logger
-	config                             *configv1.Config
-	createLocalPolicySpecBundleFunc    func() bundle.Bundle
-	createLocalPlacementSpecBundleFunc func() bundle.Bundle
+	log                                    logr.Logger
+	config                                 *configv1.Config
+	createLocalPolicySpecBundleFunc        func() bundle.Bundle
+	createLocalPlacementRuleSpecBundleFunc func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
-	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.LocalPlacementRulesMsgKey,
-		CreateBundleFunc: syncer.createLocalPlacementSpecBundleFunc,
-		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies },
-	})
+	predicate := func() bool {
+		return syncer.config.Spec.AggregationLevel == configv1.Full &&
+			syncer.config.Spec.EnableLocalPolicies
+	}
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalPolicySpecMsgKey,
 		CreateBundleFunc: syncer.createLocalPolicySpecBundleFunc,
-		Predicate:        func() bool { return syncer.config.Spec.EnableLocalPolicies },
+		Predicate:        predicate,
+	})
+
+	transportInstance.Register(&transport.BundleRegistration{
+		MsgID:            datatypes.LocalPlacementRulesMsgKey,
+		CreateBundleFunc: syncer.createLocalPlacementRuleSpecBundleFunc,
+		Predicate:        predicate,
 	})
 }
 
@@ -58,12 +63,9 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	localPolicySpecBundleType := helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc())
-	localPlacementRuleSpecBundleType := helpers.GetBundleType(syncer.createLocalPlacementSpecBundleFunc())
-	// when getting an error that cluster does not exist, turn implicit dependency on MC bundle to explicit dependency
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
-		localPolicySpecBundleType,
+		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return GenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPolicySpecTableName, dbClient,
 				syncer.log)
@@ -71,7 +73,7 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRuleSpecPriority,
-		localPlacementRuleSpecBundleType,
+		helpers.GetBundleType(syncer.createLocalPlacementRuleSpecBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return GenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPlacementRuleTableName, dbClient,
 				syncer.log)
