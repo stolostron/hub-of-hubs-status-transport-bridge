@@ -3,6 +3,7 @@ package workerpool
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
@@ -27,6 +28,7 @@ func NewDBWorkerPool(log logr.Logger, statistics *statistics.Statistics) (*DBWor
 		dbConnPool:    dbConnPool,
 		dbWorkers:     make(chan *DBWorker, dbConnPool.GetPoolSize()),
 		statistics:    statistics,
+		cuJobsMap:     make(map[string]int),
 	}, nil
 }
 
@@ -38,14 +40,17 @@ type DBWorkerPool struct {
 	dbConnPool    db.StatusTransportBridgeDB
 	dbWorkers     chan *DBWorker // A pool of workers that are registered within the workers pool
 	statistics    *statistics.Statistics
+	cuJobsMap     map[string]int
+	lock          sync.Mutex
 }
 
 // Start function starts the db workers pool.
 func (pool *DBWorkerPool) Start() error {
 	var i int32
+
 	// start workers and register them within the workers pool
 	for i = 1; i <= pool.dbConnPool.GetPoolSize(); i++ {
-		worker := NewDBWorker(pool.log, i, pool.dbWorkers, pool.dbConnPool, pool.statistics)
+		worker := NewDBWorker(pool.log, i, pool.dbWorkers, pool.dbConnPool, pool.statistics, pool)
 		worker.start(pool.ctx) // each worker adds itself to the pool inside start function
 	}
 

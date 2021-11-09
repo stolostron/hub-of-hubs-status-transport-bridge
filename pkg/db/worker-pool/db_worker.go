@@ -2,6 +2,7 @@ package workerpool
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -10,11 +11,13 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 )
 
+var errConflationUnitConcurrentProcess = errors.New("CU is being processed concurrently by more than 2 db workers")
+
 // NewDBWorker creates a new instance of DBWorker.
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
 // to RunAsync, otherwise it will yield cpu to other go routines.
 func NewDBWorker(log logr.Logger, workerID int32, dbWorkersPool chan *DBWorker,
-	dbConnPool db.StatusTransportBridgeDB, statistics *statistics.Statistics) *DBWorker {
+	dbConnPool db.StatusTransportBridgeDB, statistics *statistics.Statistics, pool *DBWorkerPool) *DBWorker {
 	return &DBWorker{
 		log:           log,
 		workerID:      workerID,
@@ -22,6 +25,7 @@ func NewDBWorker(log logr.Logger, workerID int32, dbWorkersPool chan *DBWorker,
 		dbConnPool:    dbConnPool,
 		jobsQueue:     make(chan *DBJob, 1),
 		statistics:    statistics,
+		pool:          pool,
 	}
 }
 
@@ -33,6 +37,7 @@ type DBWorker struct {
 	dbConnPool    db.StatusTransportBridgeDB
 	jobsQueue     chan *DBJob
 	statistics    *statistics.Statistics
+	pool          *DBWorkerPool
 }
 
 // RunAsync runs DBJob and reports status to the given CU. once the job processing is finished worker returns to the
@@ -63,7 +68,11 @@ func (worker *DBWorker) start(ctx context.Context) {
 					job.bundle.GetGeneration())
 
 				startTime := time.Now()
+
+				worker.startProcess(job)
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
+				worker.endProcess(job)
+
 				worker.statistics.AddDatabaseMetrics(job.bundle, time.Since(startTime), err)
 				job.conflationUnitResultReporter.ReportResult(job.bundleMetadata, err)
 
@@ -79,4 +88,29 @@ func (worker *DBWorker) start(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func (worker *DBWorker) startProcess(job *DBJob) {
+	worker.pool.lock.Lock()
+	defer worker.pool.lock.Unlock()
+
+	if count, found := worker.pool.cuJobsMap[job.bundle.GetLeafHubName()]; !found {
+		worker.pool.cuJobsMap[job.bundle.GetLeafHubName()] = 1
+	} else {
+		count++
+		worker.pool.cuJobsMap[job.bundle.GetLeafHubName()] = count
+
+		if count > 1 {
+			worker.log.Error(errConflationUnitConcurrentProcess, "cu", job.bundle.GetLeafHubName())
+		}
+	}
+}
+
+func (worker *DBWorker) endProcess(job *DBJob) {
+	worker.pool.lock.Lock()
+	defer worker.pool.lock.Unlock()
+
+	if count, found := worker.pool.cuJobsMap[job.bundle.GetLeafHubName()]; found {
+		worker.pool.cuJobsMap[job.bundle.GetLeafHubName()] = count - 1
+	}
 }
