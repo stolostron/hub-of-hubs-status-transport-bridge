@@ -7,7 +7,9 @@
 
 The status transport bridge component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
 
-## How it works
+Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
+
+## Getting Started
 
 ## Build and push the image to docker registry
 
