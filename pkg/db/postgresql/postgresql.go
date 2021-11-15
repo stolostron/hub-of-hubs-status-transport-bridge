@@ -112,10 +112,10 @@ func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 	return batch.NewPoliciesBatchBuilder(schema, tableName, leafHubName)
 }
 
-// NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
-func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
-	leafHubName string) db.GenericBatchBuilder {
-	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
+// NewLocalGenericBatchBuilder creates a new instance of LocalGenericBatchBuilder.
+func (p *PostgreSQL) NewLocalGenericBatchBuilder(schema string, tableName string,
+	leafHubName string) db.LocalGenericBatchBuilder {
+	return batch.NewLocalGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
 // GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.

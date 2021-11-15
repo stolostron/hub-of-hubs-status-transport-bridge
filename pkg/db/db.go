@@ -57,7 +57,7 @@ type AggregatedPoliciesStatusDB interface {
 // GenericDBTransport is the db interface required to manage generic data with the db.
 type GenericDBTransport interface {
 	BatchSenderDB
-	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
+	NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName string) LocalGenericBatchBuilder
 	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
 }
