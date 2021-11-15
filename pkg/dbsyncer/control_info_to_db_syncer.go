@@ -44,6 +44,7 @@ func (syncer *ControlInfoTransportToDBSyncer) RegisterCreateBundleFunctions(tran
 func (syncer *ControlInfoTransportToDBSyncer) RegisterBundleHandlerFunctions(
 	conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
+
 		conflator.ControlInfoPriority,
 		helpers.GetBundleType(syncer.createBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
