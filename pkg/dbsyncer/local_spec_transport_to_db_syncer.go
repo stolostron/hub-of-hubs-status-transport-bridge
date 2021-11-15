@@ -67,7 +67,7 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 		conflator.LocalPolicySpecPriority,
 		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return GenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPolicySpecTableName, dbClient,
+			return LocalGenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPolicySpecTableName, dbClient,
 				syncer.log)
 		}))
 
@@ -75,7 +75,7 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 		conflator.LocalPlacementRuleSpecPriority,
 		helpers.GetBundleType(syncer.createLocalPlacementRuleSpecBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return GenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPlacementRuleTableName, dbClient,
+			return LocalGenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPlacementRuleTableName, dbClient,
 				syncer.log)
 		}))
 }

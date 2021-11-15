@@ -10,12 +10,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GenericHandleBundle A generic function to handle bundles.
+// LocalGenericHandleBundle A generic function to handle bundles.
 // if the row doesn't exist then add it.
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 // saves the json file in the DB.
-func GenericHandleBundle(ctx context.Context, bundle bundle.Bundle, schema string,
+func LocalGenericHandleBundle(ctx context.Context, bundle bundle.Bundle, schema string,
 	tableName string, dbClient db.GenericDBTransport, log logr.Logger) error {
 	logBundleHandlingMessage(log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
@@ -25,7 +25,7 @@ func GenericHandleBundle(ctx context.Context, bundle bundle.Bundle, schema strin
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", schema, tableName, err)
 	}
 
-	batchBuilder := dbClient.NewGenericBatchBuilder(schema, tableName, leafHubName)
+	batchBuilder := dbClient.NewLocalGenericBatchBuilder(schema, tableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
 		specificObj, ok := object.(metav1.Object)
@@ -38,7 +38,7 @@ func GenericHandleBundle(ctx context.Context, bundle bundle.Bundle, schema strin
 		resourceVersionFromDB, objInDB := idToVersionMapFromDB[uid]
 
 		if !objInDB {
-			batchBuilder.Insert(uid, object)
+			batchBuilder.Insert(object)
 			continue
 		}
 
@@ -48,7 +48,7 @@ func GenericHandleBundle(ctx context.Context, bundle bundle.Bundle, schema strin
 			continue // update cluster in db only if what we got is a different (newer) version of the resource.
 		}
 
-		batchBuilder.Update(uid, object)
+		batchBuilder.Update(object)
 	}
 
 	// delete everything that's left.
