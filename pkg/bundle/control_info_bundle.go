@@ -8,6 +8,7 @@ func NewControlInfoStatusBundle() *ControlInfoStatusBundle {
 // ControlInfoStatusBundle abstracts management of control info bundle.
 type ControlInfoStatusBundle struct {
 	LeafHubName string `json:"leafHubName"`
+	Generation  uint64 `json:"generation"`
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -22,5 +23,5 @@ func (bundle *ControlInfoStatusBundle) GetObjects() []interface{} {
 
 // GetGeneration returns the bundle generation.
 func (bundle *ControlInfoStatusBundle) GetGeneration() uint64 {
-	return 0
+	return bundle.Generation
 }
