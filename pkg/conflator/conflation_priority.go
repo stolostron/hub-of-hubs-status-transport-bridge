@@ -10,5 +10,5 @@ const (
 	ClustersPerPolicyPriority        conflationPriority = iota // ClustersPerPolicy = 1
 	CompleteComplianceStatusPriority conflationPriority = iota // CompleteComplianceStatus = 2
 	MinimalComplianceStatusPriority  conflationPriority = iota // MinimalComplianceStatus = 3
-	ControlInfoPriority              conflationPriority = iota // ControlInfoPriority = 4
+	ControlInfoPriority              conflationPriority = iota // ControlInfoStatus = 4
 )

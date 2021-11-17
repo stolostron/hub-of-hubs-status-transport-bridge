@@ -13,11 +13,11 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
-// NewControlInfoDBSyncer creates a new instance of ControlInfoTransportToDBSyncer.
+// NewControlInfoDBSyncer creates a new instance of ControlInfoDBSyncer.
 func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &ControlInfoTransportToDBSyncer{
+	dbSyncer := &ControlInfoDBSyncer{
 		log:              log,
-		createBundleFunc: func() bundle.Bundle { return bundle.NewControlInfoStatusBundle() },
+		createBundleFunc: bundle.NewControlInfoStatusBundle,
 	}
 
 	log.Info("initialized control info db syncer")
@@ -25,14 +25,14 @@ func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
 	return dbSyncer
 }
 
-// ControlInfoTransportToDBSyncer implements control info transport to db sync.
-type ControlInfoTransportToDBSyncer struct {
+// ControlInfoDBSyncer implements control info transport to db sync.
+type ControlInfoDBSyncer struct {
 	log              logr.Logger
 	createBundleFunc func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ControlInfoTransportToDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
+func (syncer *ControlInfoDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.ControlInfoMsgKey,
 		CreateBundleFunc: syncer.createBundleFunc,
@@ -41,15 +41,14 @@ func (syncer *ControlInfoTransportToDBSyncer) RegisterCreateBundleFunctions(tran
 }
 
 // RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
-func (syncer *ControlInfoTransportToDBSyncer) RegisterBundleHandlerFunctions(
+func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 	conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ControlInfoPriority,
 		helpers.GetBundleType(syncer.createBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			if err := dbClient.UpdateHeartbeat(ctx, db.LeafHubHeartbeatsTableName, bundle.GetLeafHubName()); err != nil {
-				syncer.log.Error(err, "failed to handle bundle")
-
+			if err := dbClient.UpdateHeartbeat(ctx, db.StatusSchema, db.LeafHubHeartbeatsTableName,
+				bundle.GetLeafHubName()); err != nil {
 				return fmt.Errorf("failed to perform batch - %w", err)
 			}
 

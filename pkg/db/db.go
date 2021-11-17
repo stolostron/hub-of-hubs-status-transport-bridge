@@ -56,5 +56,5 @@ type AggregatedPoliciesStatusDB interface {
 
 // ControlInfoDB is the db interface required by status transport bridge to manage control info status.
 type ControlInfoDB interface {
-	UpdateHeartbeat(ctx context.Context, tableName string, leafHubName string) error
+	UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error
 }

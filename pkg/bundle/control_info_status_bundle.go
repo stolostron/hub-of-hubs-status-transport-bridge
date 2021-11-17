@@ -1,7 +1,7 @@
 package bundle
 
 // NewControlInfoStatusBundle creates a new control info bundle with no data in it.
-func NewControlInfoStatusBundle() *ControlInfoStatusBundle {
+func NewControlInfoStatusBundle() Bundle {
 	return &ControlInfoStatusBundle{}
 }
 

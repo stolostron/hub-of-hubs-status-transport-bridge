@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	set "github.com/deckarep/golang-set"
 	"github.com/jackc/pgx/v4"
@@ -231,10 +230,11 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 }
 
 // UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
-func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, tableName string, leafHubName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO status.%[1]s (name, last_timestamp) values($1, $2) 
-		ON CONFLICT (name) DO UPDATE SET last_timestamp = $2 WHERE status.%[1]s.name = $1`, tableName),
-		leafHubName, time.Now().UTC()); err != nil {
+func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %[1]s.%[2]s (name, last_timestamp) 
+		values($1, (now() at time zone 'utc')) ON CONFLICT (name) DO UPDATE SET last_timestamp = (now() at time zone 'utc') 
+        WHERE %[1]s.%[2]s.name = $1`, schema, tableName),
+		leafHubName); err != nil {
 		return fmt.Errorf("failed upsert into database: %w", err)
 	}
 
