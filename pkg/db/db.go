@@ -14,6 +14,7 @@ type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
+	ControlInfoDB
 }
 
 // BatchSenderDB is the db interface required for sending batch updates.
@@ -51,4 +52,9 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string, appliedClusters int, nonCompliantClusters int) error
 	DeleteAllComplianceRows(ctx context.Context, schema string, tableName string, leafHubName string,
 		policyID string) error
+}
+
+// ControlInfoDB is the db interface required by status transport bridge to manage control info status.
+type ControlInfoDB interface {
+	UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error
 }
