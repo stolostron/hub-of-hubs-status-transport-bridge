@@ -47,10 +47,14 @@ func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 		conflator.ControlInfoPriority,
 		helpers.GetBundleType(syncer.createBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
+
 			if err := dbClient.UpdateHeartbeat(ctx, db.StatusSchema, db.LeafHubHeartbeatsTableName,
 				bundle.GetLeafHubName()); err != nil {
 				return fmt.Errorf("failed to perform batch - %w", err)
 			}
+
+			logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 
 			return nil
 		},
