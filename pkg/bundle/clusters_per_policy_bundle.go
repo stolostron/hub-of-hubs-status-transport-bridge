@@ -5,7 +5,7 @@ import (
 )
 
 // NewClustersPerPolicyBundle creates a new clusters per policy bundle with no data in it.
-func NewClustersPerPolicyBundle() *ClustersPerPolicyBundle {
+func NewClustersPerPolicyBundle() Bundle {
 	return &ClustersPerPolicyBundle{}
 }
 

@@ -5,7 +5,7 @@ import (
 )
 
 // NewManagedClustersStatusBundle creates a new managed clusters  bundle with no data in it.
-func NewManagedClustersStatusBundle() *ManagedClustersStatusBundle {
+func NewManagedClustersStatusBundle() Bundle {
 	return &ManagedClustersStatusBundle{
 		Objects: make([]*clusterv1.ManagedCluster, 0),
 	}

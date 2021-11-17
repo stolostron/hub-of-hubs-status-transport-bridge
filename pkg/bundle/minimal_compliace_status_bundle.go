@@ -5,7 +5,7 @@ import (
 )
 
 // NewMinimalComplianceStatusBundle creates a new minimal compliance status bundle with no data in it.
-func NewMinimalComplianceStatusBundle() *MinimalComplianceStatusBundle {
+func NewMinimalComplianceStatusBundle() Bundle {
 	return &MinimalComplianceStatusBundle{}
 }
 

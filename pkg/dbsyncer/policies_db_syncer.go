@@ -20,15 +20,11 @@ import (
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.
 func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 	dbSyncer := &PoliciesDBSyncer{
-		log:                               log,
-		config:                            config,
-		createClustersPerPolicyBundleFunc: func() bundle.Bundle { return bundle.NewClustersPerPolicyBundle() },
-		createCompleteComplianceStatusBundleFunc: func() bundle.Bundle {
-			return bundle.NewCompleteComplianceStatusBundle()
-		},
-		createMinimalComplianceStatusBundleFunc: func() bundle.Bundle {
-			return bundle.NewMinimalComplianceStatusBundle()
-		},
+		log:                                      log,
+		config:                                   config,
+		createClustersPerPolicyBundleFunc:        bundle.NewClustersPerPolicyBundle,
+		createCompleteComplianceStatusBundleFunc: bundle.NewCompleteComplianceStatusBundle,
+		createMinimalComplianceStatusBundleFunc:  bundle.NewMinimalComplianceStatusBundle,
 	}
 
 	log.Info("initialized policies db syncer")
