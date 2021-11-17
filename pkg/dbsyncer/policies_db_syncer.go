@@ -101,10 +101,11 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 }
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.
-// handling clusters per policy bundle only inserts or deletes rows from/to the compliance table.
-// in case the row already exists (leafHubName, policyId, clusterName) -> then don't change anything since this bundle
-// don't have any information about the compliance status but only for the list of relevant clusters.
-// the compliance status will be handled in a different bundle and a different handler function.
+// handling clusters per policy bundle inserts or deletes rows from/to the compliance table.
+// in case the row already exists (leafHubName, policyId, clusterName) it updates the compliance status accordingly.
+// this bundle is triggered only when policy was added/removed or when placement rule has changed which caused list of
+// clusters (of at least one policy) to change.
+// in other cases where only compliance status change, only compliance bundle is received.
 func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Context, bundle bundle.Bundle,
 	dbClient db.PoliciesStatusDB, dbSchema string, dbTableName string) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)

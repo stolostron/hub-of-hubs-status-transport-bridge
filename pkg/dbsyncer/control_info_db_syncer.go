@@ -55,10 +55,10 @@ func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 func (syncer *ControlInfoDBSyncer) handleControlInfoBundle(ctx context.Context, bundle bundle.Bundle,
 	dbClient db.ControlInfoDB) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
+	leafHubName := bundle.GetLeafHubName()
 
-	if err := dbClient.UpdateHeartbeat(ctx, db.StatusSchema, db.LeafHubHeartbeatsTableName,
-		bundle.GetLeafHubName()); err != nil {
-		return fmt.Errorf("failed to handle control info bundle - %w", err)
+	if err := dbClient.UpdateHeartbeat(ctx, db.StatusSchema, db.LeafHubHeartbeatsTableName, leafHubName); err != nil {
+		return fmt.Errorf("failed handling control info bundle of leaf hub '%s' - %w", leafHubName, err)
 	}
 
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
