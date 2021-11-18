@@ -93,7 +93,6 @@ func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 
 	// blocking wait until getting stop event on the stop channel
 	<-stopChannel
-	cancelContext()
 	s.log.Info("stopped statistics")
 
 	return nil

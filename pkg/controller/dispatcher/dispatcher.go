@@ -36,7 +36,6 @@ func (dispatcher *Dispatcher) Start(stopChannel <-chan struct{}) error {
 	go dispatcher.dispatch(ctx)
 
 	<-stopChannel // blocking wait until getting stop event on the stop channel
-	cancelContext()
 	dispatcher.log.Info("stopped dispatcher")
 
 	return nil
