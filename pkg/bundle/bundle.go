@@ -1,5 +1,7 @@
 package bundle
 
+import "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+
 // CreateBundleFunction is a function that specifies how to create a bundle.
 type CreateBundleFunction func() Bundle
 
@@ -7,7 +9,7 @@ type CreateBundleFunction func() Bundle
 type Bundle interface {
 	GetLeafHubName() string
 	GetObjects() []interface{}
-	GetGeneration() uint64
+	GetVersion() *status.BundleVersion
 }
 
 // DependantBundle is a bundle that depends on a different bundle.
@@ -15,5 +17,5 @@ type Bundle interface {
 // processing the dependant bundle only after it's required dependency (with required generation) was processed.
 type DependantBundle interface {
 	Bundle
-	GetDependencyGeneration() uint64
+	GetDependencyVersion() *status.BundleVersion
 }

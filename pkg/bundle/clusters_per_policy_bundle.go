@@ -5,7 +5,7 @@ import (
 )
 
 // NewClustersPerPolicyBundle creates a new clusters per policy bundle with no data in it.
-func NewClustersPerPolicyBundle() Bundle {
+func NewClustersPerPolicyBundle() *ClustersPerPolicyBundle {
 	return &ClustersPerPolicyBundle{}
 }
 
@@ -29,7 +29,7 @@ func (bundle *ClustersPerPolicyBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *ClustersPerPolicyBundle) GetGeneration() uint64 {
-	return bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *ClustersPerPolicyBundle) GetVersion() *statusbundle.BundleVersion {
+	return &bundle.BundleVersion
 }

@@ -52,7 +52,6 @@ func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationMa
 	dbSyncers := []dbsyncer.DBSyncer{
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
 		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer"), config),
-		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
 	}
 
 	for _, dbsyncerObj := range dbSyncers {
@@ -65,7 +64,7 @@ func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationMa
 
 func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
 	config := &configv1.Config{}
-	config.Spec.AggregationLevel = configv1.Full // default value is full until the config is read from the CR
+	config.Spec.AggregationLevel = configv1.Full // no-op value is full until the config is read from the CR
 
 	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
 		return nil, fmt.Errorf("failed to add controller: %w", err)

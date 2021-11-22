@@ -6,7 +6,7 @@
 # -------------------------------------------------------------
 # This makefile defines the following targets
 #
-#   - all (default) - formats the code, runs liners, downloads vendor libs, and builds executable
+#   - all (no-op) - formats the code, runs liners, downloads vendor libs, and builds executable
 #   - fmt - formats the code
 #   - vendor - download all third party libraries and puts them inside vendor directory
 #   - clean-vendor - removes third party libraries from vendor directory
@@ -22,7 +22,7 @@ IMAGE_TAG ?= latest
 IMAGE := ${REGISTRY}/${COMPONENT}:${IMAGE_TAG}
 
 .PHONY: all				##formats the code, runs liners, downloads vendor libs, and builds executable
-all: vendor fmt lint build
+all: vendor fmt  build
 
 .PHONY: fmt				##formats the code
 fmt:

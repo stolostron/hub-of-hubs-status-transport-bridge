@@ -9,6 +9,6 @@ const (
 	ManagedClustersPriority          conflationPriority = iota // ManagedClusters = 0
 	ClustersPerPolicyPriority        conflationPriority = iota // ClustersPerPolicy = 1
 	CompleteComplianceStatusPriority conflationPriority = iota // CompleteComplianceStatus = 2
-	MinimalComplianceStatusPriority  conflationPriority = iota // MinimalComplianceStatus = 3
-	ControlInfoPriority              conflationPriority = iota // ControlInfo = 4
+	DeltaComplianceStatusPriority    conflationPriority = iota // DeltaComplianceStatus = 3
+	MinimalComplianceStatusPriority  conflationPriority = iota // MinimalComplianceStatus = 4
 )

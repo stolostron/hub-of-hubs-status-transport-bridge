@@ -3,14 +3,11 @@
 # Hub-of-Hubs Status Transport Bridge
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)](https://goreportcard.com/report/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
-[![Go Reference](https://pkg.go.dev/badge/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge.svg)](https://pkg.go.dev/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
 [![License](https://img.shields.io/github/license/open-cluster-management/hub-of-hubs-status-transport-bridge)](/LICENSE)
 
 The status transport bridge component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
 
-Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
-
-## Getting Started
+## How it works
 
 ## Build and push the image to docker registry
 
@@ -57,12 +54,27 @@ python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPass
     $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
     ```
 
-1.  Set the `SYNC_SERVICE_HOST` environment variable to hold the CSS host.
+1. Set the `TRANSPORT_TYPE` environment variable to "kafka" or "sync-service" to set which transport to use.
     ```
+    $ export LH_TRANSPORT_TYPE=...
+    ```
+
+1. If you set Kafka for transport, set the following environment variables:
+
+    1. If you use secured (SSL/TLS) client authorization, set `KAFKA_SSL_CA` environment variable to hold the
+       certificate (PEM format) encoded in base64.
+    ```
+    $ export KAFKA_SSL_CA=$(cat PATH_TO_CA | base64 -w 0)
+    ```
+
+1. Otherwise, if you set Sync-Service as transport, set the following:
+
+    1. Set the `SYNC_SERVICE_HOST` environment variable to hold the CSS host.
+     ```
     $ export SYNC_SERVICE_HOST=...
     ```
 
-1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the CSS port.
+    1. Set the `SYNC_SERVICE_PORT` environment variable to hold the CSS port.
     ```
     $ export SYNC_SERVICE_PORT=...
     ```

@@ -5,7 +5,7 @@ import (
 )
 
 // NewMinimalComplianceStatusBundle creates a new minimal compliance status bundle with no data in it.
-func NewMinimalComplianceStatusBundle() Bundle {
+func NewMinimalComplianceStatusBundle() *MinimalComplianceStatusBundle {
 	return &MinimalComplianceStatusBundle{}
 }
 
@@ -29,7 +29,7 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *MinimalComplianceStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *MinimalComplianceStatusBundle) GetVersion() *statusbundle.BundleVersion {
+	return &bundle.BundleVersion
 }

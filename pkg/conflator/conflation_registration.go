@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 )
@@ -13,12 +14,13 @@ type BundleHandlerFunc func(context.Context, bundle.Bundle, db.StatusTransportBr
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
 func NewConflationRegistration(priority conflationPriority, bundleType string,
-	handlerFunction BundleHandlerFunc) *ConflationRegistration {
+	handlerFunction BundleHandlerFunc, syncMode bundleinfo.SyncMode) *ConflationRegistration {
 	return &ConflationRegistration{
 		priority:        priority,
 		bundleType:      bundleType,
 		handlerFunction: handlerFunction,
 		dependency:      nil,
+		syncMode:        syncMode,
 	}
 }
 
@@ -28,6 +30,7 @@ type ConflationRegistration struct {
 	bundleType      string
 	handlerFunction BundleHandlerFunc
 	dependency      *dependency.Dependency
+	syncMode        bundleinfo.SyncMode
 }
 
 // WithDependency declares a dependency required by the given bundle type.

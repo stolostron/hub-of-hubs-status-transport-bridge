@@ -1,16 +1,15 @@
 package conflator
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 )
 
 type conflationElement struct {
-	bundleType                    string
-	bundle                        bundle.Bundle
-	bundleMetadata                *BundleMetadata
-	handlerFunction               BundleHandlerFunc
-	dependency                    *dependency.Dependency
-	isInProcess                   bool
-	lastProcessedBundleGeneration uint64
+	bundleInfo                 bundleinfo.BundleInfo
+	handlerFunction            BundleHandlerFunc
+	dependency                 *dependency.Dependency
+	isInProcess                bool
+	lastProcessedBundleVersion *status.BundleVersion
 }

@@ -10,6 +10,7 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -21,7 +22,7 @@ var errObjectNotManagedCluster = errors.New("failed to parse object in bundle to
 func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ManagedClustersDBSyncer{
 		log:              log,
-		createBundleFunc: bundle.NewManagedClustersStatusBundle,
+		createBundleFunc: func() bundle.Bundle { return bundle.NewManagedClustersStatusBundle() },
 	}
 
 	log.Info("initialized managed clusters db syncer")
@@ -58,6 +59,7 @@ func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflation
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleManagedClustersBundle(ctx, bundle, dbClient)
 		},
+		bundleinfo.CompleteStateSyncMode,
 	))
 }
 

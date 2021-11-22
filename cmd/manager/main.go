@@ -1,17 +1,20 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"runtime"
 
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller"
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	kafkaclient "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/kafka"
 	hohSyncService "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -23,16 +26,59 @@ import (
 )
 
 const (
-	metricsHost                     = "0.0.0.0"
-	metricsPort               int32 = 9392
-	envVarControllerNamespace       = "POD_NAMESPACE"
-	leaderElectionLockName          = "hub-of-hubs-status-transport-bridge-lock"
+	metricsHost                        = "0.0.0.0"
+	metricsPort                  int32 = 9392
+	kafkaTransportTypeName             = "kafka"
+	syncServiceTransportTypeName       = "sync-service"
+	envVarTransportComponent           = "TRANSPORT_TYPE"
+	envVarControllerNamespace          = "POD_NAMESPACE"
+	leaderElectionLockName             = "hub-of-hubs-status-transport-bridge-lock"
 )
+
+var errEnvVarIllegalValue = errors.New("environment variable illegal value")
 
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+}
+
+// function to choose transport type based on env var.
+func getTransport(transportType string, conflationMgr *conflator.ConflationManager,
+	statistics *statistics.Statistics) (transport.Transport, error) {
+	switch transportType {
+	case kafkaTransportTypeName:
+		kafkaConsumer, err := kafkaclient.NewConsumer(ctrl.Log.WithName("kafka"), conflationMgr, statistics)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
+		}
+
+		return kafkaConsumer, nil
+
+	case syncServiceTransportTypeName:
+		syncService, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationMgr, statistics)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+		}
+
+		return syncService, nil
+
+	default:
+		return nil, fmt.Errorf("%w: %s", errEnvVarIllegalValue, transportType)
+	}
+}
+
+func getInitialConflationManagerBundleVersions(transportType string) *status.BundleVersion {
+	switch transportType {
+	case kafkaTransportTypeName:
+		return nil // with kafka, bundle dependencies are assumed to be satisfied on load
+
+	case syncServiceTransportTypeName:
+		return status.NewBundleVersion(0, 0) // with sync-service bundle dependencies must be enforced even on load
+
+	default:
+		return nil // shouldn't get here
+	}
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
@@ -48,6 +94,11 @@ func doMain() int {
 	// create statistics
 	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
 
+	transportType, found := os.LookupEnv(envVarTransportComponent)
+	if !found {
+		log.Error(nil, "Not found:", "environment variable", envVarTransportComponent)
+		return 1
+	}
 	// db layer initialization - worker pool + connection pool
 	dbWorkerPool, err := startDBWorkerPool(stats)
 	if err != nil {
@@ -57,13 +108,17 @@ func doMain() int {
 
 	defer dbWorkerPool.Stop()
 
-	mgr, transportObj, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, stats)
+	mgr, transportObj, err := createManager(leaderElectionNamespace, metricsHost, transportType, metricsPort,
+		dbWorkerPool, stats)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
 	}
 
-	transportObj.Start()
+	if err := transportObj.Start(); err != nil {
+		log.Error(err, "transport start failure")
+		return 1
+	}
 	defer transportObj.Stop()
 
 	log.Info("Starting the Cmd.")
@@ -102,11 +157,12 @@ func startDBWorkerPool(statistics *statistics.Statistics) (*workerpool.DBWorkerP
 	return dbWorkerPool, nil
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
-	statistics *statistics.Statistics) (ctrl.Manager, transport.Transport, error) {
+func createManager(leaderElectionNamespace, metricsHost, transportType string, metricsPort int32,
+	workersPool *workerpool.DBWorkerPool, statistics *statistics.Statistics) (ctrl.Manager,
+	transport.Transport, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		LeaderElection:          true,
+		LeaderElection:          false,
 		LeaderElectionID:        leaderElectionLockName,
 		LeaderElectionNamespace: leaderElectionNamespace,
 	}
@@ -121,11 +177,11 @@ func createManager(leaderElectionNamespace, metricsHost string, metricsPort int3
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
+	conflationUnitsInitialBundleVersion := getInitialConflationManagerBundleVersions(transportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
-		statistics) // manage all Conflation Units
-
+		statistics, conflationUnitsInitialBundleVersion)
 	// transport layer initialization
-	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager, statistics)
+	transportObj, err := getTransport(transportType, conflationManager, statistics)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize transport: %w", err)
 	}

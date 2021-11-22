@@ -5,13 +5,16 @@ import (
 )
 
 // NewCompleteComplianceStatusBundle creates a new complete compliance status bundle with no data in it.
-func NewCompleteComplianceStatusBundle() Bundle {
-	return &CompleteComplianceStatusBundle{}
+func NewCompleteComplianceStatusBundle() *CompleteComplianceStatusBundle {
+	return &CompleteComplianceStatusBundle{
+		dependencyVersion: nil,
+	}
 }
 
 // CompleteComplianceStatusBundle abstracts management of complete compliance status bundle.
 type CompleteComplianceStatusBundle struct {
 	statusbundle.BaseCompleteComplianceStatusBundle
+	dependencyVersion *statusbundle.BundleVersion
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -29,12 +32,18 @@ func (bundle *CompleteComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependencyGeneration returns the bundle dependency required generation.
-func (bundle *CompleteComplianceStatusBundle) GetDependencyGeneration() uint64 {
-	return bundle.BaseBundleGeneration
+// GetDependencyVersion returns the bundle dependency required version.
+func (bundle *CompleteComplianceStatusBundle) GetDependencyVersion() *statusbundle.BundleVersion {
+	// incarnation version of the dependency bundle has to be equal to that of the dependent bundle (same sender),
+	// therefore it is omitted from the bundle itself (only generation is maintained).
+	if bundle.dependencyVersion == nil {
+		bundle.dependencyVersion = statusbundle.NewBundleVersion(bundle.Incarnation, bundle.BaseBundleGeneration)
+	}
+
+	return bundle.dependencyVersion
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *CompleteComplianceStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *CompleteComplianceStatusBundle) GetVersion() *statusbundle.BundleVersion {
+	return &bundle.BundleVersion
 }

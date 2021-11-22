@@ -14,13 +14,11 @@ const (
 	ComplianceTable = "compliance"
 	// MinimalComplianceTable table name of minimal policy compliance status.
 	MinimalComplianceTable = "aggregated_compliance"
-	// LeafHubHeartbeatsTableName table for LH heartbeats.
-	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
 )
 
-// default values.
+// no-op values.
 const (
-	// ErrorNone is default value when no error occurs.
+	// ErrorNone is no-op value when no error occurs.
 	ErrorNone = "none"
 )
 
