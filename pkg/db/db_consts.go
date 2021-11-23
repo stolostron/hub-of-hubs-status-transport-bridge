@@ -22,6 +22,8 @@ const (
 	LocalPolicySpecTableName = "policies"
 	// LocalPlacementRuleTableName the table for local Placement Rules.
 	LocalPlacementRuleTableName = "placementrules"
+	// LeafHubHeartbeatsTableName table for LH heartbeats.
+	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
 )
 
 // default values.

@@ -28,6 +28,7 @@ func NewStatistics(log logr.Logger) *Statistics {
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalClustersPerPolicyBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalCompleteComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalPolicySpecBundle{})] = newBundleMetrics()
+	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ControlInfoBundle{})] = newBundleMetrics()
 
 	return statistics
 }
@@ -96,7 +97,6 @@ func (s *Statistics) Start(stopChannel <-chan struct{}) error {
 
 	// blocking wait until getting stop event on the stop channel
 	<-stopChannel
-	cancelContext()
 	s.log.Info("stopped statistics")
 
 	return nil

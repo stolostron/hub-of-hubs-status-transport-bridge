@@ -21,7 +21,7 @@ var errObjectNotManagedCluster = errors.New("failed to parse object in bundle to
 func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ManagedClustersDBSyncer{
 		log:              log,
-		createBundleFunc: func() bundle.Bundle { return bundle.NewManagedClustersStatusBundle() },
+		createBundleFunc: bundle.NewManagedClustersStatusBundle,
 	}
 
 	log.Info("initialized managed clusters db syncer")

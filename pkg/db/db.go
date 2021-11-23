@@ -15,6 +15,7 @@ type StatusTransportBridgeDB interface {
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
 	GenericDBTransport
+	ControlInfoDB
 }
 
 // BatchSenderDB is the db interface required for sending batch updates.
@@ -60,4 +61,9 @@ type GenericDBTransport interface {
 	NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName string) LocalGenericBatchBuilder
 	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
+}
+
+// ControlInfoDB is the db interface required by status transport bridge to manage control info status.
+type ControlInfoDB interface {
+	UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error
 }

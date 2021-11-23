@@ -57,7 +57,7 @@ func doMain() int {
 
 	defer dbWorkerPool.Stop()
 
-	mgr, transportObj, err := createManager(leaderElectionNamespace, metricsHost, metricsPort, dbWorkerPool, stats)
+	mgr, transportObj, err := createManager(leaderElectionNamespace, dbWorkerPool, stats)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -102,7 +102,7 @@ func startDBWorkerPool(statistics *statistics.Statistics) (*workerpool.DBWorkerP
 	return dbWorkerPool, nil
 }
 
-func createManager(leaderElectionNamespace, metricsHost string, metricsPort int32, workersPool *workerpool.DBWorkerPool,
+func createManager(leaderElectionNamespace string, workersPool *workerpool.DBWorkerPool,
 	statistics *statistics.Statistics) (ctrl.Manager, transport.Transport, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),

@@ -35,13 +35,10 @@ func (dispatcher *Dispatcher) Start(stopChannel <-chan struct{}) error {
 
 	go dispatcher.dispatch(ctx)
 
-	for {
-		<-stopChannel // blocking wait until getting stop event on the stop channel
-		cancelContext()
-		dispatcher.log.Info("stopped dispatcher")
+	<-stopChannel // blocking wait until getting stop event on the stop channel
+	dispatcher.log.Info("stopped dispatcher")
 
-		return nil
-	}
+	return nil
 }
 
 func (dispatcher *Dispatcher) dispatch(ctx context.Context) {

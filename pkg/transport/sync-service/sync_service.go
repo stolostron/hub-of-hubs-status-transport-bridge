@@ -30,20 +30,6 @@ var (
 	errSyncServiceReadFailed = errors.New("sync service error")
 )
 
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	log                    logr.Logger
-	client                 *client.SyncServiceClient
-	pollingInterval        int
-	objectsMetaDataChan    chan *client.ObjectMetaData
-	stopChan               chan struct{}
-	conflationManager      *conflator.ConflationManager
-	statistics             *statistics.Statistics
-	msgIDToRegistrationMap map[string]*transport.BundleRegistration
-	startOnce              sync.Once
-	stopOnce               sync.Once
-}
-
 // NewSyncService creates a new instance of SyncService.
 func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationManager,
 	statistics *statistics.Statistics) (*SyncService, error) {
@@ -105,6 +91,20 @@ func readEnvVars() (string, string, uint16, int, error) {
 	return protocol, host, uint16(port), pollingInterval, nil
 }
 
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	log                    logr.Logger
+	client                 *client.SyncServiceClient
+	pollingInterval        int
+	objectsMetaDataChan    chan *client.ObjectMetaData
+	conflationManager      *conflator.ConflationManager
+	statistics             *statistics.Statistics
+	msgIDToRegistrationMap map[string]*transport.BundleRegistration
+	startOnce              sync.Once
+	stopOnce               sync.Once
+	stopChan               chan struct{}
+}
+
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
@@ -115,6 +115,7 @@ func (s *SyncService) Start() {
 // Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
+		s.stopChan <- struct{}{}
 		close(s.stopChan)
 		close(s.objectsMetaDataChan)
 	})

@@ -61,7 +61,7 @@ func (builder *LocalGenericBatchBuilder) generateUpdateStatement() string {
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
 		builder.tableSpecialColumns))
 
-	stringBuilder.WriteString(") AS new(leaf_hub_name,payload) ")
+	stringBuilder.WriteString(") AS new(id,leaf_hub_name,payload) ")
 	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name ")
 	stringBuilder.WriteString("AND old.payload->'metadata'->>'uid'=new.payload->'metadata'->>'uid'")
 
