@@ -12,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql/batch"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
 const (
@@ -98,7 +97,7 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	dbMap, err := helpers.CreateMapFromRows(rows, schema, tableName)
+	dbMap, err := createMapFromRows(rows, schema, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
@@ -234,7 +233,7 @@ func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string,
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	dbMap, err := helpers.CreateMapFromRows(rows, schema, tableName)
+	dbMap, err := createMapFromRows(rows, schema, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
@@ -252,4 +251,21 @@ func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableNa
 	}
 
 	return nil
+}
+
+func createMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	for rows.Next() {
+		key := "" // the key of the current row.
+		val := "" // the value of the current row.
+
+		if err := rows.Scan(&key, &val); err != nil {
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
+		}
+
+		result[key] = val
+	}
+
+	return result, nil
 }

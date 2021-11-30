@@ -1,19 +1,19 @@
 package bundle
 
 import (
-	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
+	placementrulev1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
 )
 
-// NewLocalPlacementRuleBundle returns a new empty localPlacementRule bundle.
+// NewLocalPlacementRuleBundle returns a new empty LocalPlacementRule bundle.
 func NewLocalPlacementRuleBundle() Bundle {
 	return &LocalPlacementRuleBundle{}
 }
 
 // LocalPlacementRuleBundle a bundle to hold Local Placement Rules information.
 type LocalPlacementRuleBundle struct {
-	Objects     []*policiesv1.PlacementRule `json:"objects"`
-	LeafHubName string                      `json:"leafHubName"`
-	Generation  uint64                      `json:"generation"`
+	Objects     []*placementrulev1.PlacementRule `json:"objects"`
+	LeafHubName string                           `json:"leafHubName"`
+	Generation  uint64                           `json:"generation"`
 }
 
 // GetLeafHubName return the leaf hub that sent the bundle.

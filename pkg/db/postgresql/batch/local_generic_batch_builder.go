@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	JsonbColumnIndex = 3
+	JsonbColumnIndex = 2
 	DeleteRowKey     = "payload->'metadata'->>'uid'"
 )
 
@@ -33,12 +33,12 @@ type LocalGenericBatchBuilder struct {
 
 // Insert adds the given (cluster payload, error string) to the batch to be inserted to the db.
 func (builder *LocalGenericBatchBuilder) Insert(payload interface{}) {
-	builder.insert(nil, builder.leafHubName, payload)
+	builder.insert(builder.leafHubName, payload)
 }
 
 // Update adds the given arguments to the batch to update clusterName with the given payload in db.
 func (builder *LocalGenericBatchBuilder) Update(payload interface{}) {
-	builder.update(nil, builder.leafHubName, payload)
+	builder.update(builder.leafHubName, payload)
 }
 
 // Delete adds delete statement to the batch to delete the given cluster from db.
@@ -61,7 +61,7 @@ func (builder *LocalGenericBatchBuilder) generateUpdateStatement() string {
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
 		builder.tableSpecialColumns))
 
-	stringBuilder.WriteString(") AS new(id,leaf_hub_name,payload) ")
+	stringBuilder.WriteString(") AS new(leaf_hub_name,payload) ")
 	stringBuilder.WriteString("WHERE old.leaf_hub_name=new.leaf_hub_name ")
 	stringBuilder.WriteString("AND old.payload->'metadata'->>'uid'=new.payload->'metadata'->>'uid'")
 

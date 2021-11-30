@@ -38,8 +38,7 @@ type LocalSpecDBSyncer struct {
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	predicate := func() bool {
-		return syncer.config.Spec.AggregationLevel == configv1.Full &&
-			syncer.config.Spec.EnableLocalPolicies
+		return syncer.config.Spec.EnableLocalPolicies
 	}
 
 	transportInstance.Register(&transport.BundleRegistration{
@@ -66,16 +65,20 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
 		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return LocalGenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPolicySpecTableName, dbClient,
-				syncer.log)
-		}))
+		syncer.bundleHandlerHelper(db.LocalPolicySpecTableName)))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRuleSpecPriority,
 		helpers.GetBundleType(syncer.createLocalPlacementRuleSpecBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return LocalGenericHandleBundle(ctx, bundle, db.LocalSpecSchema, db.LocalPlacementRuleTableName, dbClient,
-				syncer.log)
-		}))
+		syncer.bundleHandlerHelper(db.LocalPlacementRuleTableName)))
+}
+
+func (syncer *LocalSpecDBSyncer) bundleHandlerHelper(tableName string) func(ctx context.Context,
+	bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+	return func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
+		defer logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
+
+		return localGenericHandleBundle(ctx, bundle, db.LocalSpecSchema, tableName, dbClient)
+	}
 }

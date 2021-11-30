@@ -14,7 +14,7 @@ type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
-	GenericDBTransport
+	LocalPoliciesStatusDB
 	ControlInfoDB
 }
 
@@ -55,8 +55,8 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// GenericDBTransport is the db interface required to manage generic data with the db.
-type GenericDBTransport interface {
+// LocalPoliciesStatusDB is the db interface required to manage generic data with the db.
+type LocalPoliciesStatusDB interface {
 	BatchSenderDB
 	NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName string) LocalGenericBatchBuilder
 	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
