@@ -97,26 +97,24 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	result := make(map[string]string)
-
-	for rows.Next() {
-		clusterName := ""
-		resourceVersion := ""
-
-		if err := rows.Scan(&clusterName, &resourceVersion); err != nil {
-			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
-		}
-
-		result[clusterName] = resourceVersion
+	dbMap, err := createMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
-	return result, nil
+	return dbMap, nil
 }
 
 // NewPoliciesBatchBuilder creates a new instance of PoliciesBatchBuilder.
 func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 	leafHubName string) db.PoliciesBatchBuilder {
 	return batch.NewPoliciesBatchBuilder(schema, tableName, leafHubName)
+}
+
+// NewLocalGenericBatchBuilder creates a new instance of LocalGenericBatchBuilder.
+func (p *PostgreSQL) NewLocalGenericBatchBuilder(schema string, tableName string,
+	leafHubName string) db.LocalGenericBatchBuilder {
+	return batch.NewLocalGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
 // GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
@@ -183,7 +181,7 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, schema string, t
 	for rows.Next() {
 		policyID := ""
 		if err := rows.Scan(&policyID); err != nil {
-			return nil, fmt.Errorf("error reading from table status.%s - %w", tableName, err)
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
 		}
 
 		result.Add(policyID)
@@ -229,6 +227,20 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 	return nil
 }
 
+// GetDistinctIDAndVersion this function returns a map of id and resource version.
+func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
+
+	dbMap, err := createMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
+	}
+
+	return dbMap, nil
+}
+
 // UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
 func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error {
 	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %[1]s.%[2]s (name, last_timestamp) 
@@ -239,4 +251,21 @@ func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableNa
 	}
 
 	return nil
+}
+
+func createMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	for rows.Next() {
+		key := "" // the key of the current row.
+		val := "" // the value of the current row.
+
+		if err := rows.Scan(&key, &val); err != nil {
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
+		}
+
+		result[key] = val
+	}
+
+	return result, nil
 }

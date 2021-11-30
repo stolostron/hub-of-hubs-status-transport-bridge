@@ -4,6 +4,10 @@ package db
 const (
 	// StatusSchema schema for status updates.
 	StatusSchema = "status"
+	// LocalStatusSchema schema for local status updates.
+	LocalStatusSchema = "local_status"
+	// LocalSpecSchema schema for local spec updates.
+	LocalSpecSchema = "local_spec"
 )
 
 // table names.
@@ -14,6 +18,10 @@ const (
 	ComplianceTable = "compliance"
 	// MinimalComplianceTable table name of minimal policy compliance status.
 	MinimalComplianceTable = "aggregated_compliance"
+	// LocalPolicySpecTableName the name of the local policy spec table.
+	LocalPolicySpecTableName = "policies"
+	// LocalPlacementRuleTableName the table for local Placement Rules.
+	LocalPlacementRuleTableName = "placementrules"
 	// LeafHubHeartbeatsTableName table for LH heartbeats.
 	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
 )

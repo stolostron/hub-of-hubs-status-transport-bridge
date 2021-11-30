@@ -14,6 +14,7 @@ type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
+	LocalPoliciesStatusDB
 	ControlInfoDB
 }
 
@@ -35,7 +36,7 @@ type ManagedClustersStatusDB interface {
 // PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
 type PoliciesStatusDB interface {
 	BatchSenderDB
-	// GetComplianceClustersByLeafHub returns a map of policies, each maps to a set of clusters.
+	// GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
 	GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]*PolicyClustersSets, error)
 	// GetNonCompliantClustersByLeafHub returns a map of policies, each maps to sets of (NonCompliant,Unknown) clusters.
@@ -52,6 +53,14 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string, appliedClusters int, nonCompliantClusters int) error
 	DeleteAllComplianceRows(ctx context.Context, schema string, tableName string, leafHubName string,
 		policyID string) error
+}
+
+// LocalPoliciesStatusDB is the db interface required to manage generic data with the db.
+type LocalPoliciesStatusDB interface {
+	BatchSenderDB
+	NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName string) LocalGenericBatchBuilder
+	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+		leafHubName string) (map[string]string, error)
 }
 
 // ControlInfoDB is the db interface required by status transport bridge to manage control info status.
