@@ -4,24 +4,18 @@ import (
 	policiesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/policy/v1"
 )
 
-// NewLocalPolicySpecBundle returns a new empty Local Spec bundle.
+// NewLocalPolicySpecBundle creates a new instance of LocalPolicySpecBundle.
 func NewLocalPolicySpecBundle() Bundle {
 	return &LocalPolicySpecBundle{}
 }
 
-// LocalPolicySpecBundle a struct used to hold the information given from bundles in the transport.
+// LocalPolicySpecBundle abstracts management of local policies spec bundle.
 type LocalPolicySpecBundle struct {
-	Objects     []*policiesv1.Policy `json:"objects"`
-	LeafHubName string               `json:"leafHubName"`
-	Generation  uint64               `json:"generation"`
+	baseBundle
+	Objects []*policiesv1.Policy `json:"objects"`
 }
 
-// GetLeafHubName returns the leaf hub that the bundle originated from.
-func (bundle *LocalPolicySpecBundle) GetLeafHubName() string {
-	return bundle.LeafHubName
-}
-
-// GetObjects returns all the objects that the bundle hold.
+// GetObjects returns the objects in the bundle.
 func (bundle *LocalPolicySpecBundle) GetObjects() []interface{} {
 	result := make([]interface{}, len(bundle.Objects))
 	for i, obj := range bundle.Objects {
@@ -29,9 +23,4 @@ func (bundle *LocalPolicySpecBundle) GetObjects() []interface{} {
 	}
 
 	return result
-}
-
-// GetGeneration returns the generation of the bundle.
-func (bundle *LocalPolicySpecBundle) GetGeneration() uint64 {
-	return bundle.Generation
 }

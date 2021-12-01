@@ -18,11 +18,11 @@ const (
 	ComplianceTable = "compliance"
 	// MinimalComplianceTable table name of minimal policy compliance status.
 	MinimalComplianceTable = "aggregated_compliance"
-	// LocalPolicySpecTableName the name of the local policy spec table.
+	// LocalPolicySpecTableName table name of local policy spec.
 	LocalPolicySpecTableName = "policies"
-	// LocalPlacementRuleTableName the table for local Placement Rules.
-	LocalPlacementRuleTableName = "placementrules"
-	// LeafHubHeartbeatsTableName table for LH heartbeats.
+	// LocalPlacementRulesTableName table name of local placement rules.
+	LocalPlacementRulesTableName = "placementrules"
+	// LeafHubHeartbeatsTableName table name for LH heartbeats.
 	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
 )
 

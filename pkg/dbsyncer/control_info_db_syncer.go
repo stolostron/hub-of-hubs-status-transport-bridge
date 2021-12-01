@@ -28,7 +28,7 @@ func NewControlInfoDBSyncer(log logr.Logger) DBSyncer {
 // ControlInfoDBSyncer implements control info transport to db sync.
 type ControlInfoDBSyncer struct {
 	log              logr.Logger
-	createBundleFunc func() bundle.Bundle
+	createBundleFunc bundle.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.

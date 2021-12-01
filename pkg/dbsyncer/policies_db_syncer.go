@@ -38,11 +38,11 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 type PoliciesDBSyncer struct {
 	log                                           logr.Logger
 	config                                        *configv1.Config
-	createClustersPerPolicyBundleFunc             func() bundle.Bundle
-	createCompleteComplianceStatusBundleFunc      func() bundle.Bundle
-	createMinimalComplianceStatusBundleFunc       func() bundle.Bundle
-	createLocalClustersPerPolicyBundleFunc        func() bundle.Bundle
-	createLocalCompleteComplianceStatusBundleFunc func() bundle.Bundle
+	createClustersPerPolicyBundleFunc             bundle.CreateBundleFunction
+	createCompleteComplianceStatusBundleFunc      bundle.CreateBundleFunction
+	createMinimalComplianceStatusBundleFunc       bundle.CreateBundleFunction
+	createLocalClustersPerPolicyBundleFunc        bundle.CreateBundleFunction
+	createLocalCompleteComplianceStatusBundleFunc bundle.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -121,8 +121,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		conflator.LocalClustersPerPolicyPriority,
 		localClustersPerPolicyBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
-				db.ComplianceTable)
+			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusSchema, db.ComplianceTable)
 		},
 	))
 
@@ -134,8 +133,6 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 				db.ComplianceTable)
 		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
 }
-
-// compliance depends on clusters per policy
 
 // if we got inside the handler function, then the bundle generation is newer than what was already handled.
 // handling clusters per policy bundle inserts or deletes rows from/to the compliance table.

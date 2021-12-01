@@ -2,7 +2,6 @@ package dbsyncer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -14,8 +13,6 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
-
-var errObjectNotManagedCluster = errors.New("failed to parse object in bundle to a managed cluster")
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.
 func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
@@ -32,7 +29,7 @@ func NewManagedClustersDBSyncer(log logr.Logger) DBSyncer {
 // ManagedClustersDBSyncer implements managed clusters db sync business logic.
 type ManagedClustersDBSyncer struct {
 	log              logr.Logger
-	createBundleFunc func() bundle.Bundle
+	createBundleFunc bundle.CreateBundleFunction
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
@@ -77,7 +74,6 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	for _, object := range bundle.GetObjects() {
 		cluster, ok := object.(*managedclustersv1.ManagedCluster)
 		if !ok {
-			syncer.log.Error(errObjectNotManagedCluster, "skipping object...")
 			continue // do not handle objects other than ManagedCluster
 		}
 

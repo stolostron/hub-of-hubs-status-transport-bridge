@@ -4,7 +4,7 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-// NewMinimalComplianceStatusBundle creates a new minimal compliance status bundle with no data in it.
+// NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
 func NewMinimalComplianceStatusBundle() Bundle {
 	return &MinimalComplianceStatusBundle{}
 }

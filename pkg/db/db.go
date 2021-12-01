@@ -26,14 +26,14 @@ type BatchSenderDB interface {
 // ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
 type ManagedClustersStatusDB interface {
 	BatchSenderDB
-	// GetManagedClustersByLeafHub returns a map from of clusterName to its resourceVersion.
+	// GetManagedClustersByLeafHub returns a map from clusterName to its resourceVersion.
 	GetManagedClustersByLeafHub(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
 	// NewManagedClustersBatchBuilder returns managed clusters batch builder.
 	NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName string) ManagedClustersBatchBuilder
 }
 
-// PoliciesStatusDB is the db interface required by status transport bridge to manage policy status.
+// PoliciesStatusDB is the db interface required by status transport bridge to manage policies status.
 type PoliciesStatusDB interface {
 	BatchSenderDB
 	// GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
@@ -55,15 +55,18 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// LocalPoliciesStatusDB is the db interface required to manage generic data with the db.
+// LocalPoliciesStatusDB is the db interface required by status bridge to manage local policies.
 type LocalPoliciesStatusDB interface {
 	BatchSenderDB
-	NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName string) LocalGenericBatchBuilder
+	// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
 	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
+	// NewGenericLocalBatchBuilder returns generic local batch builder.
+	NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName string) GenericLocalBatchBuilder
 }
 
 // ControlInfoDB is the db interface required by status transport bridge to manage control info status.
 type ControlInfoDB interface {
+	// UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
 	UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error
 }

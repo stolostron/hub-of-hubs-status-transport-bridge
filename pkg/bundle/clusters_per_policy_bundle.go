@@ -4,7 +4,7 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-// NewClustersPerPolicyBundle creates a new clusters per policy bundle with no data in it.
+// NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle() Bundle {
 	return &ClustersPerPolicyBundle{}
 }

@@ -97,24 +97,18 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	dbMap, err := createMapFromRows(rows, schema, tableName)
+	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
-	return dbMap, nil
+	return result, nil
 }
 
 // NewPoliciesBatchBuilder creates a new instance of PoliciesBatchBuilder.
 func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
 	leafHubName string) db.PoliciesBatchBuilder {
 	return batch.NewPoliciesBatchBuilder(schema, tableName, leafHubName)
-}
-
-// NewLocalGenericBatchBuilder creates a new instance of LocalGenericBatchBuilder.
-func (p *PostgreSQL) NewLocalGenericBatchBuilder(schema string, tableName string,
-	leafHubName string) db.LocalGenericBatchBuilder {
-	return batch.NewLocalGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
 // GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
@@ -227,18 +221,24 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 	return nil
 }
 
-// GetDistinctIDAndVersion this function returns a map of id and resource version.
+// NewGenericLocalBatchBuilder creates a new instance of GenericLocalBatchBuilder.
+func (p *PostgreSQL) NewGenericLocalBatchBuilder(schema string, tableName string,
+	leafHubName string) db.GenericLocalBatchBuilder {
+	return batch.NewGenericLocalBatchBuilder(schema, tableName, leafHubName)
+}
+
+// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
 func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
 	leafHubName string) (map[string]string, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	dbMap, err := createMapFromRows(rows, schema, tableName)
+	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
-	return dbMap, nil
+	return result, nil
 }
 
 // UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
@@ -253,12 +253,11 @@ func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableNa
 	return nil
 }
 
-func createMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
+func buildKeyValueMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
 	result := make(map[string]string)
 
 	for rows.Next() {
-		key := "" // the key of the current row.
-		val := "" // the value of the current row.
+		var key, val string
 
 		if err := rows.Scan(&key, &val); err != nil {
 			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)

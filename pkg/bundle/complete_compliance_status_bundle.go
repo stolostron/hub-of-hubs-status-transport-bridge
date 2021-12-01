@@ -4,7 +4,7 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-// NewCompleteComplianceStatusBundle creates a new complete compliance status bundle with no data in it.
+// NewCompleteComplianceStatusBundle creates a new instance of CompleteComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle() Bundle {
 	return &CompleteComplianceStatusBundle{}
 }

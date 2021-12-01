@@ -1,8 +1,6 @@
 package conflator
 
-type conflationPriority uint
-
-// iota is the golang way of implementing ENUM
+type conflationPriority uint8
 
 // priority list of conflation unit.
 const (
@@ -14,5 +12,5 @@ const (
 	LocalPolicySpecPriority               conflationPriority = iota // LocalPolicySpec = 5
 	LocalClustersPerPolicyPriority        conflationPriority = iota // LocalClustersPerPolicy = 6
 	LocalCompleteComplianceStatusPriority conflationPriority = iota // LocalCompleteComplianceStatus = 7
-	LocalPlacementRuleSpecPriority        conflationPriority = iota // LocalPlacementRuleSpec = 8
+	LocalPlacementRulesSpecPriority       conflationPriority = iota // LocalPlacementRulesSpec = 8
 )

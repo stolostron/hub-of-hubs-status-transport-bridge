@@ -32,10 +32,13 @@ type PoliciesBatchBuilder interface {
 	DeleteClusterStatus(policyID string, clusterName string)
 }
 
-// LocalGenericBatchBuilder is a generic interface to build a batch and update the db.
-type LocalGenericBatchBuilder interface {
+// GenericLocalBatchBuilder is a generic interface for building a batch to update local objects information in db.
+type GenericLocalBatchBuilder interface {
 	BatchBuilder
+	// Insert adds the given payload to the batch to be inserted to the db.
 	Insert(payload interface{})
-	Delete(id string)
+	// Update adds the given payload to the batch to be updated in the db.
 	Update(payload interface{})
+	// Delete adds the given id to the batch to be deleted from db.
+	Delete(id string)
 }

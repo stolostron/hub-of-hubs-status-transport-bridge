@@ -8,17 +8,17 @@ import (
 )
 
 const (
-	JsonbColumnIndex = 2
-	DeleteRowKey     = "payload->'metadata'->>'uid'"
+	genericLocalJsonbColumnIndex = 2
+	genericLocalDeleteRowKey     = "payload->'metadata'->>'uid'"
 )
 
-// NewLocalGenericBatchBuilder creates a new instance of PostgreSQL ManagedClustersBatchBuilder.
-func NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName string) *LocalGenericBatchBuilder {
+// NewGenericLocalBatchBuilder creates a new instance of PostgreSQL GenericLocalBatchBuilder.
+func NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName string) *GenericLocalBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
-	tableSpecialColumns[JsonbColumnIndex] = db.Jsonb
-	builder := &LocalGenericBatchBuilder{
+	tableSpecialColumns[genericLocalJsonbColumnIndex] = db.Jsonb
+	builder := &GenericLocalBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
-			DeleteRowKey),
+			genericLocalDeleteRowKey),
 	}
 
 	builder.setUpdateStatementFunc(builder.generateUpdateStatement)
@@ -26,32 +26,32 @@ func NewLocalGenericBatchBuilder(schema string, tableName string, leafHubName st
 	return builder
 }
 
-// LocalGenericBatchBuilder is the PostgreSQL implementation of the ManagedClustersBatchBuilder interface.
-type LocalGenericBatchBuilder struct {
+// GenericLocalBatchBuilder is the PostgreSQL implementation of the GenericLocalBatchBuilder interface.
+type GenericLocalBatchBuilder struct {
 	*baseBatchBuilder
 }
 
-// Insert adds the given (cluster payload, error string) to the batch to be inserted to the db.
-func (builder *LocalGenericBatchBuilder) Insert(payload interface{}) {
+// Insert adds the given payload to the batch to be inserted to the db.
+func (builder *GenericLocalBatchBuilder) Insert(payload interface{}) {
 	builder.insert(builder.leafHubName, payload)
 }
 
-// Update adds the given arguments to the batch to update clusterName with the given payload in db.
-func (builder *LocalGenericBatchBuilder) Update(payload interface{}) {
+// Update adds the given payload to the batch to be updated in the db.
+func (builder *GenericLocalBatchBuilder) Update(payload interface{}) {
 	builder.update(builder.leafHubName, payload)
 }
 
-// Delete adds delete statement to the batch to delete the given cluster from db.
-func (builder *LocalGenericBatchBuilder) Delete(id string) {
+// Delete adds the given id to the batch to be deleted from db.
+func (builder *GenericLocalBatchBuilder) Delete(id string) {
 	builder.delete(id)
 }
 
 // Build builds the batch object.
-func (builder *LocalGenericBatchBuilder) Build() interface{} {
+func (builder *GenericLocalBatchBuilder) Build() interface{} {
 	return builder.build()
 }
 
-func (builder *LocalGenericBatchBuilder) generateUpdateStatement() string {
+func (builder *GenericLocalBatchBuilder) generateUpdateStatement() string {
 	var stringBuilder strings.Builder
 
 	stringBuilder.WriteString(fmt.Sprintf("UPDATE %s.%s AS old SET payload=new.payload FROM (values ",
