@@ -134,7 +134,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
 }
 
-// if we got inside the handler function, then the bundle generation is newer than what was already handled.
+// if we got inside the handler function, then the bundle version is newer than what was already handled.
 // handling clusters per policy bundle inserts or deletes rows from/to the compliance table.
 // in case the row already exists (leafHubName, policyId, clusterName) it updates the compliance status accordingly.
 // this bundle is triggered only when policy was added/removed or when placement rule has changed which caused list of
@@ -232,7 +232,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyWithSpecificCompliance(ba
 	return allClustersFromDB
 }
 
-// if we got the the handler function, then the bundle pre-conditions were satisfied (the generation is newer than what
+// if we got to the handler function, then the bundle pre-conditions were satisfied (the version is newer than what
 // was already handled and base bundle was already handled successfully)
 // we assume that 'ClustersPerPolicy' handler function handles the addition or removal of clusters rows.
 // in this handler function, we handle only the existing clusters rows.
