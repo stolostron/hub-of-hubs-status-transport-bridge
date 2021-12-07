@@ -46,7 +46,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
-			lastProcessedBundleVersion: status.NewBundleVersion(0, 0), // no generation was processed yet
+			lastProcessedBundleVersion: status.NewBundleVersion(0, 0), // no version was processed yet
 		}
 		bundleTypeToPriority[registration.bundleType] = registration.priority
 	}
