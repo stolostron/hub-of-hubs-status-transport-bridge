@@ -29,7 +29,7 @@ func (bundle *ClustersPerPolicyBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *ClustersPerPolicyBundle) GetGeneration() uint64 {
-	return bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *ClustersPerPolicyBundle) GetVersion() *statusbundle.BundleVersion {
+	return bundle.BundleVersion
 }

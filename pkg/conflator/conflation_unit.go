@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
@@ -39,13 +40,13 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 
 	for _, registration := range registrations {
 		priorityQueue[registration.priority] = &conflationElement{
-			bundleType:                    registration.bundleType,
-			bundle:                        nil,
-			bundleMetadata:                nil,
-			handlerFunction:               registration.handlerFunction,
-			dependency:                    registration.dependency, // nil if there is no dependency
-			isInProcess:                   false,
-			lastProcessedBundleGeneration: 0, // no generation was processed yet
+			bundleType:                 registration.bundleType,
+			bundle:                     nil,
+			bundleMetadata:             nil,
+			handlerFunction:            registration.handlerFunction,
+			dependency:                 registration.dependency, // nil if there is no dependency
+			isInProcess:                false,
+			lastProcessedBundleVersion: status.NewBundleVersion(0, 0), // no generation was processed yet
 		}
 		bundleTypeToPriority[registration.bundleType] = registration.priority
 	}
@@ -80,12 +81,12 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	bundleType := helpers.GetBundleType(bundle)
 	priority := cu.bundleTypeToPriority[bundleType]
 
-	if bundle.GetGeneration() <= cu.priorityQueue[priority].lastProcessedBundleGeneration {
+	if !bundle.GetVersion().NewerThan(cu.priorityQueue[priority].lastProcessedBundleVersion) {
 		return // we got old bundle, a newer (or equal) bundle was already processed.
 	}
 
 	if cu.priorityQueue[priority].bundle != nil &&
-		bundle.GetGeneration() <= cu.priorityQueue[priority].bundle.GetGeneration() {
+		!bundle.GetVersion().NewerThan(cu.priorityQueue[priority].bundle.GetVersion()) {
 		return // insert bundle only if generation we got is newer than what we have in memory, otherwise do nothing.
 	}
 
@@ -97,12 +98,12 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
 	if cu.priorityQueue[priority].bundleMetadata != nil && !cu.priorityQueue[priority].isInProcess {
-		cu.priorityQueue[priority].bundleMetadata.update(bundle.GetGeneration(), metadata)
+		cu.priorityQueue[priority].bundleMetadata.update(bundle.GetVersion(), metadata)
 		cu.statistics.IncrementNumberOfConflations(bundle)
 	} else {
 		cu.priorityQueue[priority].bundleMetadata = &BundleMetadata{
 			bundleType:              bundleType,
-			generation:              bundle.GetGeneration(),
+			version:                 bundle.GetVersion(),
 			transportBundleMetadata: metadata,
 		}
 	}
@@ -144,12 +145,12 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 		cu.addCUToReadyQueueIfNeeded()
 		return
 	}
-	// otherwise err is nil, means bundle processing finished successfully
-	if metadata.generation > cu.priorityQueue[priority].lastProcessedBundleGeneration {
-		cu.priorityQueue[priority].lastProcessedBundleGeneration = metadata.generation
+	// otherwise, err is nil, means bundle processing finished successfully
+	if metadata.version.NewerThan(cu.priorityQueue[priority].lastProcessedBundleVersion) {
+		cu.priorityQueue[priority].lastProcessedBundleVersion = metadata.version
 	}
 	// if bundle wasn't updated since GetNext was called - delete bundle + metadata since it was already processed
-	if metadata.generation == cu.priorityQueue[priority].bundle.GetGeneration() {
+	if metadata.version.Equals(cu.priorityQueue[priority].bundle.GetVersion()) {
 		cu.priorityQueue[priority].bundle = nil
 		cu.priorityQueue[priority].bundleMetadata = nil
 	}
@@ -222,16 +223,16 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	}
 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
-	dependencyLastProcessedGeneration := cu.priorityQueue[dependencyIndex].lastProcessedBundleGeneration
+	dependencyLastProcessedGeneration := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
-		return dependantBundle.GetDependencyGeneration() == dependencyLastProcessedGeneration
+		return dependantBundle.GetDependencyVersion().Equals(dependencyLastProcessedGeneration)
 
 	case dependency.AtLeast:
 		fallthrough // default case is AtLeast
 
 	default:
-		return dependantBundle.GetDependencyGeneration() <= dependencyLastProcessedGeneration
+		return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedGeneration)
 	}
 }

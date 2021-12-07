@@ -29,12 +29,12 @@ func (bundle *CompleteComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependencyGeneration returns the bundle dependency required generation.
-func (bundle *CompleteComplianceStatusBundle) GetDependencyGeneration() uint64 {
-	return bundle.BaseBundleGeneration
+// GetDependencyVersion returns the bundle dependency required version.
+func (bundle *CompleteComplianceStatusBundle) GetDependencyVersion() *statusbundle.BundleVersion {
+	return bundle.BaseBundleVersion
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *CompleteComplianceStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *CompleteComplianceStatusBundle) GetVersion() *statusbundle.BundleVersion {
+	return bundle.BundleVersion
 }
