@@ -11,8 +11,8 @@ require (
 	github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130123010-5b9fdb74b38e
 	github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025054627-da6a9c5f72af
 	github.com/open-cluster-management/hub-of-hubs-message-compression v0.0.0-20211122122545-c99e2d497b43
-	github.com/open-cluster-management/leaf-hub-spec-sync v0.1.0 // indirect
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2
+	github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 // indirect
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/spf13/pflag v1.0.5
 	k8s.io/apimachinery v0.20.5
