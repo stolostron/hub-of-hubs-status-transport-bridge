@@ -1,8 +1,6 @@
 package bundle
 
-import (
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-)
+import "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 
 // NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
 func NewClustersPerPolicyBundle() Bundle {
@@ -11,7 +9,7 @@ func NewClustersPerPolicyBundle() Bundle {
 
 // ClustersPerPolicyBundle abstracts management of clusters per policy bundle.
 type ClustersPerPolicyBundle struct {
-	statusbundle.BaseClustersPerPolicyBundle
+	status.BaseClustersPerPolicyBundle
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -30,6 +28,6 @@ func (bundle *ClustersPerPolicyBundle) GetObjects() []interface{} {
 }
 
 // GetVersion returns the bundle version.
-func (bundle *ClustersPerPolicyBundle) GetVersion() *statusbundle.BundleVersion {
+func (bundle *ClustersPerPolicyBundle) GetVersion() *status.BundleVersion {
 	return bundle.BundleVersion
 }

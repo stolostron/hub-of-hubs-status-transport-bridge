@@ -1,8 +1,6 @@
 package bundle
 
-import (
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-)
+import "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 
 // NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
 func NewMinimalComplianceStatusBundle() Bundle {
@@ -11,7 +9,7 @@ func NewMinimalComplianceStatusBundle() Bundle {
 
 // MinimalComplianceStatusBundle abstracts management of minimal compliance status bundle.
 type MinimalComplianceStatusBundle struct {
-	statusbundle.BaseMinimalComplianceStatusBundle
+	status.BaseMinimalComplianceStatusBundle
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -30,6 +28,6 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 }
 
 // GetVersion returns the bundle version.
-func (bundle *MinimalComplianceStatusBundle) GetVersion() *statusbundle.BundleVersion {
+func (bundle *MinimalComplianceStatusBundle) GetVersion() *status.BundleVersion {
 	return bundle.BundleVersion
 }
