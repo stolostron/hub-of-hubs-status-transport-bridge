@@ -34,20 +34,29 @@ type ResultReporter interface {
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
-	registrations []*ConflationRegistration, statistics *statistics.Statistics) *ConflationUnit {
+	registrations []*ConflationRegistration, requireInitialDependencyCheck bool,
+	statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
 	for _, registration := range registrations {
 		priorityQueue[registration.priority] = &conflationElement{
-			bundleType:                 registration.bundleType,
-			bundle:                     nil,
-			bundleMetadata:             nil,
-			handlerFunction:            registration.handlerFunction,
-			dependency:                 registration.dependency, // nil if there is no dependency
-			isInProcess:                false,
-			lastProcessedBundleVersion: status.NewBundleVersion(0, 0), // no version was processed yet
+			bundleType:      registration.bundleType,
+			bundle:          nil,
+			bundleMetadata:  nil,
+			handlerFunction: registration.handlerFunction,
+			dependency:      registration.dependency, // nil if there is no dependency
+			isInProcess:     false,
+			// lastProcessedBundleVersion default to nil (no enforcement of initial deps)
 		}
+
+		if requireInitialDependencyCheck {
+			// if the initial dependencies must be enforced then we initiate the last processed bundle
+			// version to 0,0.
+			// otherwise, the version should remain nil, which the dependency checks allow and count as fine.
+			priorityQueue[registration.priority].lastProcessedBundleVersion = status.NewBundleVersion(0, 0)
+		}
+
 		bundleTypeToPriority[registration.bundleType] = registration.priority
 	}
 
@@ -152,7 +161,7 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	// if bundle wasn't updated since GetNext was called - delete bundle + metadata since it was already processed
 	if metadata.version.Equals(cu.priorityQueue[priority].bundle.GetVersion()) {
 		cu.priorityQueue[priority].bundle = nil
-		cu.priorityQueue[priority].bundleMetadata = nil
+		cu.priorityQueue[priority].bundleMetadata.transportBundleMetadata.MarkAsProcessed()
 	}
 
 	cu.addCUToReadyQueueIfNeeded()
@@ -190,6 +199,22 @@ func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	}
 
 	return invalidPriority
+}
+
+// getBundlesMetadata provides collections of the CU's bundle transport-metadata.
+func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
+
+	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
+
+	for _, element := range cu.priorityQueue {
+		if transportMetadata := element.GetTransportMetadataToCommit(); transportMetadata != nil {
+			bundlesMetadata = append(bundlesMetadata, transportMetadata)
+		}
+	}
+
+	return bundlesMetadata
 }
 
 // isCurrentOrAnyDependencyInProcess checks if current element or any dependency from dependency chain is in process.
