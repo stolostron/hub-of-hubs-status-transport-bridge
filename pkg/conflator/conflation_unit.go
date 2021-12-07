@@ -87,13 +87,13 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 
 	if cu.priorityQueue[priority].bundle != nil &&
 		!bundle.GetVersion().NewerThan(cu.priorityQueue[priority].bundle.GetVersion()) {
-		return // insert bundle only if generation we got is newer than what we have in memory, otherwise do nothing.
+		return // insert bundle only if version we got is newer than what we have in memory, otherwise do nothing.
 	}
 
 	// start conflation unit metric for specific bundle type - overwrite it each time new bundle arrives
 	cu.statistics.StartConflationUnitMetrics(bundle)
 
-	// if we got here, we got bundle with newer generation
+	// if we got here, we got bundle with newer version
 	cu.priorityQueue[priority].bundle = bundle // update the bundle in the priority queue.
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
@@ -223,16 +223,16 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	}
 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
-	dependencyLastProcessedGeneration := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
+	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
-		return dependantBundle.GetDependencyVersion().Equals(dependencyLastProcessedGeneration)
+		return dependantBundle.GetDependencyVersion().Equals(dependencyLastProcessedVersion)
 
 	case dependency.AtLeast:
 		fallthrough // default case is AtLeast
 
 	default:
-		return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedGeneration)
+		return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedVersion)
 	}
 }
