@@ -90,7 +90,7 @@ spec:
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092"
             - name: KAFKA_TOPIC
-              value: "spec"
+              value: "status"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
