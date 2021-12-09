@@ -42,6 +42,17 @@ func (cm *ConflationManager) Insert(bundle bundle.Bundle, metadata transport.Bun
 	cm.getConflationUnit(bundle.GetLeafHubName()).insert(bundle, metadata)
 }
 
+// GetBundlesMetadata provides collections of the CU's bundle transport-metadata.
+func (cm *ConflationManager) GetBundlesMetadata() []transport.BundleMetadata {
+	metadata := make([]transport.BundleMetadata, 0)
+
+	for _, cu := range cm.conflationUnits {
+		metadata = append(metadata, cu.getBundlesMetadata()...)
+	}
+
+	return metadata
+}
+
 // if conflation unit doesn't exist for leaf hub, creates it.
 func (cm *ConflationManager) getConflationUnit(leafHubName string) *ConflationUnit {
 	cm.lock.Lock() // use lock to find/create conflation units

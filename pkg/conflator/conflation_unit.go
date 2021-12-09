@@ -192,6 +192,22 @@ func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	return invalidPriority
 }
 
+// getBundlesMetadata provides collections of the CU's bundle transport-metadata.
+func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
+
+	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
+
+	for _, element := range cu.priorityQueue {
+		if transportMetadata := element.GetTransportMetadataToCommit(); transportMetadata != nil {
+			bundlesMetadata = append(bundlesMetadata, transportMetadata)
+		}
+	}
+
+	return bundlesMetadata
+}
+
 // isCurrentOrAnyDependencyInProcess checks if current element or any dependency from dependency chain is in process.
 func (cu *ConflationUnit) isCurrentOrAnyDependencyInProcess(conflationElement *conflationElement) bool {
 	if conflationElement.isInProcess { // current conflation element is in process
