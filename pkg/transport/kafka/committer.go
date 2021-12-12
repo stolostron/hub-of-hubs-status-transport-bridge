@@ -65,7 +65,7 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			// get metadata (pending, non-pending)
+			// get metadata (pending and non-pending)
 			bundlesMetadata := c.getBundlesMetadataFunc()
 			// extract the lowest per partition in the pending bundles, the highest per partition in the
 			// processed bundles
@@ -96,7 +96,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 		}
 
 		if !metadata.Processed {
-			// this belongs to a pending bundle, update the lowest-metadata-map
+			// this belongs to a pending bundle, update the lowest-offsets-map
 			lowestOffset, found := pendingLowestOffsetsMap[metadata.partition]
 			if found && metadata.offset >= lowestOffset {
 				continue // offset is not the lowest in partition, skip
@@ -104,7 +104,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 
 			pendingLowestOffsetsMap[metadata.partition] = metadata.offset
 		} else {
-			// this belongs to a processed bundle, update the highest-metadata-map
+			// this belongs to a processed bundle, update the highest-offsets-map
 			highestOffset, found := processedHighestOffsetsMap[metadata.partition]
 			if found && metadata.offset <= highestOffset {
 				continue // offset is not the highest in partition, skip
@@ -126,7 +126,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 func (c *Committer) commitPositions(offsets map[int32]kafka.Offset) error {
 	// go over positions and commit
 	for partition, offset := range offsets { // each metadata corresponds to a single partition
-		// skip request if already committed this data
+		// skip request if already committed this offset
 		if committedOffset, found := c.commitsMap[partition]; found {
 			if committedOffset >= offset {
 				continue
