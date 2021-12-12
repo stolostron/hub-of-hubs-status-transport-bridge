@@ -15,9 +15,6 @@ import (
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
 
-// CommitPositionsFunc is the function the kafka transport provides for committing positions.
-type CommitPositionsFunc func(bundleMetadataMap map[int32]*BundleMetadata) error
-
 // NewCommitter returns a new instance of Committer.
 func NewCommitter(log logr.Logger, client *kafkaconsumer.KafkaConsumer,
 	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*Committer, error) {
