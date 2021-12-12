@@ -34,7 +34,8 @@ type ResultReporter interface {
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
-	registrations []*ConflationRegistration, statistics *statistics.Statistics) *ConflationUnit {
+	registrations []*ConflationRegistration, requireInitialDependencyChecks bool,
+	statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
@@ -46,31 +47,34 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
-			lastProcessedBundleVersion: status.NewBundleVersion(0, 0), // no version was processed yet
+			lastProcessedBundleVersion: noBundleVersion(),
 		}
+
 		bundleTypeToPriority[registration.bundleType] = registration.priority
 	}
 
 	return &ConflationUnit{
-		log:                  log,
-		priorityQueue:        priorityQueue,
-		bundleTypeToPriority: bundleTypeToPriority,
-		readyQueue:           readyQueue,
-		isInReadyQueue:       false,
-		lock:                 sync.Mutex{},
-		statistics:           statistics,
+		log:                            log,
+		priorityQueue:                  priorityQueue,
+		bundleTypeToPriority:           bundleTypeToPriority,
+		readyQueue:                     readyQueue,
+		requireInitialDependencyChecks: requireInitialDependencyChecks,
+		isInReadyQueue:                 false,
+		lock:                           sync.Mutex{},
+		statistics:                     statistics,
 	}
 }
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	log                  logr.Logger
-	priorityQueue        []*conflationElement
-	bundleTypeToPriority map[string]conflationPriority
-	readyQueue           *ConflationReadyQueue
-	isInReadyQueue       bool
-	lock                 sync.Mutex
-	statistics           *statistics.Statistics
+	log                            logr.Logger
+	priorityQueue                  []*conflationElement
+	bundleTypeToPriority           map[string]conflationPriority
+	readyQueue                     *ConflationReadyQueue
+	requireInitialDependencyChecks bool
+	isInReadyQueue                 bool
+	lock                           sync.Mutex
+	statistics                     *statistics.Statistics
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
@@ -241,6 +245,10 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
 	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
+	if !cu.requireInitialDependencyChecks && dependencyLastProcessedVersion.Equals(noBundleVersion()) {
+		return true // transport does not require initial dependency check
+	}
+
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
 		return dependantBundle.GetDependencyVersion().Equals(dependencyLastProcessedVersion)
@@ -251,4 +259,8 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	default:
 		return !dependantBundle.GetDependencyVersion().NewerThan(dependencyLastProcessedVersion)
 	}
+}
+
+func noBundleVersion() *status.BundleVersion {
+	return status.NewBundleVersion(0, 0)
 }
