@@ -53,34 +53,28 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 	syncServiceClient.SetOrgID("myorg")
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
-
-	syncService := &SyncService{
-		log:                           log,
-		client:                        syncServiceClient,
-		compressorsMap:                make(map[compressor.CompressionType]compressors.Compressor),
-		conflationManager:             conflationManager,
-		statistics:                    statistics,
-		committedMetadataToVersionMap: make(map[string]string),
-		pollingInterval:               pollingInterval,
-		objectsMetaDataChan:           make(chan *client.ObjectMetaData),
-		msgIDToRegistrationMap:        make(map[string]*transport.BundleRegistration),
-		ctx:                           ctx,
-		cancelFunc:                    cancelFunc,
-	}
-
 	// create committer
-	syncService.committer, err = NewCommitter(ctrl.Log.WithName("sync-service transport committer"),
-		syncService.commitObjectsMetadata)
+	committer, err := NewCommitter(ctrl.Log.WithName("sync-service transport committer"), syncServiceClient,
+		conflationManager)
 	if err != nil {
-		close(syncService.objectsMetaDataChan)
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}
 
-	// add conflation manager to committer consumers
-	syncService.committer.AddTransportConsumer(conflationManager)
+	ctx, cancelFunc := context.WithCancel(context.Background())
 
-	return syncService, nil
+	return &SyncService{
+		log:                    log,
+		client:                 syncServiceClient,
+		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
+		conflationManager:      conflationManager,
+		statistics:             statistics,
+		committer:              committer,
+		pollingInterval:        pollingInterval,
+		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
+		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
+		ctx:                    ctx,
+		cancelFunc:             cancelFunc,
+	}, nil
 }
 
 func readEnvVars() (string, string, uint16, int, error) {
@@ -127,8 +121,7 @@ type SyncService struct {
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
 
-	committer                     *Committer
-	committedMetadataToVersionMap map[string]string
+	committer *Committer
 
 	pollingInterval        int
 	objectsMetaDataChan    chan *client.ObjectMetaData
@@ -159,26 +152,6 @@ func (s *SyncService) Stop() {
 // Register function registers a msgID for sync service to know how to create the bundle, and use predicate.
 func (s *SyncService) Register(registration *transport.BundleRegistration) {
 	s.msgIDToRegistrationMap[registration.MsgID] = registration
-}
-
-func (s *SyncService) commitObjectsMetadata(bundleMetadataMap map[string]*BundleMetadata) error {
-	for _, bundleMetadata := range bundleMetadataMap {
-		key := fmt.Sprintf("%s.%s", bundleMetadata.objectMetadata.ObjectID, bundleMetadata.objectMetadata.ObjectType)
-
-		if version, found := s.committedMetadataToVersionMap[key]; found {
-			if version == bundleMetadata.objectMetadata.Version {
-				continue // already committed
-			}
-		}
-
-		if err := s.client.MarkObjectConsumed(bundleMetadata.objectMetadata); err != nil {
-			return fmt.Errorf("failed to commit object - stopping bulk commit : %w", err)
-		}
-
-		s.committedMetadataToVersionMap[key] = bundleMetadata.objectMetadata.Version
-	}
-
-	return nil
 }
 
 func (s *SyncService) handleBundles(ctx context.Context) {
@@ -225,7 +198,9 @@ func (s *SyncService) handleBundles(ctx context.Context) {
 			s.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
 			s.conflationManager.Insert(receivedBundle, &BundleMetadata{
-				processed:      false,
+				BaseBundleMetadata: transport.BaseBundleMetadata{
+					Processed: false,
+				},
 				objectMetadata: objectMetaData,
 			})
 

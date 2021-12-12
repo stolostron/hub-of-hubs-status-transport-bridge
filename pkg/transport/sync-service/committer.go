@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	"github.com/open-horizon/edge-sync-service-client/client"
 )
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
@@ -17,7 +18,7 @@ const envVarCommitterInterval = "COMMITTER_INTERVAL"
 type CommitObjectMetadataFunc func(bundleMetadataMap map[string]*BundleMetadata) error
 
 // NewCommitter returns a new instance of Committer.
-func NewCommitter(log logr.Logger, commitObjectsMetadataFunc CommitObjectMetadataFunc) (*Committer, error) {
+func NewCommitter(log logr.Logger, client *client.SyncServiceClient, consumer transport.Consumer) (*Committer, error) {
 	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
 	if !found {
 		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarCommitterInterval)
@@ -30,36 +31,28 @@ func NewCommitter(log logr.Logger, commitObjectsMetadataFunc CommitObjectMetadat
 	}
 
 	return &Committer{
-		log:                       log,
-		commitObjectsMetadataFunc: commitObjectsMetadataFunc,
-		consumers:                 make(map[transport.Consumer]struct{}),
-		interval:                  committerInterval,
-		lock:                      sync.Mutex{},
+		log:                           log,
+		client:                        client,
+		consumer:                      consumer,
+		committedMetadataToVersionMap: make(map[string]string),
+		interval:                      committerInterval,
+		lock:                          sync.Mutex{},
 	}, nil
 }
 
 // Committer is responsible for committing offsets to transport.
 type Committer struct {
-	log                       logr.Logger
-	commitObjectsMetadataFunc CommitObjectMetadataFunc
-	consumers                 map[transport.Consumer]struct{}
-	interval                  time.Duration
-	lock                      sync.Mutex
+	log                           logr.Logger
+	client                        *client.SyncServiceClient
+	consumer                      transport.Consumer
+	committedMetadataToVersionMap map[string]string
+	interval                      time.Duration
+	lock                          sync.Mutex
 }
 
 // Start starts the Committer instance.
 func (c *Committer) Start(ctx context.Context) {
 	go c.commitMetadata(ctx)
-}
-
-// AddTransportConsumer adds a transport-Consumer that the committer will refer to when looking for offsets to commit.
-func (c *Committer) AddTransportConsumer(user transport.Consumer) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if _, found := c.consumers[user]; !found {
-		c.consumers[user] = struct{}{}
-	}
 }
 
 func (c *Committer) commitMetadata(ctx context.Context) {
@@ -73,27 +66,44 @@ func (c *Committer) commitMetadata(ctx context.Context) {
 		case <-ticker.C: // wait for next time interval
 			processedBundleMetadataToCommit := make(map[string]*BundleMetadata)
 
-			for consumer := range c.consumers {
-				bundlesMetadata := consumer.GetBundlesMetadata()
+			bundlesMetadata := c.consumer.GetBundlesMetadata()
+			// sync service objects should be committed only if processed
+			for _, bundleMetadata := range bundlesMetadata {
+				metadata, ok := bundleMetadata.(*BundleMetadata)
+				if !ok {
+					continue // shouldn't happen
+				}
 
-				// sync service objects should be committed only if processed
-				for _, bundleMetadata := range bundlesMetadata {
-					metadata, ok := bundleMetadata.(*BundleMetadata)
-					if !ok {
-						continue // shouldn't happen
-					}
-
-					if metadata.processed {
-						key := fmt.Sprintf("%s.%s", metadata.objectMetadata.ObjectID,
-							metadata.objectMetadata.ObjectType)
-						processedBundleMetadataToCommit[key] = metadata
-					}
+				if metadata.Processed {
+					key := fmt.Sprintf("%s.%s", metadata.objectMetadata.ObjectID,
+						metadata.objectMetadata.ObjectType)
+					processedBundleMetadataToCommit[key] = metadata
 				}
 			}
 
-			if err := c.commitObjectsMetadataFunc(processedBundleMetadataToCommit); err != nil {
+			if err := c.commitObjectsMetadata(processedBundleMetadataToCommit); err != nil {
 				c.log.Error(err, "committer failed")
 			}
 		}
 	}
+}
+
+func (c *Committer) commitObjectsMetadata(bundleMetadataMap map[string]*BundleMetadata) error {
+	for _, bundleMetadata := range bundleMetadataMap {
+		key := fmt.Sprintf("%s.%s", bundleMetadata.objectMetadata.ObjectID, bundleMetadata.objectMetadata.ObjectType)
+
+		if version, found := c.committedMetadataToVersionMap[key]; found {
+			if version == bundleMetadata.objectMetadata.Version {
+				continue // already committed
+			}
+		}
+
+		if err := c.client.MarkObjectConsumed(bundleMetadata.objectMetadata); err != nil {
+			return fmt.Errorf("failed to commit object - stopping bulk commit : %w", err)
+		}
+
+		c.committedMetadataToVersionMap[key] = bundleMetadata.objectMetadata.Version
+	}
+
+	return nil
 }
