@@ -87,9 +87,7 @@ func (c *Committer) commitMetadata(ctx context.Context) {
 }
 
 func (c *Committer) commitObjectsMetadata(bundleMetadataMap map[string]*BundleMetadata) error {
-	for _, bundleMetadata := range bundleMetadataMap {
-		key := fmt.Sprintf("%s.%s", bundleMetadata.objectMetadata.ObjectID, bundleMetadata.objectMetadata.ObjectType)
-
+	for key, bundleMetadata := range bundleMetadataMap {
 		if version, found := c.committedMetadataToVersionMap[key]; found {
 			if version == bundleMetadata.objectMetadata.Version {
 				continue // already committed
