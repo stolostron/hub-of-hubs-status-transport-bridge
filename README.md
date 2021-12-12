@@ -57,15 +57,21 @@ python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1])" 'YourPass
     $ export IMAGE=$REGISTRY/$(basename $(pwd)):latest
     ```
 
-1.  Set the `SYNC_SERVICE_HOST` environment variable to hold the CSS host.
+1. Set the `TRANSPORT_TYPE` environment variable to "kafka" or "sync-service" to set which transport to use.
     ```
-    $ export SYNC_SERVICE_HOST=...
+    $ export TRANSPORT_TYPE=...
     ```
 
-1.  Set the `SYNC_SERVICE_PORT` environment variable to hold the CSS port.
-    ```
-    $ export SYNC_SERVICE_PORT=...
-    ```
+1. If you set sync-service as transport, set the following:
+    1. Set the `SYNC_SERVICE_HOST` environment variable to hold the CSS host.
+        ```
+        $ export SYNC_SERVICE_HOST=...
+        ```
+
+    1. Set the `SYNC_SERVICE_PORT` environment variable to hold the CSS port.
+        ```
+        $ export SYNC_SERVICE_PORT=...
+        ```
     
 1.  Run the following command to deploy the `hub-of-hubs-status-transport-bridge` to your hub of hubs cluster:  
     ```
