@@ -11,27 +11,27 @@ import (
 
 // NewConflationManager creates a new instance of ConflationManager.
 func NewConflationManager(log logr.Logger, conflationUnitsReadyQueue *ConflationReadyQueue,
-	requireInitialDependenciesChecks bool, statistics *statistics.Statistics) *ConflationManager {
+	requireInitialDependencyChecks bool, statistics *statistics.Statistics) *ConflationManager {
 	return &ConflationManager{
-		log:                              log,
-		conflationUnits:                  make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
-		requireInitialDependenciesChecks: requireInitialDependenciesChecks,
-		registrations:                    make([]*ConflationRegistration, 0),
-		readyQueue:                       conflationUnitsReadyQueue,
-		lock:                             sync.Mutex{}, // lock to be used to find/create conflation units
-		statistics:                       statistics,
+		log:                            log,
+		conflationUnits:                make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
+		requireInitialDependencyChecks: requireInitialDependencyChecks,
+		registrations:                  make([]*ConflationRegistration, 0),
+		readyQueue:                     conflationUnitsReadyQueue,
+		lock:                           sync.Mutex{}, // lock to be used to find/create conflation units
+		statistics:                     statistics,
 	}
 }
 
 // ConflationManager implements conflation units management.
 type ConflationManager struct {
-	log                              logr.Logger
-	conflationUnits                  map[string]*ConflationUnit // map from leaf hub to conflation unit
-	requireInitialDependenciesChecks bool
-	registrations                    []*ConflationRegistration
-	readyQueue                       *ConflationReadyQueue
-	lock                             sync.Mutex
-	statistics                       *statistics.Statistics
+	log                            logr.Logger
+	conflationUnits                map[string]*ConflationUnit // map from leaf hub to conflation unit
+	requireInitialDependencyChecks bool
+	registrations                  []*ConflationRegistration
+	readyQueue                     *ConflationReadyQueue
+	lock                           sync.Mutex
+	statistics                     *statistics.Statistics
 }
 
 // Register registers bundle type with priority and handler function within the conflation manager.
@@ -65,7 +65,7 @@ func (cm *ConflationManager) getConflationUnit(leafHubName string) *ConflationUn
 	}
 	// otherwise, need to create conflation unit
 	conflationUnit := newConflationUnit(cm.log, cm.readyQueue, cm.registrations,
-		cm.requireInitialDependenciesChecks, cm.statistics)
+		cm.requireInitialDependencyChecks, cm.statistics)
 	cm.conflationUnits[leafHubName] = conflationUnit
 
 	return conflationUnit

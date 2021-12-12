@@ -34,7 +34,7 @@ type ResultReporter interface {
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
-	registrations []*ConflationRegistration, requireInitialDependencyCheck bool,
+	registrations []*ConflationRegistration, requireInitialDependencyChecks bool,
 	statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
@@ -50,7 +50,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			lastProcessedBundleVersion: nil,
 		}
 
-		if requireInitialDependencyCheck {
+		if requireInitialDependencyChecks {
 			// if the initial dependencies must be enforced then we initiate the last processed bundle
 			// version to 0,0.
 			// otherwise, the version should remain nil, which the dependency checks allow and count as fine.
