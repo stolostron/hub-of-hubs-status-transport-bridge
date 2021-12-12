@@ -152,7 +152,7 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	// if bundle wasn't updated since GetNext was called - delete bundle + metadata since it was already processed
 	if metadata.version.Equals(cu.priorityQueue[priority].bundle.GetVersion()) {
 		cu.priorityQueue[priority].bundle = nil
-		cu.priorityQueue[priority].bundleMetadata = nil
+		cu.priorityQueue[priority].bundleMetadata.transportBundleMetadata.MarkAsProcessed()
 	}
 
 	cu.addCUToReadyQueueIfNeeded()
