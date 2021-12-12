@@ -60,12 +60,10 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
-	// start committer
-	go committer.Start(ctx)
-
 	return &SyncService{
 		log:                    log,
 		client:                 syncServiceClient,
+		committer:              committer,
 		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
@@ -117,6 +115,7 @@ func readEnvVars() (string, string, uint16, int, error) {
 type SyncService struct {
 	log               logr.Logger
 	client            *client.SyncServiceClient
+	committer         *Committer
 	compressorsMap    map[compressor.CompressionType]compressors.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
@@ -134,6 +133,7 @@ type SyncService struct {
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
+		go s.committer.Start(s.ctx)
 		go s.handleBundles(s.ctx)
 	})
 }

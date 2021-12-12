@@ -66,12 +66,11 @@ func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	// start committer
-	go committer.Start(ctx)
 
 	return &Consumer{
 		log:                    log,
 		kafkaConsumer:          kafkaConsumer,
+		committer:              committer,
 		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
@@ -113,6 +112,7 @@ func readEnvVars() (*kafka.ConfigMap, string, error) {
 type Consumer struct {
 	log               logr.Logger
 	kafkaConsumer     *kafkaconsumer.KafkaConsumer
+	committer         *Committer
 	compressorsMap    map[compressor.CompressionType]compressors.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
@@ -129,6 +129,7 @@ type Consumer struct {
 // Start function starts the consumer.
 func (c *Consumer) Start() {
 	c.startOnce.Do(func() {
+		go c.committer.Start(c.ctx)
 		go c.handleKafkaMessages(c.ctx)
 	})
 }
