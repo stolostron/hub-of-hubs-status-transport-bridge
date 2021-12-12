@@ -209,7 +209,7 @@ func (c *Consumer) processMessage(msg *kafka.Message) {
 
 	c.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-	c.conflationManager.Insert(receivedBundle, NewBundleMetadata(msg.TopicPartition.Partition,
+	c.conflationManager.Insert(receivedBundle, newBundleMetadata(msg.TopicPartition.Partition,
 		msg.TopicPartition.Offset))
 }
 

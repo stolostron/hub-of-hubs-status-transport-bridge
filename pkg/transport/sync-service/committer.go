@@ -62,12 +62,12 @@ func (c *committer) commitMetadata(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			processedBundleMetadataToCommit := make(map[string]*BundleMetadata)
+			processedBundleMetadataToCommit := make(map[string]*bundleMetadata)
 
-			bundlesMetadata := c.getBundlesMetadataFunc()
+			metadataArray := c.getBundlesMetadataFunc()
 			// sync service objects should be committed only if processed
-			for _, bundleMetadata := range bundlesMetadata {
-				metadata, ok := bundleMetadata.(*BundleMetadata)
+			for _, transportMetadata := range metadataArray {
+				metadata, ok := transportMetadata.(*bundleMetadata)
 				if !ok {
 					continue // shouldn't happen
 				}
@@ -86,7 +86,7 @@ func (c *committer) commitMetadata(ctx context.Context) {
 	}
 }
 
-func (c *committer) commitObjectsMetadata(bundleMetadataMap map[string]*BundleMetadata) error {
+func (c *committer) commitObjectsMetadata(bundleMetadataMap map[string]*bundleMetadata) error {
 	for key, bundleMetadata := range bundleMetadataMap {
 		if version, found := c.committedMetadataToVersionMap[key]; found {
 			if version == bundleMetadata.objectMetadata.Version {

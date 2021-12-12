@@ -194,7 +194,7 @@ func (s *SyncService) handleBundles(ctx context.Context) {
 
 			s.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-			s.conflationManager.Insert(receivedBundle, NewBundleMetadata(objectMetadata))
+			s.conflationManager.Insert(receivedBundle, newBundleMetadata(objectMetadata))
 
 			if err := s.client.MarkObjectReceived(objectMetadata); err != nil {
 				s.logError(err, "failed to report object received to sync service", objectMetadata)

@@ -90,7 +90,7 @@ func (c *committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 	processedHighestOffsetsMap := make(map[int32]kafka.Offset)
 
 	for _, transportMetadata := range metadataArray {
-		metadata, ok := transportMetadata.(*BundleMetadata)
+		metadata, ok := transportMetadata.(*bundleMetadata)
 		if !ok {
 			continue // shouldn't happen
 		}
