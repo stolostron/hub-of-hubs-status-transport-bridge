@@ -178,9 +178,9 @@ func createManager(leaderElectionNamespace string, transportType string, workers
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
-	requireInitialDependenciesChecks := requireInitialDependencyChecks(transportType)
+	requireInitialDependencyChecks := requireInitialDependencyChecks(transportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
-		requireInitialDependenciesChecks, statistics) // manage all Conflation Units
+		requireInitialDependencyChecks, statistics) // manage all Conflation Units
 
 	// transport layer initialization
 	transportObj, err := getTransport(transportType, conflationManager, statistics)

@@ -47,7 +47,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
-			lastProcessedBundleVersion: noVersion(),
+			lastProcessedBundleVersion: noBundleVersion(),
 		}
 
 		bundleTypeToPriority[registration.bundleType] = registration.priority
@@ -245,7 +245,7 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
 	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
 
-	if !cu.requireInitialDependencyChecks && dependencyLastProcessedVersion.Equals(noVersion()) {
+	if !cu.requireInitialDependencyChecks && dependencyLastProcessedVersion.Equals(noBundleVersion()) {
 		return true // transport does not require initial dependency check
 	}
 
@@ -261,6 +261,6 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	}
 }
 
-func noVersion() *status.BundleVersion {
+func noBundleVersion() *status.BundleVersion {
 	return status.NewBundleVersion(0, 0)
 }
