@@ -6,17 +6,19 @@ import (
 )
 
 // NewBundleMetadata returns a new instance of BundleMetadata.
-func NewBundleMetadata(topicPartition *kafka.TopicPartition) *BundleMetadata {
+func NewBundleMetadata(partition int32, offset kafka.Offset) *BundleMetadata {
 	return &BundleMetadata{
 		BaseBundleMetadata: transport.BaseBundleMetadata{
 			Processed: false,
 		},
-		topicPartition: topicPartition,
+		partition: partition,
+		offset:    offset,
 	}
 }
 
 // BundleMetadata wraps the info required for the associated bundle to be used for committing purposes.
 type BundleMetadata struct {
 	transport.BaseBundleMetadata
-	topicPartition *kafka.TopicPartition
+	partition int32
+	offset    kafka.Offset
 }

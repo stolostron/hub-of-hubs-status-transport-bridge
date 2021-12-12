@@ -18,7 +18,6 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -58,8 +57,7 @@ func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager
 	}
 
 	// create committer
-	committer, err := NewCommitter(ctrl.Log.WithName("kafka-transport-committer"),
-		kafkaConsumer, conflationManager.GetBundlesMetadata)
+	committer, err := NewCommitter(log, topic, kafkaConsumer, conflationManager.GetBundlesMetadata)
 	if err != nil {
 		close(msgChan)
 		kafkaConsumer.Close()
@@ -210,7 +208,8 @@ func (c *Consumer) processMessage(msg *kafka.Message) {
 
 	c.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-	c.conflationManager.Insert(receivedBundle, NewBundleMetadata(&msg.TopicPartition))
+	c.conflationManager.Insert(receivedBundle, NewBundleMetadata(msg.TopicPartition.Partition,
+		msg.TopicPartition.Offset))
 }
 
 func (c *Consumer) logError(err error, errMessage string, msg *kafka.Message) {

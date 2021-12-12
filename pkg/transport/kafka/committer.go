@@ -16,7 +16,7 @@ import (
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
 
 // NewCommitter returns a new instance of Committer.
-func NewCommitter(log logr.Logger, client *kafkaconsumer.KafkaConsumer,
+func NewCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaConsumer,
 	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*Committer, error) {
 	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
 	if !found {
@@ -31,6 +31,7 @@ func NewCommitter(log logr.Logger, client *kafkaconsumer.KafkaConsumer,
 
 	return &Committer{
 		log:                    log,
+		topic:                  topic,
 		client:                 client,
 		getBundlesMetadataFunc: getBundlesMetadataFunc,
 		commitsMap:             make(map[int32]kafka.Offset),
@@ -42,6 +43,7 @@ func NewCommitter(log logr.Logger, client *kafkaconsumer.KafkaConsumer,
 // Committer is responsible for committing offsets to transport.
 type Committer struct {
 	log                    logr.Logger
+	topic                  string
 	client                 *kafkaconsumer.KafkaConsumer
 	getBundlesMetadataFunc transport.GetBundlesMetadataFunc
 	commitsMap             map[int32]kafka.Offset // map of partition -> offset
@@ -96,20 +98,20 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 
 		if !metadata.Processed {
 			// this belongs to a pending bundle, update the lowest-metadata-map
-			lowestMetadata, found := pendingLowestBundleMetadataPartitionsMap[metadata.topicPartition.Partition]
-			if found && metadata.topicPartition.Offset <= lowestMetadata.topicPartition.Offset {
+			lowestMetadata, found := pendingLowestBundleMetadataPartitionsMap[metadata.partition]
+			if found && metadata.offset >= lowestMetadata.offset {
 				continue // already committed a >= offset
 			}
 
-			pendingLowestBundleMetadataPartitionsMap[metadata.topicPartition.Partition] = metadata
+			pendingLowestBundleMetadataPartitionsMap[metadata.partition] = metadata
 		} else {
 			// this belongs to a processed bundle, update the highest-metadata-map
-			highestMetadata, found := processedHighestBundleMetadataPartitionsMap[metadata.topicPartition.Partition]
-			if found && metadata.topicPartition.Offset <= highestMetadata.topicPartition.Offset {
+			highestMetadata, found := processedHighestBundleMetadataPartitionsMap[metadata.partition]
+			if found && metadata.offset <= highestMetadata.offset {
 				continue // already committed a >= offset
 			}
 
-			processedHighestBundleMetadataPartitionsMap[metadata.topicPartition.Partition] = metadata
+			processedHighestBundleMetadataPartitionsMap[metadata.partition] = metadata
 		}
 	}
 
@@ -121,25 +123,31 @@ func (c *Committer) commitPositions(positions map[int32]*BundleMetadata) error {
 	// go over positions and commit
 	for _, metadata := range positions { // each metadata corresponds to a single partition
 		// skip request if already committed this data
-		if committedOffset, found := c.commitsMap[metadata.topicPartition.Partition]; found {
-			if committedOffset >= metadata.topicPartition.Offset {
+		if committedOffset, found := c.commitsMap[metadata.partition]; found {
+			if committedOffset >= metadata.offset {
 				return nil
 			}
 		}
 
-		// kafka consumer re-reads the latest offset upon starting, increment if bundle is processed
-		if metadata.Processed {
-			metadata.topicPartition.Offset++
+		topicPartition := kafka.TopicPartition{
+			Topic:     &c.topic,
+			Partition: metadata.partition,
+			Offset:    metadata.offset,
 		}
 
-		if _, err := c.client.Consumer().CommitOffsets([]kafka.TopicPartition{*metadata.topicPartition}); err != nil {
+		// kafka consumer re-reads the latest offset upon starting, increment if bundle is processed
+		if metadata.Processed {
+			topicPartition.Offset++
+		}
+
+		if _, err := c.client.Consumer().CommitOffsets([]kafka.TopicPartition{topicPartition}); err != nil {
 			return fmt.Errorf("failed to commit offset, stopping bulk commit - %w", err)
 		}
 
 		// log success and update commitsMap
-		c.log.Info("committed offset", "topic", metadata.topicPartition.Topic, "partition",
-			metadata.topicPartition.Partition, "offset", metadata.topicPartition.Offset)
-		c.updateCommitsMap(metadata.topicPartition)
+		c.log.Info("committed offset", "topic", c.topic, "partition",
+			metadata.partition, "offset", metadata.offset)
+		c.updateCommitsMap(&topicPartition)
 	}
 
 	return nil
@@ -147,8 +155,11 @@ func (c *Committer) commitPositions(positions map[int32]*BundleMetadata) error {
 
 func (c *Committer) updateCommitsMap(metadata *kafka.TopicPartition) {
 	// check if partition is in map
-	if offsetInMap, found := c.commitsMap[metadata.Partition]; !found || (found && offsetInMap < metadata.Offset) {
-		// update partition's offset if partition hasn't an offset yet or the new offset is higher.
-		c.commitsMap[metadata.Partition] = metadata.Offset
+	offsetInMap, found := c.commitsMap[metadata.Partition]
+	if found && offsetInMap >= metadata.Offset {
+		return
 	}
+
+	// update partition's offset if partition hasn't an offset yet or the new offset is higher.
+	c.commitsMap[metadata.Partition] = metadata.Offset
 }
