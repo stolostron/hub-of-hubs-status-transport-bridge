@@ -100,7 +100,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 			// this belongs to a pending bundle, update the lowest-metadata-map
 			lowestMetadata, found := pendingLowestBundleMetadataPartitionsMap[metadata.partition]
 			if found && metadata.offset >= lowestMetadata.offset {
-				continue // already committed a >= offset
+				continue // offset is not the lowest in partition, skip
 			}
 
 			pendingLowestBundleMetadataPartitionsMap[metadata.partition] = metadata
@@ -108,7 +108,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 			// this belongs to a processed bundle, update the highest-metadata-map
 			highestMetadata, found := processedHighestBundleMetadataPartitionsMap[metadata.partition]
 			if found && metadata.offset <= highestMetadata.offset {
-				continue // already committed a >= offset
+				continue // offset is not the highest in partition, skip
 			}
 
 			processedHighestBundleMetadataPartitionsMap[metadata.partition] = metadata
