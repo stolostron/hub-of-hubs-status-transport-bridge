@@ -143,21 +143,11 @@ func (c *Committer) commitPositions(offsets map[int32]kafka.Offset) error {
 			return fmt.Errorf("failed to commit offset, stopping bulk commit - %w", err)
 		}
 
-		// log success and update commitsMap
+		// update commitsMap
+		c.commitsMap[partition] = offset
+
 		c.log.Info("committed offset", "topic", c.topic, "partition", partition, "offset", offset)
-		c.updateCommitsMap(&topicPartition)
 	}
 
 	return nil
-}
-
-func (c *Committer) updateCommitsMap(metadata *kafka.TopicPartition) {
-	// check if partition is in map
-	offsetInMap, found := c.commitsMap[metadata.Partition]
-	if found && offsetInMap >= metadata.Offset {
-		return
-	}
-
-	// update partition's offset if partition hasn't an offset yet or the new offset is higher.
-	c.commitsMap[metadata.Partition] = metadata.Offset
 }
