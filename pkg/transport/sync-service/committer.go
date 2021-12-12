@@ -14,9 +14,6 @@ import (
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
 
-// CommitObjectMetadataFunc is the function the sync-service transport provides for committing objects.
-type CommitObjectMetadataFunc func(bundleMetadataMap map[string]*BundleMetadata) error
-
 // NewCommitter returns a new instance of Committer.
 func NewCommitter(log logr.Logger, client *client.SyncServiceClient,
 	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*Committer, error) {
