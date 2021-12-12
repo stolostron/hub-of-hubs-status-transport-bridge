@@ -114,7 +114,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 		}
 	}
 
-	// increment offsets of processed metadata
+	// increment processed offsets so they are not re-read on kafka consumer restart
 	for partition, _ := range processedHighestOffsetsMap {
 		processedHighestOffsetsMap[partition]++
 	}
@@ -122,7 +122,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 	return pendingLowestOffsetsMap, processedHighestOffsetsMap
 }
 
-// commitPositions commits the given positions (by metadata) per partition mapped.
+// commitPositions commits the given offsets per partition mapped.
 func (c *Committer) commitPositions(offsets map[int32]kafka.Offset) error {
 	// go over positions and commit
 	for partition, offset := range offsets {
