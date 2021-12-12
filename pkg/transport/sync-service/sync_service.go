@@ -159,50 +159,45 @@ func (s *SyncService) handleBundles(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case objectMetaData := <-s.objectsMetaDataChan:
+		case objectMetadata := <-s.objectsMetaDataChan:
 			var buffer bytes.Buffer
-			if !s.client.FetchObjectData(objectMetaData, &buffer) {
-				s.logError(errSyncServiceReadFailed, "failed to read bundle from sync service", objectMetaData)
+			if !s.client.FetchObjectData(objectMetadata, &buffer) {
+				s.logError(errSyncServiceReadFailed, "failed to read bundle from sync service", objectMetadata)
 				continue
 			}
 
 			// get msgID
-			msgIDTokens := strings.Split(objectMetaData.ObjectID, ".") // object id is LH_ID.MSG_ID
+			msgIDTokens := strings.Split(objectMetadata.ObjectID, ".") // object id is LH_ID.MSG_ID
 			if len(msgIDTokens) != msgIDHeaderTokensLength {
-				s.logError(errMessageIDWrongFormat, "expecting ObjectID of format LH_ID.MSG_ID", objectMetaData)
+				s.logError(errMessageIDWrongFormat, "expecting ObjectID of format LH_ID.MSG_ID", objectMetadata)
 				continue
 			}
 
 			msgID := msgIDTokens[1]
 			if _, found := s.msgIDToRegistrationMap[msgID]; !found {
 				s.log.Info("no registration available, not sending bundle", "ObjectId",
-					objectMetaData.ObjectID)
+					objectMetadata.ObjectID)
 				continue // no one registered for this msg id
 			}
 
 			if !s.msgIDToRegistrationMap[msgID].Predicate() {
 				s.log.Info("Predicate is false, not sending bundle", "ObjectId",
-					objectMetaData.ObjectID)
+					objectMetadata.ObjectID)
 				continue // registration predicate is false, do not send the update in the channel
 			}
 
 			receivedBundle := s.msgIDToRegistrationMap[msgID].CreateBundleFunc()
-			if err := s.unmarshalPayload(receivedBundle, objectMetaData, buffer.Bytes()); err != nil {
-				s.logError(err, "failed to get object payload", objectMetaData)
+			if err := s.unmarshalPayload(receivedBundle, objectMetadata, buffer.Bytes()); err != nil {
+				s.logError(err, "failed to get object payload", objectMetadata)
 				continue
 			}
 
 			s.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-			s.conflationManager.Insert(receivedBundle, &BundleMetadata{
-				BaseBundleMetadata: transport.BaseBundleMetadata{
-					Processed: false,
-				},
-				objectMetadata: objectMetaData,
-			})
+			s.conflationManager.Insert(receivedBundle, NewBundleMetadata(objectMetadata))
 
-			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
-				s.logError(err, "failed to report object received to sync service", objectMetaData)
+			if err := s.client.MarkObjectReceived(objectMetadata); err != nil {
+				s.logError(err, "failed to report object received to sync service", objectMetadata)
 			}
 		}
 	}
@@ -213,7 +208,7 @@ func (s *SyncService) logError(err error, errMsg string, objectMetaData *client.
 		"ObjectDescription", objectMetaData.Description, "Version", objectMetaData.Version)
 }
 
-func (s *SyncService) unmarshalPayload(bundleShell bundle.Bundle, objectMetaData *client.ObjectMetaData,
+func (s *SyncService) unmarshalPayload(receivedBundle bundle.Bundle, objectMetaData *client.ObjectMetaData,
 	payload []byte) error {
 	compressionType := defaultCompressionType
 
@@ -231,7 +226,7 @@ func (s *SyncService) unmarshalPayload(bundleShell bundle.Bundle, objectMetaData
 		return fmt.Errorf("failed to decompress bundle bytes - %w", err)
 	}
 
-	if err := json.Unmarshal(decompressedPayload, bundleShell); err != nil {
+	if err := json.Unmarshal(decompressedPayload, receivedBundle); err != nil {
 		return fmt.Errorf("failed to parse bundle - %w", err)
 	}
 
