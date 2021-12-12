@@ -14,9 +14,9 @@ import (
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
 
-// NewCommitter returns a new instance of Committer.
-func NewCommitter(log logr.Logger, client *client.SyncServiceClient,
-	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*Committer, error) {
+// newCommitter returns a new instance of Committer.
+func newCommitter(log logr.Logger, client *client.SyncServiceClient,
+	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*committer, error) {
 	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
 	if !found {
 		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarCommitterInterval)
@@ -28,7 +28,7 @@ func NewCommitter(log logr.Logger, client *client.SyncServiceClient,
 			committerIntervalString, err)
 	}
 
-	return &Committer{
+	return &committer{
 		log:                           log,
 		client:                        client,
 		getBundlesMetadataFunc:        getBundlesMetadataFunc,
@@ -38,8 +38,8 @@ func NewCommitter(log logr.Logger, client *client.SyncServiceClient,
 	}, nil
 }
 
-// Committer is responsible for committing offsets to transport.
-type Committer struct {
+// committer is responsible for committing offsets to transport.
+type committer struct {
 	log                           logr.Logger
 	client                        *client.SyncServiceClient
 	getBundlesMetadataFunc        transport.GetBundlesMetadataFunc
@@ -48,12 +48,12 @@ type Committer struct {
 	lock                          sync.Mutex
 }
 
-// Start starts the Committer instance.
-func (c *Committer) Start(ctx context.Context) {
+// start runs the Committer instance.
+func (c *committer) start(ctx context.Context) {
 	go c.commitMetadata(ctx)
 }
 
-func (c *Committer) commitMetadata(ctx context.Context) {
+func (c *committer) commitMetadata(ctx context.Context) {
 	ticker := time.NewTicker(c.interval)
 
 	for {
@@ -62,12 +62,12 @@ func (c *Committer) commitMetadata(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			processedBundleMetadataToCommit := make(map[string]*BundleMetadata)
+			processedBundleMetadataToCommit := make(map[string]*bundleMetadata)
 
-			bundlesMetadata := c.getBundlesMetadataFunc()
+			metadataArray := c.getBundlesMetadataFunc()
 			// sync service objects should be committed only if processed
-			for _, bundleMetadata := range bundlesMetadata {
-				metadata, ok := bundleMetadata.(*BundleMetadata)
+			for _, transportMetadata := range metadataArray {
+				metadata, ok := transportMetadata.(*bundleMetadata)
 				if !ok {
 					continue // shouldn't happen
 				}
@@ -86,7 +86,7 @@ func (c *Committer) commitMetadata(ctx context.Context) {
 	}
 }
 
-func (c *Committer) commitObjectsMetadata(bundleMetadataMap map[string]*BundleMetadata) error {
+func (c *committer) commitObjectsMetadata(bundleMetadataMap map[string]*bundleMetadata) error {
 	for key, bundleMetadata := range bundleMetadataMap {
 		if version, found := c.committedMetadataToVersionMap[key]; found {
 			if version == bundleMetadata.objectMetadata.Version {

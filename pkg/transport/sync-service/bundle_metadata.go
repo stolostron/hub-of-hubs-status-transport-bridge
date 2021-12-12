@@ -5,9 +5,9 @@ import (
 	"github.com/open-horizon/edge-sync-service-client/client"
 )
 
-// NewBundleMetadata returns a new instance of BundleMetadata.
-func NewBundleMetadata(objectMetadata *client.ObjectMetaData) *BundleMetadata {
-	return &BundleMetadata{
+// newBundleMetadata returns a new instance of BundleMetadata.
+func newBundleMetadata(objectMetadata *client.ObjectMetaData) *bundleMetadata {
+	return &bundleMetadata{
 		BaseBundleMetadata: transport.BaseBundleMetadata{
 			Processed: false,
 		},
@@ -15,8 +15,8 @@ func NewBundleMetadata(objectMetadata *client.ObjectMetaData) *BundleMetadata {
 	}
 }
 
-// BundleMetadata wraps the info required for the associated bundle to be used for marking as consumed.
-type BundleMetadata struct {
+// bundleMetadata wraps the info required for the associated bundle to be used for marking as consumed.
+type bundleMetadata struct {
 	transport.BaseBundleMetadata
 	objectMetadata *client.ObjectMetaData
 }

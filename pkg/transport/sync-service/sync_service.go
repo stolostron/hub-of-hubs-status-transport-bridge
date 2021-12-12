@@ -53,19 +53,17 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	// create committer
-	committer, err := NewCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
+	committer, err := newCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
-	// start committer
-	go committer.Start(ctx)
-
 	return &SyncService{
 		log:                    log,
 		client:                 syncServiceClient,
+		committer:              committer,
 		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
@@ -117,6 +115,7 @@ func readEnvVars() (string, string, uint16, int, error) {
 type SyncService struct {
 	log               logr.Logger
 	client            *client.SyncServiceClient
+	committer         *committer
 	compressorsMap    map[compressor.CompressionType]compressors.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
@@ -134,6 +133,7 @@ type SyncService struct {
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
+		go s.committer.start(s.ctx)
 		go s.handleBundles(s.ctx)
 	})
 }
@@ -194,7 +194,7 @@ func (s *SyncService) handleBundles(ctx context.Context) {
 
 			s.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-			s.conflationManager.Insert(receivedBundle, NewBundleMetadata(objectMetadata))
+			s.conflationManager.Insert(receivedBundle, newBundleMetadata(objectMetadata))
 
 			if err := s.client.MarkObjectReceived(objectMetadata); err != nil {
 				s.logError(err, "failed to report object received to sync service", objectMetadata)
