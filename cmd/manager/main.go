@@ -66,6 +66,24 @@ func getTransport(transportType string, conflationMgr *conflator.ConflationManag
 	}
 }
 
+// returns whether initial bundle dependencies should be enforced or not based on transport type.
+func requireInitialDependencyChecks(transportType string) bool {
+	switch transportType {
+	case kafkaTransportTypeName:
+		return false
+		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
+		// as in all bundles that precede the latter have been processed, which include its dependency
+		// bundle (due to order guarantee).
+
+		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
+		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
+	case syncServiceTransportTypeName:
+		fallthrough
+	default:
+		return true
+	}
+}
+
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
 func doMain() int {
 	log := initializeLogger()
@@ -158,8 +176,9 @@ func createManager(leaderElectionNamespace string, transportType string, workers
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
+	requireInitialDependenciesChecks := requireInitialDependencyChecks(transportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
-		statistics) // manage all Conflation Units
+		requireInitialDependenciesChecks, statistics) // manage all Conflation Units
 
 	// transport layer initialization
 	transportObj, err := getTransport(transportType, conflationManager, statistics)

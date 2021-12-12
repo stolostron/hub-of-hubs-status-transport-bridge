@@ -34,7 +34,8 @@ type ResultReporter interface {
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
-	registrations []*ConflationRegistration, statistics *statistics.Statistics) *ConflationUnit {
+	registrations []*ConflationRegistration, requireInitialDependencyCheck bool,
+	statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
@@ -46,8 +47,16 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
-			lastProcessedBundleVersion: status.NewBundleVersion(0, 0), // no version was processed yet
+			lastProcessedBundleVersion: nil,
 		}
+
+		if requireInitialDependencyCheck {
+			// if the initial dependencies must be enforced then we initiate the last processed bundle
+			// version to 0,0.
+			// otherwise, the version should remain nil, which the dependency checks allow and count as fine.
+			priorityQueue[registration.priority].lastProcessedBundleVersion = status.NewBundleVersion(0, 0)
+		}
+
 		bundleTypeToPriority[registration.bundleType] = registration.priority
 	}
 
@@ -240,6 +249,10 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 
 	dependencyIndex := cu.bundleTypeToPriority[conflationElement.dependency.BundleType]
 	dependencyLastProcessedVersion := cu.priorityQueue[dependencyIndex].lastProcessedBundleVersion
+
+	if dependencyLastProcessedVersion == nil {
+		return true // transport does not require initial dependency check
+	}
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
