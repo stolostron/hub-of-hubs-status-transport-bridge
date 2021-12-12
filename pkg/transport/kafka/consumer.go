@@ -57,7 +57,7 @@ func NewConsumer(log logr.Logger, conflationManager *conflator.ConflationManager
 	}
 
 	// create committer
-	committer, err := NewCommitter(log, topic, kafkaConsumer, conflationManager.GetBundlesMetadata)
+	committer, err := newCommitter(log, topic, kafkaConsumer, conflationManager.GetBundlesMetadata)
 	if err != nil {
 		close(msgChan)
 		kafkaConsumer.Close()
@@ -112,7 +112,7 @@ func readEnvVars() (*kafka.ConfigMap, string, error) {
 type Consumer struct {
 	log               logr.Logger
 	kafkaConsumer     *kafkaconsumer.KafkaConsumer
-	committer         *Committer
+	committer         *committer
 	compressorsMap    map[compressor.CompressionType]compressors.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
@@ -129,7 +129,7 @@ type Consumer struct {
 // Start function starts the consumer.
 func (c *Consumer) Start() {
 	c.startOnce.Do(func() {
-		go c.committer.Start(c.ctx)
+		go c.committer.start(c.ctx)
 		go c.handleKafkaMessages(c.ctx)
 	})
 }

@@ -53,7 +53,7 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	// create committer
-	committer, err := NewCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
+	committer, err := newCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}
@@ -115,7 +115,7 @@ func readEnvVars() (string, string, uint16, int, error) {
 type SyncService struct {
 	log               logr.Logger
 	client            *client.SyncServiceClient
-	committer         *Committer
+	committer         *committer
 	compressorsMap    map[compressor.CompressionType]compressors.Compressor
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
@@ -133,7 +133,7 @@ type SyncService struct {
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
-		go s.committer.Start(s.ctx)
+		go s.committer.start(s.ctx)
 		go s.handleBundles(s.ctx)
 	})
 }

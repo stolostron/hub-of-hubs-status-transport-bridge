@@ -15,9 +15,9 @@ import (
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
 
-// NewCommitter returns a new instance of Committer.
-func NewCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaConsumer,
-	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*Committer, error) {
+// newCommitter returns a new instance of committer.
+func newCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaConsumer,
+	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*committer, error) {
 	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
 	if !found {
 		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarCommitterInterval)
@@ -29,7 +29,7 @@ func NewCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaCons
 			committerIntervalString, err)
 	}
 
-	return &Committer{
+	return &committer{
 		log:                    log,
 		topic:                  topic,
 		client:                 client,
@@ -40,8 +40,8 @@ func NewCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaCons
 	}, nil
 }
 
-// Committer is responsible for committing offsets to transport.
-type Committer struct {
+// committer is responsible for committing offsets to transport.
+type committer struct {
 	log                    logr.Logger
 	topic                  string
 	client                 *kafkaconsumer.KafkaConsumer
@@ -51,12 +51,12 @@ type Committer struct {
 	lock                   sync.Mutex
 }
 
-// Start starts the Committer instance.
-func (c *Committer) Start(ctx context.Context) {
+// start runs the Committer instance.
+func (c *committer) start(ctx context.Context) {
 	go c.commitOffsets(ctx)
 }
 
-func (c *Committer) commitOffsets(ctx context.Context) {
+func (c *committer) commitOffsets(ctx context.Context) {
 	ticker := time.NewTicker(c.interval)
 
 	for {
@@ -83,7 +83,7 @@ func (c *Committer) commitOffsets(ctx context.Context) {
 	}
 }
 
-func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleMetadata) (map[int32]kafka.Offset,
+func (c *committer) filterMetadataPerPartition(metadataArray []transport.BundleMetadata) (map[int32]kafka.Offset,
 	map[int32]kafka.Offset) {
 	// assumes all are in the same topic.
 	pendingLowestOffsetsMap := make(map[int32]kafka.Offset)
@@ -115,7 +115,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 	}
 
 	// increment processed offsets so they are not re-read on kafka consumer restart
-	for partition, _ := range processedHighestOffsetsMap {
+	for partition := range processedHighestOffsetsMap {
 		processedHighestOffsetsMap[partition]++
 	}
 
@@ -123,7 +123,7 @@ func (c *Committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 }
 
 // commitPositions commits the given offsets per partition mapped.
-func (c *Committer) commitPositions(offsets map[int32]kafka.Offset) error {
+func (c *committer) commitPositions(offsets map[int32]kafka.Offset) error {
 	// go over positions and commit
 	for partition, offset := range offsets {
 		// skip request if already committed this offset
