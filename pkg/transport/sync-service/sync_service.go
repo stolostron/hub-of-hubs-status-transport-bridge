@@ -20,7 +20,6 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -54,8 +53,7 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	// create committer
-	committer, err := NewCommitter(ctrl.Log.WithName("sync-service-committer"), syncServiceClient,
-		conflationManager.GetBundlesMetadata)
+	committer, err := NewCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}
