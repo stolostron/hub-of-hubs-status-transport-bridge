@@ -54,8 +54,8 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
 	// create committer
-	committer, err := NewCommitter(ctrl.Log.WithName("sync-service transport committer"), syncServiceClient,
-		conflationManager)
+	committer, err := NewCommitter(ctrl.Log.WithName("sync-service-committer"), syncServiceClient,
+		conflationManager.GetBundlesMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
 	}

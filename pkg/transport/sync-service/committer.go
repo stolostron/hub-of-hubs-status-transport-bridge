@@ -18,7 +18,8 @@ const envVarCommitterInterval = "COMMITTER_INTERVAL"
 type CommitObjectMetadataFunc func(bundleMetadataMap map[string]*BundleMetadata) error
 
 // NewCommitter returns a new instance of Committer.
-func NewCommitter(log logr.Logger, client *client.SyncServiceClient, consumer transport.Consumer) (*Committer, error) {
+func NewCommitter(log logr.Logger, client *client.SyncServiceClient,
+	getBundlesMetadataFunc transport.GetBundlesMetadataFunc) (*Committer, error) {
 	committerIntervalString, found := os.LookupEnv(envVarCommitterInterval)
 	if !found {
 		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarCommitterInterval)
@@ -33,7 +34,7 @@ func NewCommitter(log logr.Logger, client *client.SyncServiceClient, consumer tr
 	return &Committer{
 		log:                           log,
 		client:                        client,
-		consumer:                      consumer,
+		getBundlesMetadataFunc:        getBundlesMetadataFunc,
 		committedMetadataToVersionMap: make(map[string]string),
 		interval:                      committerInterval,
 		lock:                          sync.Mutex{},
@@ -44,7 +45,7 @@ func NewCommitter(log logr.Logger, client *client.SyncServiceClient, consumer tr
 type Committer struct {
 	log                           logr.Logger
 	client                        *client.SyncServiceClient
-	consumer                      transport.Consumer
+	getBundlesMetadataFunc        transport.GetBundlesMetadataFunc
 	committedMetadataToVersionMap map[string]string
 	interval                      time.Duration
 	lock                          sync.Mutex
@@ -66,7 +67,7 @@ func (c *Committer) commitMetadata(ctx context.Context) {
 		case <-ticker.C: // wait for next time interval
 			processedBundleMetadataToCommit := make(map[string]*BundleMetadata)
 
-			bundlesMetadata := c.consumer.GetBundlesMetadata()
+			bundlesMetadata := c.getBundlesMetadataFunc()
 			// sync service objects should be committed only if processed
 			for _, bundleMetadata := range bundlesMetadata {
 				metadata, ok := bundleMetadata.(*BundleMetadata)

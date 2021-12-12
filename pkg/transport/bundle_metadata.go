@@ -1,5 +1,8 @@
 package transport
 
+// GetBundlesMetadataFunc is the function to be called by committers to fetch metadata to commit.
+type GetBundlesMetadataFunc func() []BundleMetadata
+
 // BundleMetadata may include metadata that relates to transport - e.g. commit offset.
 type BundleMetadata interface {
 	MarkAsProcessed()
