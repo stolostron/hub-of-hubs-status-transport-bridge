@@ -6,6 +6,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go v1.7.0
 	github.com/deckarep/golang-set v1.7.1
 	github.com/go-logr/logr v0.2.1
+	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26
