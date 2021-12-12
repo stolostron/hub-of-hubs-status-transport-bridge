@@ -62,13 +62,15 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
+	// start committer
+	go committer.Start(ctx)
+
 	return &SyncService{
 		log:                    log,
 		client:                 syncServiceClient,
 		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
-		committer:              committer,
 		pollingInterval:        pollingInterval,
 		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
@@ -121,8 +123,6 @@ type SyncService struct {
 	conflationManager *conflator.ConflationManager
 	statistics        *statistics.Statistics
 
-	committer *Committer
-
 	pollingInterval        int
 	objectsMetaDataChan    chan *client.ObjectMetaData
 	msgIDToRegistrationMap map[string]*transport.BundleRegistration
@@ -136,7 +136,6 @@ type SyncService struct {
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
-		go s.committer.Start(s.ctx)
 		go s.handleBundles(s.ctx)
 	})
 }
