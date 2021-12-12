@@ -187,15 +187,15 @@ func (c *Consumer) processMessage(msg *kafka.Message) {
 
 	msgID := msgIDTokens[1]
 	if _, found := c.msgIDToRegistrationMap[msgID]; !found {
-		c.log.Info("no bundle-registration available, not sending bundle", "bundleId", transportMsg.ID,
-			"bundleType", transportMsg.MsgType, "version", transportMsg.Version)
+		c.log.Info("no bundle-registration available, not sending bundle", "messageId", transportMsg.ID,
+			"messageType", transportMsg.MsgType, "version", transportMsg.Version)
 		// no one registered for this msg id
 		return
 	}
 
 	if !c.msgIDToRegistrationMap[msgID].Predicate() {
-		c.log.Info("predicate is false, not sending bundle", "bundleId", transportMsg.ID,
-			"bundleType", transportMsg.MsgType, "version", transportMsg.Version)
+		c.log.Info("predicate is false, not sending bundle", "messageId", transportMsg.ID,
+			"messageType", transportMsg.MsgType, "version", transportMsg.Version)
 
 		return // bundle-registration predicate is false, do not send the update in the channel
 	}
