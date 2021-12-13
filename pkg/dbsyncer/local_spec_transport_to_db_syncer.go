@@ -9,6 +9,7 @@ import (
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -67,12 +68,14 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
 		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.LocalPolicySpecTableName)))
+		syncer.handleLocalObjectsBundleWrapper(db.LocalPolicySpecTableName),
+		bundleinfo.CompleteStateSyncMode))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,
 		helpers.GetBundleType(syncer.createLocalPlacementRulesSpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.LocalPlacementRulesTableName)))
+		syncer.handleLocalObjectsBundleWrapper(db.LocalPlacementRulesTableName),
+		bundleinfo.CompleteStateSyncMode))
 }
 
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,

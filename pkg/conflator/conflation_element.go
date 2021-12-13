@@ -2,25 +2,14 @@ package conflator
 
 import (
 	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 type conflationElement struct {
-	bundleType                 string
-	bundle                     bundle.Bundle
-	bundleMetadata             *BundleMetadata
+	bundleInfo                 bundleinfo.BundleInfo
 	handlerFunction            BundleHandlerFunc
 	dependency                 *dependency.Dependency
 	isInProcess                bool
 	lastProcessedBundleVersion *status.BundleVersion
-}
-
-func (ce *conflationElement) GetTransportMetadataToCommit() transport.BundleMetadata {
-	if ce.bundleMetadata == nil {
-		return nil
-	}
-
-	return ce.bundleMetadata.transportBundleMetadata
 }

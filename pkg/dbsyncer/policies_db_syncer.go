@@ -11,6 +11,7 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
@@ -70,6 +71,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 		CreateBundleFunc: syncer.createMinimalComplianceStatusBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
+
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
@@ -100,14 +102,16 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
 		},
-	))
+		bundleinfo.CompleteStateSyncMode))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.CompleteComplianceStatusPriority,
 		helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)),
+		},
+		bundleinfo.CompleteStateSyncMode,
+	).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)),
 	) // compliance depends on clusters per policy. should be processed only when there is an exact match
 
 	conflationManager.Register(conflator.NewConflationRegistration(
@@ -116,14 +120,14 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleMinimalComplianceBundle(ctx, bundle, dbClient)
 		},
-	))
+		bundleinfo.CompleteStateSyncMode))
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalClustersPerPolicyPriority,
 		localClustersPerPolicyBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusSchema, db.ComplianceTable)
 		},
-	))
+		bundleinfo.CompleteStateSyncMode))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalCompleteComplianceStatusPriority,
@@ -131,7 +135,9 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
 				db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
+		},
+		bundleinfo.CompleteStateSyncMode,
+	).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
 }
 
 // if we got inside the handler function, then the bundle version is newer than what was already handled.
