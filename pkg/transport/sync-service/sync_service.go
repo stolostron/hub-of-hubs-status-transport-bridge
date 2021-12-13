@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
 )
@@ -29,21 +30,9 @@ var (
 	errSyncServiceReadFailed = errors.New("sync service error")
 )
 
-// SyncService abstracts Sync Service client.
-type SyncService struct {
-	log                    logr.Logger
-	client                 *client.SyncServiceClient
-	pollingInterval        int
-	objectsMetaDataChan    chan *client.ObjectMetaData
-	stopChan               chan struct{}
-	conflationManager      *conflator.ConflationManager
-	msgIDToRegistrationMap map[string]*transport.BundleRegistration
-	startOnce              sync.Once
-	stopOnce               sync.Once
-}
-
 // NewSyncService creates a new instance of SyncService.
-func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationManager) (*SyncService, error) {
+func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationManager,
+	statistics *statistics.Statistics) (*SyncService, error) {
 	serverProtocol, host, port, pollingInterval, err := readEnvVars()
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
@@ -60,6 +49,7 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 		pollingInterval:        pollingInterval,
 		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
 		conflationManager:      conflationManager,
+		statistics:             statistics,
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
 		stopChan:               make(chan struct{}, 1),
 	}, nil
@@ -101,6 +91,20 @@ func readEnvVars() (string, string, uint16, int, error) {
 	return protocol, host, uint16(port), pollingInterval, nil
 }
 
+// SyncService abstracts Sync Service client.
+type SyncService struct {
+	log                    logr.Logger
+	client                 *client.SyncServiceClient
+	pollingInterval        int
+	objectsMetaDataChan    chan *client.ObjectMetaData
+	conflationManager      *conflator.ConflationManager
+	statistics             *statistics.Statistics
+	msgIDToRegistrationMap map[string]*transport.BundleRegistration
+	startOnce              sync.Once
+	stopOnce               sync.Once
+	stopChan               chan struct{}
+}
+
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
@@ -111,6 +115,7 @@ func (s *SyncService) Start() {
 // Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
+		s.stopChan <- struct{}{}
 		close(s.stopChan)
 		close(s.objectsMetaDataChan)
 	})
@@ -155,6 +160,8 @@ func (s *SyncService) handleBundles() {
 				s.log.Error(err, "failed to parse bundle", "ObjectId", objectMetaData.ObjectID)
 				continue
 			}
+
+			s.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
 			s.conflationManager.Insert(receivedBundle, objectMetaData)
 

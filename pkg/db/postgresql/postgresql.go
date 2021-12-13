@@ -5,16 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	set "github.com/deckarep/golang-set"
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/datastructures"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql/batch"
 )
 
 const (
 	envVarDatabaseURL = "DATABASE_URL"
 )
 
-var errEnvVarNotFound = errors.New("not found environment variable")
+var (
+	errEnvVarNotFound              = errors.New("not found environment variable")
+	errBatchDoesNotMatchPostgreSQL = errors.New("given batch doesn't match postgresql library")
+	errBatchFailed                 = errors.New("some of the batch statements failed to execute")
+)
 
 // NewPostgreSQL creates a new instance of PostgreSQL object.
 func NewPostgreSQL(ctx context.Context) (*PostgreSQL, error) {
@@ -46,76 +54,128 @@ func (p *PostgreSQL) GetPoolSize() int32 {
 	return p.conn.Config().MaxConns
 }
 
-// GetManagedClustersByLeafHub returns list of managed clusters by leaf hub name.
-func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, tableName string,
-	leafHubName string) (map[string]string, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name,resource_version FROM %s WHERE 
-		leaf_hub_name=$1`, tableName), leafHubName)
-	defer rows.Close()
+// SendBatch sends a batch operation to the db and returns list of errors if there were any.
+func (p *PostgreSQL) SendBatch(ctx context.Context, batch interface{}) error {
+	postgreSQLBatch, ok := batch.(*pgx.Batch)
+	if !ok {
+		return fmt.Errorf("failed to send batch - %w", errBatchDoesNotMatchPostgreSQL)
+	}
 
-	result := make(map[string]string)
+	if postgreSQLBatch.Len() == 0 { // no statements in the batch
+		return nil // then, there is no error
+	}
 
-	for rows.Next() {
-		clusterName := ""
-		resourceVersion := ""
+	batchResult := p.conn.SendBatch(ctx, postgreSQLBatch)
+	defer batchResult.Close()
 
-		if err := rows.Scan(&clusterName, &resourceVersion); err != nil {
-			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
+	errorStringBuilder := strings.Builder{}
+
+	for i := 0; i < postgreSQLBatch.Len(); i++ {
+		_, err := batchResult.Exec()
+		if err != nil {
+			errorStringBuilder.WriteString(fmt.Errorf("failed to execute batch statement %w, ", err).Error())
 		}
+	}
 
-		result[clusterName] = resourceVersion
+	errorString := errorStringBuilder.String()
+	if len(errorString) > 0 {
+		return fmt.Errorf("%w - %s", errBatchFailed, errorString)
+	}
+
+	return nil
+}
+
+// NewManagedClustersBatchBuilder creates a new instance of ManagedClustersBatchBuilder.
+func (p *PostgreSQL) NewManagedClustersBatchBuilder(schema string, tableName string,
+	leafHubName string) db.ManagedClustersBatchBuilder {
+	return batch.NewManagedClustersBatchBuilder(schema, tableName, leafHubName)
+}
+
+// GetManagedClustersByLeafHub returns list of managed clusters and for each managed cluster it's resourceVersion.
+func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
+
+	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
 	return result, nil
 }
 
-// InsertManagedCluster inserts managed cluster to the db.
-func (p *PostgreSQL) InsertManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
-	payload interface{}, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (cluster_name,leaf_hub_name,payload,
-			resource_version) values($1, $2, $3::jsonb, $4)`, tableName), clusterName, leafHubName, payload,
-		version); err != nil {
-		return fmt.Errorf("failed to insert into database: %w", err)
-	}
-
-	return nil
+// NewPoliciesBatchBuilder creates a new instance of PoliciesBatchBuilder.
+func (p *PostgreSQL) NewPoliciesBatchBuilder(schema string, tableName string,
+	leafHubName string) db.PoliciesBatchBuilder {
+	return batch.NewPoliciesBatchBuilder(schema, tableName, leafHubName)
 }
 
-// UpdateManagedCluster updates managed cluster row in the db.
-func (p *PostgreSQL) UpdateManagedCluster(ctx context.Context, tableName string, leafHubName string, clusterName string,
-	payload interface{}, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1,resource_version=$2 WHERE 
-		leaf_hub_name=$3 AND cluster_name=$4`, tableName), payload, version, leafHubName, clusterName); err != nil {
-		return fmt.Errorf("failed to update obj in database: %w", err)
+// GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
+func (p *PostgreSQL) GetComplianceStatusByLeafHub(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]*db.PolicyClustersSets, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE 
+			leaf_hub_name=$1`, schema, tableName), leafHubName)
+
+	result, err := p.buildComplianceClustersSetsFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compliance rows - %w", err)
 	}
 
-	return nil
+	return result, nil
 }
 
-// DeleteManagedCluster deletes a managed cluster from the db.
-func (p *PostgreSQL) DeleteManagedCluster(ctx context.Context, tableName string, leafHubName string,
-	clusterName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE leaf_hub_name=$1 AND cluster_name=$2`,
-		tableName), leafHubName, clusterName); err != nil {
-		return fmt.Errorf("failed to delete managed cluster from database: %w", err)
+// GetNonCompliantClustersByLeafHub returns a map of policies, each maps to sets of (NonCompliant,Unknown) clusters.
+func (p *PostgreSQL) GetNonCompliantClustersByLeafHub(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]*db.PolicyClustersSets, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,cluster_name,compliance FROM %s.%s WHERE leaf_hub_name=$1
+			 AND compliance!='compliant'`, schema, tableName), leafHubName)
+
+	result, err := p.buildComplianceClustersSetsFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get compliance rows - %w", err)
 	}
 
-	return nil
+	return result, nil
+}
+
+func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (map[string]*db.PolicyClustersSets, error) {
+	result := make(map[string]*db.PolicyClustersSets)
+
+	for rows.Next() {
+		var (
+			policyID, clusterName string
+			complianceStatus      db.ComplianceStatus
+		)
+
+		if err := rows.Scan(&policyID, &clusterName, &complianceStatus); err != nil {
+			return nil, fmt.Errorf("error in reading compliance table rows - %w", err)
+		}
+
+		policyClustersSets, found := result[policyID]
+		if !found {
+			policyClustersSets = db.NewPolicyClusterSets()
+			result[policyID] = policyClustersSets
+		}
+
+		policyClustersSets.AddCluster(clusterName, complianceStatus)
+	}
+
+	return result, nil
 }
 
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
-func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string, leafHubName string) (
-	datastructures.HashSet, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s WHERE leaf_hub_name=$1`,
-		tableName), leafHubName)
-	defer rows.Close()
+func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, schema string, tableName string,
+	leafHubName string) (set.Set, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s.%s WHERE leaf_hub_name=$1`,
+		schema, tableName), leafHubName)
 
-	result := datastructures.NewHashSet()
+	result := set.NewSet()
 
 	for rows.Next() {
 		policyID := ""
 		if err := rows.Scan(&policyID); err != nil {
-			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
 		}
 
 		result.Add(policyID)
@@ -124,166 +184,109 @@ func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, tableName string
 	return result, nil
 }
 
-// GetComplianceClustersByLeafHubAndPolicy returns list of clusters by leaf hub and policy.
-func (p *PostgreSQL) GetComplianceClustersByLeafHubAndPolicy(ctx context.Context, tableName string, leafHubName string,
-	policyID string) (datastructures.HashSet, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM %s WHERE leaf_hub_name=$1 AND 
-			policy_id=$2`, tableName), leafHubName, policyID)
-	defer rows.Close()
+// InsertOrUpdateAggregatedPolicyCompliance inserts or updates aggregated policy compliance row in the db.
+func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, schema string, tableName string,
+	leafHubName string, policyID string, appliedClusters int, nonCompliantClusters int) error {
+	var exists bool
+	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from %s.%s WHERE leaf_hub_name=$1 AND 
+			id=$2)`, schema, tableName), leafHubName, policyID).Scan(&exists); err != nil {
+		return fmt.Errorf("failed to read from database: %w", err)
+	}
 
-	result := datastructures.NewHashSet()
-
-	for rows.Next() {
-		clusterName := ""
-		if err := rows.Scan(&clusterName); err != nil {
-			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
+	if exists { // row for (policy_id,leaf hub) tuple exists, update to the db.
+		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET applied_clusters=$1,non_compliant_clusters=$2
+			 WHERE leaf_hub_name=$3 AND id=$4`, schema, tableName), appliedClusters, nonCompliantClusters, leafHubName,
+			policyID); err != nil {
+			return fmt.Errorf("failed to update compliance row in database: %w", err)
 		}
-
-		result.Add(clusterName)
-	}
-
-	return result, nil
-}
-
-// GetNonCompliantClustersByLeafHubAndPolicy returns a list of non compliant clusters by leaf hub and policy.
-func (p *PostgreSQL) GetNonCompliantClustersByLeafHubAndPolicy(ctx context.Context, tableName string,
-	leafHubName string, policyID string) (datastructures.HashSet, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT cluster_name FROM %s WHERE leaf_hub_name=$1 AND 
-			policy_id=$2 AND compliance!='compliant'`, tableName),
-		leafHubName, policyID)
-	defer rows.Close()
-
-	result := datastructures.NewHashSet()
-
-	for rows.Next() {
-		clusterName := ""
-		if err := rows.Scan(&clusterName); err != nil {
-			return nil, fmt.Errorf("error reading from table %s - %w", tableName, err)
+	} else { // row for (policy_id,leaf hub) tuple doesn't exist, insertRowsArgs to the db.
+		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (id,leaf_hub_name,applied_clusters,
+			non_compliant_clusters) values($1, $2, $3, $4)`, schema, tableName), policyID, leafHubName,
+			appliedClusters, nonCompliantClusters); err != nil {
+			return fmt.Errorf("failed to insertRowsArgs into database: %w", err)
 		}
-
-		result.Add(clusterName)
-	}
-
-	return result, nil
-}
-
-// InsertPolicyCompliance inserts a compliance row to the db.
-func (p *PostgreSQL) InsertPolicyCompliance(ctx context.Context, tableName string, leafHubName string,
-	clusterName string, policyID string, errorString string, compliance string, enforcement string,
-	version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,cluster_name,leaf_hub_name,error,
-			compliance,enforcement,resource_version) values($1, $2, $3, $4, $5, $6, $7)`, tableName),
-		policyID, clusterName, leafHubName, errorString, compliance, enforcement, version); err != nil {
-		return fmt.Errorf("failed to insert into database: %w", err)
-	}
-
-	return nil
-}
-
-// InsertLocalPolicySpec this function puts adds a new row in table tableName with policyID, leafHubName and
-// the payload.
-func (p *PostgreSQL) InsertLocalPolicySpec(ctx context.Context, tableName string, policyID string, leafHubName string,
-	payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,leaf_hub_name,payload
-							 ) values($1, $2, $3::jsonb)`, tableName), policyID, leafHubName, payload); err != nil {
-		return fmt.Errorf("failed to insert into database: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateSingleSpecRow this function updates the row whose idType column contains id.
-func (p *PostgreSQL) UpdateSingleSpecRow(ctx context.Context, id string, leafHubName string,
-	tableName string, payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1 WHERE 
-			id=$2 AND leaf_hub_name=$3`, tableName), payload, id, leafHubName); err != nil {
-		return fmt.Errorf("failed to update row with id %s in table %s in database: %w", id, tableName, err)
-	}
-
-	return nil
-}
-
-// UpdateEnforcementAndResourceVersion updates enforcement and version by leaf hub and policy.
-func (p *PostgreSQL) UpdateEnforcementAndResourceVersion(ctx context.Context, tableName string, policyID string,
-	leafHubName string, enforcement string, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET enforcement=$1,resource_version=$2 WHERE 
-			policy_id=$3 AND leaf_hub_name=$4 AND resource_version<$2`, tableName), enforcement, version, policyID,
-		leafHubName); err != nil {
-		return fmt.Errorf("failed to update compliance resource_version in database: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateComplianceRow updates a compliance status row in the db.
-func (p *PostgreSQL) UpdateComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,
-	policyID string, compliance string, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET compliance=$1,resource_version=$2 WHERE 
-			policy_id=$3 AND leaf_hub_name=$4 AND cluster_name=$5`, tableName), compliance, version, policyID,
-		leafHubName, clusterName); err != nil {
-		return fmt.Errorf("failed to update compliance row in database: %w", err)
-	}
-
-	return nil
-}
-
-// UpdatePolicyCompliance updates policy compliance in the db (to all clusters) by leaf hub and policy.
-func (p *PostgreSQL) UpdatePolicyCompliance(ctx context.Context, tableName string, leafHubName string, policyID string,
-	compliance string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET compliance=$1 WHERE policy_id=$2 AND 
-			leaf_hub_name=$3`, tableName), compliance, policyID, leafHubName); err != nil {
-		return fmt.Errorf("failed to update policy compliance in database: %w", err)
-	}
-
-	return nil
-}
-
-// DeleteComplianceRow deletes a compliance row from the db.
-func (p *PostgreSQL) DeleteComplianceRow(ctx context.Context, tableName string, leafHubName string, clusterName string,
-	policyID string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE policy_id=$1 AND cluster_name=$2 AND 
-			leaf_hub_name=$3`, tableName), policyID, clusterName, leafHubName); err != nil {
-		return fmt.Errorf("failed to delete compliance row from database: %w", err)
 	}
 
 	return nil
 }
 
 // DeleteAllComplianceRows delete all compliance rows from the db by leaf hub and policy.
-func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, tableName string, leafHubName string,
+func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string, tableName string, leafHubName string,
 	policyID string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE policy_id=$1 AND leaf_hub_name=$2`,
-		tableName), policyID, leafHubName); err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s.%s WHERE leaf_hub_name=$1 AND policy_id=$2`,
+		schema, tableName), leafHubName, policyID); err != nil {
 		return fmt.Errorf("failed to delete compliance rows from database: %w", err)
 	}
 
 	return nil
 }
 
-// InsertOrUpdateAggregatedPolicyCompliance inserts or updates aggregated policy compliance row in the db.
-func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, tableName string, leafHubName string,
-	policyID string, enforcement string, appliedClusters int, nonCompliantClusters int) error {
-	var exists bool
-	if err := p.conn.QueryRow(ctx, fmt.Sprintf(`SELECT EXISTS(SELECT 1 from %s WHERE leaf_hub_name=$1 AND 
-			policy_id=$2)`, tableName), leafHubName, policyID).Scan(&exists); err != nil {
-		return fmt.Errorf("failed to read from database: %w", err)
+// NewGenericLocalBatchBuilder creates a new instance of GenericLocalBatchBuilder.
+func (p *PostgreSQL) NewGenericLocalBatchBuilder(schema string, tableName string,
+	leafHubName string) db.GenericLocalBatchBuilder {
+	return batch.NewGenericLocalBatchBuilder(schema, tableName, leafHubName)
+}
+
+// NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
+func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
+	leafHubName string) db.GenericBatchBuilder {
+	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
+}
+
+// GetLocalDistinctIDAndVersion returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetLocalDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
+
+	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
-	if exists { // row for (policy_id,leaf hub) tuple exists, update to the db.
-		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET enforcement=$1,applied_clusters=$2,
-			non_compliant_clusters=$3 WHERE policy_id=$4 AND leaf_hub_name=$5`, tableName), enforcement,
-			appliedClusters, nonCompliantClusters, policyID, leafHubName); err != nil {
-			return fmt.Errorf("failed to update compliance row in database: %w", err)
-		}
-	} else { // row for (policy_id,leaf hub) tuple doesn't exist, insert to the db.
-		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (policy_id,leaf_hub_name,enforcement,
-			applied_clusters,non_compliant_clusters) values($1, $2, $3, $4, $5)`, tableName), policyID, leafHubName,
-			enforcement, appliedClusters, nonCompliantClusters); err != nil {
-			return fmt.Errorf("failed to insert into database: %w", err)
-		}
+	return result, nil
+}
+
+// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
+
+	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
+	if err != nil {
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
+	}
+
+	return result, nil
+}
+
+// UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
+func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %[1]s.%[2]s (name, last_timestamp) 
+		values($1, (now() at time zone 'utc')) ON CONFLICT (name) DO UPDATE SET last_timestamp = (now() at time zone 'utc') 
+        WHERE %[1]s.%[2]s.name = $1`, schema, tableName),
+		leafHubName); err != nil {
+		return fmt.Errorf("failed upsert into database: %w", err)
 	}
 
 	return nil
+}
+
+func buildKeyValueMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	for rows.Next() {
+		var key, val string
+
+		if err := rows.Scan(&key, &val); err != nil {
+			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
+		}
+
+		result[key] = val
+	}
+
+	return result, nil
 }
 
 // DeleteTableContent deletes the content of a table.

@@ -4,8 +4,8 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-// NewClustersPerPolicyBundle creates a new clusters per policy bundle with no data in it.
-func NewClustersPerPolicyBundle() *ClustersPerPolicyBundle {
+// NewClustersPerPolicyBundle creates a new instance of ClustersPerPolicyBundle.
+func NewClustersPerPolicyBundle() Bundle {
 	return &ClustersPerPolicyBundle{}
 }
 
@@ -27,11 +27,6 @@ func (bundle *ClustersPerPolicyBundle) GetObjects() []interface{} {
 	}
 
 	return result
-}
-
-// GetDependency return the bundle dependency or nil in case there is no dependency.
-func (bundle *ClustersPerPolicyBundle) GetDependency() *DependencyBundle {
-	return nil
 }
 
 // GetGeneration returns the bundle generation.

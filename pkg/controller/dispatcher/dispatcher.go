@@ -12,20 +12,18 @@ import (
 func NewDispatcher(log logr.Logger, conflationReadyQueue *conflator.ConflationReadyQueue,
 	dbWorkerPool *workerpool.DBWorkerPool) *Dispatcher {
 	return &Dispatcher{
-		log:                    log,
-		conflationReadyQueue:   conflationReadyQueue,
-		dbWorkerPool:           dbWorkerPool,
-		bundleHandlerFunctions: make(map[string]conflator.BundleHandlerFunc),
+		log:                  log,
+		conflationReadyQueue: conflationReadyQueue,
+		dbWorkerPool:         dbWorkerPool,
 	}
 }
 
 // Dispatcher abstracts the dispatching of db jobs to db workers. this is done by reading ready CU and getting from them
 // a ready to process bundles.
 type Dispatcher struct {
-	log                    logr.Logger
-	conflationReadyQueue   *conflator.ConflationReadyQueue
-	dbWorkerPool           *workerpool.DBWorkerPool
-	bundleHandlerFunctions map[string]conflator.BundleHandlerFunc // maps bundle type to handler function
+	log                  logr.Logger
+	conflationReadyQueue *conflator.ConflationReadyQueue
+	dbWorkerPool         *workerpool.DBWorkerPool
 }
 
 // Start starts the dispatcher.
@@ -35,13 +33,10 @@ func (dispatcher *Dispatcher) Start(stopChannel <-chan struct{}) error {
 
 	go dispatcher.dispatch(ctx)
 
-	for {
-		<-stopChannel // blocking wait until getting stop event on the stop channel
-		cancelContext()
-		dispatcher.log.Info("stopped dispatcher")
+	<-stopChannel // blocking wait until getting stop event on the stop channel
+	dispatcher.log.Info("stopped dispatcher")
 
-		return nil
-	}
+	return nil
 }
 
 func (dispatcher *Dispatcher) dispatch(ctx context.Context) {

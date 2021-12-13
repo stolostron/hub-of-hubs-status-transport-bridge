@@ -4,8 +4,8 @@ import (
 	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 )
 
-// NewMinimalComplianceStatusBundle creates a new minimal compliance status bundle with no data in it.
-func NewMinimalComplianceStatusBundle() *MinimalComplianceStatusBundle {
+// NewMinimalComplianceStatusBundle creates a new instance of MinimalComplianceStatusBundle.
+func NewMinimalComplianceStatusBundle() Bundle {
 	return &MinimalComplianceStatusBundle{}
 }
 
@@ -27,11 +27,6 @@ func (bundle *MinimalComplianceStatusBundle) GetObjects() []interface{} {
 	}
 
 	return result
-}
-
-// GetDependency return the bundle dependency or nil in case there is no dependency.
-func (bundle *MinimalComplianceStatusBundle) GetDependency() *DependencyBundle {
-	return nil
 }
 
 // GetGeneration returns the bundle generation.
