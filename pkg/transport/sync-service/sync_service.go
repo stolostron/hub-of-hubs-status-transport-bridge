@@ -2,10 +2,10 @@ package syncservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +13,9 @@ import (
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
+	compressor "github.com/open-cluster-management/hub-of-hubs-message-compression"
+	"github.com/open-cluster-management/hub-of-hubs-message-compression/compressors"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
@@ -24,11 +27,16 @@ const (
 	envVarSyncServiceHost            = "SYNC_SERVICE_HOST"
 	envVarSyncServicePort            = "SYNC_SERVICE_PORT"
 	envVarSyncServicePollingInterval = "SYNC_SERVICE_POLLING_INTERVAL"
+	msgIDHeaderTokensLength          = 2
+	compressionHeaderTokensLength    = 2
+	defaultCompressionType           = compressor.NoOp
 )
 
 var (
-	errEnvVarNotFound        = errors.New("not found environment variable")
-	errSyncServiceReadFailed = errors.New("sync service error")
+	errEnvVarNotFound         = errors.New("environment variable not found")
+	errSyncServiceReadFailed  = errors.New("sync service error")
+	errMessageIDWrongFormat   = errors.New("message ID format is bad")
+	errMissingCompressionType = errors.New("compression type is missing from message description")
 )
 
 // NewSyncService creates a new instance of SyncService.
@@ -44,15 +52,26 @@ func NewSyncService(log logr.Logger, conflationManager *conflator.ConflationMana
 	syncServiceClient.SetOrgID("myorg")
 	syncServiceClient.SetAppKeyAndSecret("user@myorg", "")
 
+	// create committer
+	committer, err := newCommitter(log, syncServiceClient, conflationManager.GetBundlesMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize sync service - %w", err)
+	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+
 	return &SyncService{
 		log:                    log,
 		client:                 syncServiceClient,
-		pollingInterval:        pollingInterval,
-		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
+		committer:              committer,
+		compressorsMap:         make(map[compressor.CompressionType]compressors.Compressor),
 		conflationManager:      conflationManager,
 		statistics:             statistics,
+		pollingInterval:        pollingInterval,
+		objectsMetaDataChan:    make(chan *client.ObjectMetaData),
 		msgIDToRegistrationMap: make(map[string]*transport.BundleRegistration),
-		stopChan:               make(chan struct{}, 1),
+		ctx:                    ctx,
+		cancelFunc:             cancelFunc,
 	}, nil
 }
 
@@ -94,30 +113,35 @@ func readEnvVars() (string, string, uint16, int, error) {
 
 // SyncService abstracts Sync Service client.
 type SyncService struct {
-	log                    logr.Logger
-	client                 *client.SyncServiceClient
+	log               logr.Logger
+	client            *client.SyncServiceClient
+	committer         *committer
+	compressorsMap    map[compressor.CompressionType]compressors.Compressor
+	conflationManager *conflator.ConflationManager
+	statistics        *statistics.Statistics
+
 	pollingInterval        int
 	objectsMetaDataChan    chan *client.ObjectMetaData
-	conflationManager      *conflator.ConflationManager
-	statistics             *statistics.Statistics
 	msgIDToRegistrationMap map[string]*transport.BundleRegistration
-	startOnce              sync.Once
-	stopOnce               sync.Once
-	stopChan               chan struct{}
+
+	ctx        context.Context
+	cancelFunc context.CancelFunc
+	startOnce  sync.Once
+	stopOnce   sync.Once
 }
 
 // Start function starts sync service.
 func (s *SyncService) Start() {
 	s.startOnce.Do(func() {
-		go s.handleBundles()
+		go s.committer.start(s.ctx)
+		go s.handleBundles(s.ctx)
 	})
 }
 
 // Stop function stops sync service.
 func (s *SyncService) Stop() {
 	s.stopOnce.Do(func() {
-		s.stopChan <- struct{}{}
-		close(s.stopChan)
+		s.cancelFunc()
 		close(s.objectsMetaDataChan)
 	})
 }
@@ -127,53 +151,104 @@ func (s *SyncService) Register(registration *transport.BundleRegistration) {
 	s.msgIDToRegistrationMap[registration.MsgID] = registration
 }
 
-func (s *SyncService) handleBundles() {
-	// register for updates for spec bundles, this include all types of spec bundles each with a different id.
+func (s *SyncService) handleBundles(ctx context.Context) {
+	// register for updates for spec bundles, this includes all types of spec bundles each with a different id.
 	s.client.StartPollingForUpdates(datatypes.StatusBundle, s.pollingInterval, s.objectsMetaDataChan)
 
 	for {
 		select {
-		case <-s.stopChan:
+		case <-ctx.Done():
 			return
-		case objectMetaData := <-s.objectsMetaDataChan:
+		case objectMetadata := <-s.objectsMetaDataChan:
 			var buffer bytes.Buffer
-			if !s.client.FetchObjectData(objectMetaData, &buffer) {
-				s.log.Error(errSyncServiceReadFailed, "failed to read bundle from sync service",
-					"ObjectId", objectMetaData.ObjectID)
+			if !s.client.FetchObjectData(objectMetadata, &buffer) {
+				s.logError(errSyncServiceReadFailed, "failed to read bundle from sync service", objectMetadata)
 				continue
 			}
 
-			msgID := strings.Split(objectMetaData.ObjectID, ".")[1] // object id is LH_ID.MSG_ID
+			// get msgID
+			msgIDTokens := strings.Split(objectMetadata.ObjectID, ".") // object id is LH_ID.MSG_ID
+			if len(msgIDTokens) != msgIDHeaderTokensLength {
+				s.logError(errMessageIDWrongFormat, "expecting ObjectID of format LH_ID.MSG_ID", objectMetadata)
+				continue
+			}
+
+			msgID := msgIDTokens[1]
 			if _, found := s.msgIDToRegistrationMap[msgID]; !found {
 				s.log.Info("no registration available, not sending bundle", "ObjectId",
-					objectMetaData.ObjectID)
+					objectMetadata.ObjectID)
 				continue // no one registered for this msg id
 			}
 
 			if !s.msgIDToRegistrationMap[msgID].Predicate() {
 				s.log.Info("Predicate is false, not sending bundle", "ObjectId",
-					objectMetaData.ObjectID)
+					objectMetadata.ObjectID)
 				continue // registration predicate is false, do not send the update in the channel
 			}
 
 			receivedBundle := s.msgIDToRegistrationMap[msgID].CreateBundleFunc()
-
-			log.Println("***************")
-			log.Println(buffer.String())
-			log.Println("***************")
-
-			if err := json.Unmarshal(buffer.Bytes(), receivedBundle); err != nil {
-				s.log.Error(err, "failed to parse bundle", "ObjectId", objectMetaData.ObjectID)
+			if err := s.unmarshalPayload(receivedBundle, objectMetadata, buffer.Bytes()); err != nil {
+				s.logError(err, "failed to get object payload", objectMetadata)
 				continue
 			}
 
 			s.statistics.IncrementNumberOfReceivedBundles(receivedBundle)
 
-			s.conflationManager.Insert(receivedBundle, objectMetaData)
+			s.conflationManager.Insert(receivedBundle, newBundleMetadata(objectMetadata))
 
-			if err := s.client.MarkObjectReceived(objectMetaData); err != nil {
-				s.log.Error(err, "failed to report object received to sync service")
+			if err := s.client.MarkObjectReceived(objectMetadata); err != nil {
+				s.logError(err, "failed to report object received to sync service", objectMetadata)
 			}
 		}
 	}
+}
+
+func (s *SyncService) logError(err error, errMsg string, objectMetaData *client.ObjectMetaData) {
+	s.log.Error(err, errMsg, "ObjectID", objectMetaData.ObjectID, "ObjectType", objectMetaData.ObjectType,
+		"ObjectDescription", objectMetaData.Description, "Version", objectMetaData.Version)
+}
+
+func (s *SyncService) unmarshalPayload(receivedBundle bundle.Bundle, objectMetaData *client.ObjectMetaData,
+	payload []byte) error {
+	compressionType := defaultCompressionType
+
+	if objectMetaData.Description != "" {
+		compressionTokens := strings.Split(objectMetaData.Description, ":") // obj desc is Content-Encoding:type
+		if len(compressionTokens) != compressionHeaderTokensLength {
+			return fmt.Errorf("invalid compression header (Description) - %w", errMissingCompressionType)
+		}
+
+		compressionType = compressor.CompressionType(compressionTokens[1])
+	}
+
+	decompressedPayload, err := s.decompressPayload(payload, compressionType)
+	if err != nil {
+		return fmt.Errorf("failed to decompress bundle bytes - %w", err)
+	}
+
+	if err := json.Unmarshal(decompressedPayload, receivedBundle); err != nil {
+		return fmt.Errorf("failed to parse bundle - %w", err)
+	}
+
+	return nil
+}
+
+func (s *SyncService) decompressPayload(payload []byte, msgCompressorType compressor.CompressionType) ([]byte, error) {
+	msgCompressor, found := s.compressorsMap[msgCompressorType]
+	if !found {
+		newCompressor, err := compressor.NewCompressor(msgCompressorType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create compressor: %w", err)
+		}
+
+		msgCompressor = newCompressor
+		s.compressorsMap[msgCompressorType] = msgCompressor
+	}
+
+	decompressedBytes, err := msgCompressor.Decompress(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress message: %w", err)
+	}
+
+	return decompressedBytes, nil
 }

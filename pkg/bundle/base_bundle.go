@@ -1,8 +1,10 @@
 package bundle
 
+import "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+
 type baseBundle struct {
-	LeafHubName string `json:"leafHubName"`
-	Generation  uint64 `json:"generation"`
+	LeafHubName   string                `json:"leafHubName"`
+	BundleVersion *status.BundleVersion `json:"bundleVersion"`
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -10,7 +12,7 @@ func (baseBundle *baseBundle) GetLeafHubName() string {
 	return baseBundle.LeafHubName
 }
 
-// GetGeneration returns the bundle generation.
-func (baseBundle *baseBundle) GetGeneration() uint64 {
-	return baseBundle.Generation
+// GetVersion returns the bundle version.
+func (baseBundle *baseBundle) GetVersion() *status.BundleVersion {
+	return baseBundle.BundleVersion
 }

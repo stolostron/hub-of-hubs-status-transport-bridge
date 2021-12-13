@@ -13,5 +13,5 @@ const (
 
 func logBundleHandlingMessage(log logr.Logger, bundle bundle.Bundle, message string) {
 	log.Info(message, "BundleType", helpers.GetBundleType(bundle), "LeafHubName", bundle.GetLeafHubName(),
-		"Generation", bundle.GetGeneration())
+		"Version", bundle.GetVersion().String())
 }

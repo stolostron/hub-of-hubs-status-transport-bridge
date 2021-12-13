@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -12,7 +13,8 @@ import (
 	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
-	hohSyncService "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/kafka"
+	syncservice "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
@@ -23,16 +25,65 @@ import (
 )
 
 const (
-	metricsHost                     = "0.0.0.0"
-	metricsPort               int32 = 9392
-	envVarControllerNamespace       = "POD_NAMESPACE"
-	leaderElectionLockName          = "hub-of-hubs-status-transport-bridge-lock"
+	metricsHost                        = "0.0.0.0"
+	metricsPort                  int32 = 9392
+	envVarControllerNamespace          = "POD_NAMESPACE"
+	envVarTransportType                = "TRANSPORT_TYPE"
+	kafkaTransportTypeName             = "kafka"
+	syncServiceTransportTypeName       = "sync-service"
+	leaderElectionLockName             = "hub-of-hubs-status-transport-bridge-lock"
 )
+
+var errEnvVarIllegalValue = errors.New("environment variable illegal value")
 
 func printVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+}
+
+// function to choose transport type based on env var.
+func getTransport(transportType string, conflationMgr *conflator.ConflationManager,
+	statistics *statistics.Statistics) (transport.Transport, error) {
+	switch transportType {
+	case kafkaTransportTypeName:
+		kafkaConsumer, err := kafka.NewConsumer(ctrl.Log.WithName("kafka"), conflationMgr, statistics)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kafka-consumer: %w", err)
+		}
+
+		return kafkaConsumer, nil
+	case syncServiceTransportTypeName:
+		syncService, err := syncservice.NewSyncService(ctrl.Log.WithName("sync-service"), conflationMgr, statistics)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sync-service: %w", err)
+		}
+
+		return syncService, nil
+	default:
+		return nil, fmt.Errorf("%w: %s - %s is not a valid option", errEnvVarIllegalValue, envVarTransportType,
+			transportType)
+	}
+}
+
+// function to determine whether the transport component requires initial-dependencies between bundles to be checked
+// (on load). If the returned is false, then we may assume that dependency of the initial bundle of
+// each type is met. Otherwise, there are no guarantees and the dependencies must be checked.
+func requireInitialDependencyChecks(transportType string) bool {
+	switch transportType {
+	case kafkaTransportTypeName:
+		return false
+		// once kafka consumer loads up, it starts reading from the earliest un-processed bundle,
+		// as in all bundles that precede the latter have been processed, which include its dependency
+		// bundle.
+
+		// the order guarantee also guarantees that if while loading this component, a new bundle is written to a-
+		// partition, then surely its dependency was written before it (leaf-hub-status-sync on kafka guarantees).
+	case syncServiceTransportTypeName:
+		fallthrough
+	default:
+		return true
+	}
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
@@ -41,12 +92,18 @@ func doMain() int {
 
 	leaderElectionNamespace, found := os.LookupEnv(envVarControllerNamespace)
 	if !found {
-		log.Error(nil, "Not found:", "environment variable", envVarControllerNamespace)
+		log.Error(nil, "Environment variable not found", "environment variable", envVarControllerNamespace)
 		return 1
 	}
 
 	// create statistics
 	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+
+	transportType, found := os.LookupEnv(envVarTransportType)
+	if !found {
+		log.Error(nil, "Environment variable not found", "environment variable", envVarTransportType)
+		return 1
+	}
 
 	// db layer initialization - worker pool + connection pool
 	dbWorkerPool, err := startDBWorkerPool(stats)
@@ -57,7 +114,7 @@ func doMain() int {
 
 	defer dbWorkerPool.Stop()
 
-	mgr, transportObj, err := createManager(leaderElectionNamespace, dbWorkerPool, stats)
+	mgr, transportObj, err := createManager(leaderElectionNamespace, transportType, dbWorkerPool, stats)
 	if err != nil {
 		log.Error(err, "Failed to create manager")
 		return 1
@@ -102,7 +159,7 @@ func startDBWorkerPool(statistics *statistics.Statistics) (*workerpool.DBWorkerP
 	return dbWorkerPool, nil
 }
 
-func createManager(leaderElectionNamespace string, workersPool *workerpool.DBWorkerPool,
+func createManager(leaderElectionNamespace string, transportType string, workersPool *workerpool.DBWorkerPool,
 	statistics *statistics.Statistics) (ctrl.Manager, transport.Transport, error) {
 	options := ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -121,11 +178,12 @@ func createManager(leaderElectionNamespace string, workersPool *workerpool.DBWor
 	}
 	// conflationReadyQueue is shared between ConflationManager and dispatcher
 	conflationReadyQueue := conflator.NewConflationReadyQueue(statistics)
+	requireInitialDependencyChecks := requireInitialDependencyChecks(transportType)
 	conflationManager := conflator.NewConflationManager(ctrl.Log.WithName("conflation"), conflationReadyQueue,
-		statistics) // manage all Conflation Units
+		requireInitialDependencyChecks, statistics) // manage all Conflation Units
 
 	// transport layer initialization
-	transportObj, err := hohSyncService.NewSyncService(ctrl.Log.WithName("sync-service"), conflationManager, statistics)
+	transportObj, err := getTransport(transportType, conflationManager, statistics)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize transport: %w", err)
 	}

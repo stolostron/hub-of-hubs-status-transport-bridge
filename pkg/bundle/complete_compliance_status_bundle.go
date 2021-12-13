@@ -1,8 +1,6 @@
 package bundle
 
-import (
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-)
+import "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 
 // NewCompleteComplianceStatusBundle creates a new instance of CompleteComplianceStatusBundle.
 func NewCompleteComplianceStatusBundle() Bundle {
@@ -11,7 +9,7 @@ func NewCompleteComplianceStatusBundle() Bundle {
 
 // CompleteComplianceStatusBundle abstracts management of complete compliance status bundle.
 type CompleteComplianceStatusBundle struct {
-	statusbundle.BaseCompleteComplianceStatusBundle
+	status.BaseCompleteComplianceStatusBundle
 }
 
 // GetLeafHubName returns the leaf hub name that sent the bundle.
@@ -29,12 +27,12 @@ func (bundle *CompleteComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependencyGeneration returns the bundle dependency required generation.
-func (bundle *CompleteComplianceStatusBundle) GetDependencyGeneration() uint64 {
-	return bundle.BaseBundleGeneration
+// GetDependencyVersion returns the bundle dependency required version.
+func (bundle *CompleteComplianceStatusBundle) GetDependencyVersion() *status.BundleVersion {
+	return bundle.BaseBundleVersion
 }
 
-// GetGeneration returns the bundle generation.
-func (bundle *CompleteComplianceStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
+// GetVersion returns the bundle version.
+func (bundle *CompleteComplianceStatusBundle) GetVersion() *status.BundleVersion {
+	return bundle.BundleVersion
 }

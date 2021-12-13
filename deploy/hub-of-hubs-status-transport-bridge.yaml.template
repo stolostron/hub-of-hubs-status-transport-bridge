@@ -83,6 +83,14 @@ spec:
                 secretKeyRef:
                   name: hub-of-hubs-database-transport-bridge-secret
                   key: url
+            - name: TRANSPORT_TYPE
+              value: "$TRANSPORT_TYPE"
+            - name: KAFKA_CONSUMER_ID
+              value: "hub-of-hubs"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-brokers-cluster-kafka-bootstrap.kafka.svc:9092"
+            - name: KAFKA_TOPIC
+              value: "status"
             - name: SYNC_SERVICE_PROTOCOL
               value: "http"
             - name: SYNC_SERVICE_HOST
@@ -91,6 +99,8 @@ spec:
               value: "$SYNC_SERVICE_PORT"
             - name: SYNC_SERVICE_POLLING_INTERVAL
               value: "5"
+            - name: COMMITTER_INTERVAL
+              value: "30s"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

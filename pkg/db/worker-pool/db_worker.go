@@ -59,8 +59,8 @@ func (worker *DBWorker) start(ctx context.Context) {
 
 			case job := <-worker.jobsQueue: // DBWorker received a job request.
 				worker.log.Info("received DB job", "WorkerID", worker.workerID, "BundleType",
-					helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(), "Generation",
-					job.bundle.GetGeneration())
+					helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(), "Version",
+					job.bundle.GetVersion().String())
 
 				startTime := time.Now()
 				err := job.handlerFunc(ctx, job.bundle, worker.dbConnPool) // db connection released to pool when done
@@ -70,11 +70,11 @@ func (worker *DBWorker) start(ctx context.Context) {
 				if err != nil {
 					worker.log.Error(err, "failed processing DB job", "WorkerID", worker.workerID,
 						"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
-						"Generation", job.bundle.GetGeneration())
+						"Version", job.bundle.GetVersion().String())
 				} else {
 					worker.log.Info("finished processing DB job", "WorkerID", worker.workerID,
 						"BundleType", helpers.GetBundleType(job.bundle), "LeafHubName", job.bundle.GetLeafHubName(),
-						"Generation", job.bundle.GetGeneration())
+						"Version", job.bundle.GetVersion().String())
 				}
 			}
 		}
