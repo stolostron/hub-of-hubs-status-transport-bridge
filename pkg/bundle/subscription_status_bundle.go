@@ -11,14 +11,8 @@ func NewSubscriptionBundle() *SubscriptionStatusBundle {
 
 // SubscriptionStatusBundle a bundle to hold Local Placement Rules information.
 type SubscriptionStatusBundle struct {
-	Objects     []*subv1.Subscription `json:"objects"`
-	LeafHubName string                `json:"leafHubName"`
-	Generation  uint64                `json:"generation"`
-}
-
-// GetLeafHubName return the leaf hub that sent the bundle.
-func (bundle *SubscriptionStatusBundle) GetLeafHubName() string {
-	return bundle.LeafHubName
+	baseBundle
+	Objects []*subv1.Subscription `json:"objects"`
 }
 
 // GetObjects return all the objects that the bundle holds.
@@ -29,16 +23,4 @@ func (bundle *SubscriptionStatusBundle) GetObjects() []interface{} {
 	}
 
 	return result
-}
-
-// GetGeneration returns how many updates the bundle passed (its generation).
-func (bundle *SubscriptionStatusBundle) GetGeneration() uint64 {
-	return bundle.Generation
-}
-
-// TODO: check if there are dependencies
-
-// GetDependency returns the dependencies of the bundle.
-func (bundle *SubscriptionStatusBundle) GetDependency() *DependencyBundle {
-	return nil
 }

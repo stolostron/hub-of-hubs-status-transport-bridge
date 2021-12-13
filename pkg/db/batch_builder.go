@@ -42,3 +42,13 @@ type GenericLocalBatchBuilder interface {
 	// Delete adds the given id to the batch to be deleted from db.
 	Delete(id string)
 }
+
+type GenericBatchBuilder interface {
+	BatchBuilder
+	// Insert adds the given payload to the batch to be inserted to the db.
+	Insert(id string, payload interface{})
+	// Update adds the given payload to the batch to be updated in the db.
+	Update(id string, payload interface{})
+	// Delete adds the given id to the batch to be deleted from db.
+	Delete(id string)
+}

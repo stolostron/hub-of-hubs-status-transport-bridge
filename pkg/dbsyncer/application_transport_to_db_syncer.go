@@ -11,14 +11,14 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // NewApplicationDBSyncer creates a new instance of ManagedClustersDBSyncer.
 func NewApplicationDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ApplicationDBSyncer{
-		log:              log,
-		createBundleFunc: func() bundle.Bundle { return bundle.NewSubscriptionBundle() },
+		log:                          log,
+		createSubscriptionBundleFunc: func() bundle.Bundle { return bundle.NewSubscriptionBundle() },
 	}
 
 	log.Info("initialized application db syncer")
@@ -28,15 +28,15 @@ func NewApplicationDBSyncer(log logr.Logger) DBSyncer {
 
 // ApplicationDBSyncer implements managed clusters db sync business logic.
 type ApplicationDBSyncer struct {
-	log              logr.Logger
-	createBundleFunc func() bundle.Bundle
+	log                          logr.Logger
+	createSubscriptionBundleFunc func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
 func (syncer *ApplicationDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.SubscriptionStatusMsgKey,
-		CreateBundleFunc: syncer.createBundleFunc,
+		CreateBundleFunc: syncer.createSubscriptionBundleFunc,
 		Predicate:        func() bool { return true }, // always get subscription status
 	})
 }
@@ -49,70 +49,64 @@ func (syncer *ApplicationDBSyncer) RegisterCreateBundleFunctions(transportInstan
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
 func (syncer *ApplicationDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
-	conflationManager.Register(&conflator.ConflationRegistration{
-		Priority:        conflator.SubscriptionStatusPriority,
-		BundleType:      helpers.GetBundleType(syncer.createBundleFunc()),
-		HandlerFunction: syncer.handleSubscriptionBundle,
-	})
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.SubscriptionStatusPriority,
+		helpers.GetBundleType(syncer.createSubscriptionBundleFunc()),
+		syncer.handleObjectsBundleWrapper(db.SubscriptionTableName)))
 }
 
-func (syncer *ApplicationDBSyncer) handleSubscriptionBundle(ctx context.Context, bundle bundle.Bundle,
-	dbConn db.StatusTransportBridgeDB) error {
+func (syncer *ApplicationDBSyncer) handleObjectsBundleWrapper(tableName string) func(ctx context.Context,
+	bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+	return func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+		return syncer.handleObjectsBundle(ctx, bundle, db.StatusSchema, tableName, dbClient)
+	}
+}
+
+func (syncer *ApplicationDBSyncer) handleObjectsBundle(ctx context.Context, bundle bundle.Bundle, schema string,
+	tableName string, dbClient db.ApplicationStatusDB) error {
+	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	objectIDsFromDB, err := dbConn.GetDistinctIDsFromLH(ctx, subscriptionTableName, leafHubName)
+	idToVersionMapFromDB, err := dbClient.GetDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
 	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s' IDs from db - %w", leafHubName, err)
+		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", schema, tableName, err)
 	}
 
+	batchBuilder := dbClient.NewGenericBatchBuilder(schema, tableName, leafHubName)
+
 	for _, object := range bundle.GetObjects() {
-		subscription, ok := object.(*subv1.Subscription)
+		specificObj, ok := object.(metav1.Object)
 		if !ok {
 			continue
 		}
 
-		subscriptionInd, err := helpers.GetObjectIndex(objectIDsFromDB, string(subscription.GetUID()))
-		if err != nil { // subscription not found, new subscription id
-			// change to state instead of name.
-			if err = dbConn.InsertNewSubscriptionRow(ctx, string(subscription.GetUID()), leafHubName,
-				subscription, fmt.Sprintf("%s.%s", subscription.GetName(), subscription.GetNamespace()),
-				subscription.ResourceVersion, subscriptionTableName); err != nil {
-				return fmt.Errorf("failed inserting '%s' from leaf hub '%s' - %w",
-					subscription.GetName(), leafHubName, err)
-			}
-			// we can continue since its not in objectIDsFromDB anyway
+		uid := string(specificObj.GetUID())
+		resourceVersionFromDB, objInDB := idToVersionMapFromDB[uid]
+
+		if !objInDB { // object not found in the db table
+			batchBuilder.Insert(uid, object)
 			continue
 		}
-		// since this already exists in the db and in the bundle we need to update it
-		err = dbConn.UpdateSingleSubscriptionRow(ctx, subscriptionTableName, string(subscription.GetUID()),
-			leafHubName, fmt.Sprintf("%s.%s", subscription.GetName(), subscription.GetNamespace()),
-			object, subscription.GetResourceVersion())
-		if err != nil {
-			return fmt.Errorf(`failed updating status '%s' in leaf hub '%s' 
-					in db - %w`, string(subscription.GetUID()), leafHubName, err)
+
+		delete(idToVersionMapFromDB, uid)
+
+		if specificObj.GetResourceVersion() == resourceVersionFromDB {
+			continue // update object in db only if what we got is a different (newer) version of the resource.
 		}
 
-		// we dont want to delete it later
-		objectIDsFromDB = append(objectIDsFromDB[:subscriptionInd], objectIDsFromDB[subscriptionInd+1:]...)
+		batchBuilder.Update(uid, object)
 	}
 
-	err = syncer.deleteSubscriptionRows(ctx, leafHubName, subscriptionTableName, objectIDsFromDB, dbConn)
-	if err != nil {
-		return err
+	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+	for uid := range idToVersionMapFromDB {
+		batchBuilder.Delete(uid)
 	}
 
-	return nil
-}
-
-func (syncer *ApplicationDBSyncer) deleteSubscriptionRows(ctx context.Context, leafHubName string,
-	tableName string, policyIDToDelete []string, dbConn db.StatusTransportBridgeDB) error {
-	for _, id := range policyIDToDelete {
-		err := dbConn.DeleteSingleSubscriptionRow(ctx, leafHubName, id, tableName)
-		if err != nil {
-			return fmt.Errorf("failed deleting %s from leaf hub %s from table %s - %w", id,
-				leafHubName, tableName, err)
-		}
+	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
+		return fmt.Errorf("failed to perform batch - %w", err)
 	}
+
+	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 
 	return nil
 }

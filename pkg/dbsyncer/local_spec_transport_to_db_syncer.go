@@ -91,7 +91,7 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, b
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
+	idToVersionMapFromDB, err := dbClient.GetLocalDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", schema, tableName, err)
 	}

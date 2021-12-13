@@ -24,6 +24,8 @@ const (
 	LocalPlacementRulesTableName = "placementrules"
 	// LeafHubHeartbeatsTableName table name for LH heartbeats.
 	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
+	// SubscriptionTableName table name of the subscriptions table.
+	SubscriptionTableName = "subscriptions"
 )
 
 // default values.

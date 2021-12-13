@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -156,6 +157,11 @@ func (s *SyncService) handleBundles() {
 			}
 
 			receivedBundle := s.msgIDToRegistrationMap[msgID].CreateBundleFunc()
+
+			log.Println("***************")
+			log.Println(buffer.String())
+			log.Println("***************")
+
 			if err := json.Unmarshal(buffer.Bytes(), receivedBundle); err != nil {
 				s.log.Error(err, "failed to parse bundle", "ObjectId", objectMetaData.ObjectID)
 				continue
