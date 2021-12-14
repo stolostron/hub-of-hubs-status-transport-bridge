@@ -40,9 +40,14 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
+	createBundleInfoFuncMap := map[status.HybridSyncMode]bundleinfo.CreateBundleInfoFunc{
+		status.DeltaStateMode:    bundleinfo.NewDeltaStateBundleInfo,
+		status.CompleteStateMode: bundleinfo.NewCompleteStateBundleInfo,
+	}
+
 	for _, registration := range registrations {
 		priorityQueue[registration.priority] = &conflationElement{
-			bundleInfo:                 bundleinfo.NewBundleInfo(registration.bundleType, registration.syncMode),
+			bundleInfo:                 createBundleInfoFuncMap[registration.syncMode](registration.bundleType),
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
@@ -148,8 +153,8 @@ func (cu *ConflationUnit) ReportResult(metadata *bundleinfo.BundleMetadata, err 
 	conflationElement.isInProcess = false // finished processing bundle
 
 	if err != nil {
-		if hybridBundleInfo, ok := conflationElement.bundleInfo.(bundleinfo.HybridBundleInfo); ok {
-			hybridBundleInfo.HandleFailure(metadata)
+		if deltaBundleInfo, ok := conflationElement.bundleInfo.(bundleinfo.DeltaBundleInfo); ok {
+			deltaBundleInfo.HandleFailure(metadata)
 		}
 
 		cu.addCUToReadyQueueIfNeeded()

@@ -7,7 +7,7 @@ import (
 )
 
 // NewCompleteStateBundleInfo returns a new DeltaStateBundleInfo instance.
-func NewCompleteStateBundleInfo(bundleType string) *CompleteStateBundleInfo {
+func NewCompleteStateBundleInfo(bundleType string) BundleInfo {
 	return &CompleteStateBundleInfo{
 		bundle:     nil,
 		metadata:   nil,

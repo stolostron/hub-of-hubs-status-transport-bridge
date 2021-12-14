@@ -12,7 +12,7 @@ import (
 var errWrongBundleType = errors.New("received wrong bundle type, expecting DeltaStateBundle")
 
 // NewDeltaStateBundleInfo returns a new DeltaStateBundleInfo instance.
-func NewDeltaStateBundleInfo(bundleType string) *DeltaStateBundleInfo {
+func NewDeltaStateBundleInfo(bundleType string) BundleInfo {
 	return &DeltaStateBundleInfo{
 		bundle:     nil,
 		metadata:   nil,

@@ -6,14 +6,8 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
-// NewBundleInfo returns a BundleInfo instance based on sync mode.
-func NewBundleInfo(bundleType string, syncMode status.HybridSyncMode) BundleInfo {
-	if syncMode == status.DeltaStateMode {
-		return NewDeltaStateBundleInfo(bundleType)
-	}
-
-	return NewCompleteStateBundleInfo(bundleType)
-}
+// CreateBundleInfoFunc function that specifies how to create a bundle-info.
+type CreateBundleInfoFunc func(bundleType string) BundleInfo
 
 // BundleInfo abstracts the information/functionality of the two types of bundles (complete/delta state bundles).
 type BundleInfo interface {
@@ -32,8 +26,8 @@ type BundleInfo interface {
 	MarkAsProcessed(processedMetadata *BundleMetadata)
 }
 
-// HybridBundleInfo extends BundleInfo with hybrid-bundle related functionalities.
-type HybridBundleInfo interface {
+// DeltaBundleInfo extends BundleInfo with delta-bundle related functionalities.
+type DeltaBundleInfo interface {
 	BundleInfo
 	// HandleFailure handles bundle processing failure (data recovery if needed).
 	HandleFailure(failedMetadata *BundleMetadata)
