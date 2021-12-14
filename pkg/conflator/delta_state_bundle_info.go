@@ -22,21 +22,27 @@ func newDeltaStateBundleInfo() bundleInfo {
 			transportMetadata: nil,
 		},
 		lastReceivedTransportMetadata: nil,
-		currentDeltaLineVersion:       nil,
 		deltaLineHeadBundleVersion:    nil,
 	}
 }
 
 // deltaStateBundleInfo wraps delta-state bundles and their metadata.
+//
+// Definitions:
+//
+// - Delta Line: refers to all the deltas between two (complete-state) base bundles. That is all the delta-bundles
+// that share the same BaseBundleVersion field value.
+//
+// - Delta Pack: the collection of delta-bundles whose content was merged in the bundle pointed to at the time. When a
+// delta-bundle (that represents a delta-pack) is dispatched, the bundle pointer is reset so that we may start a new
+// delta pack.
 type deltaStateBundleInfo struct {
 	bundle   bundle.DeltaStateBundle
 	metadata *BundleMetadata
 
 	lastDispatchedDeltaBundleData recoverableDeltaStateBundleData
 	lastReceivedTransportMetadata transport.BundleMetadata
-
-	currentDeltaLineVersion    *status.BundleVersion
-	deltaLineHeadBundleVersion *status.BundleVersion
+	deltaLineHeadBundleVersion    *status.BundleVersion
 }
 
 type recoverableDeltaStateBundleData struct {
@@ -66,14 +72,36 @@ func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
 	return bi.metadata
 }
 
-// updateBundle updates the wrapped bundle and metadata according to the sync mode.
-func (bi *deltaStateBundleInfo) updateBundle(newBundle bundle.Bundle) error {
+// updateBundleInfo updates the bundle and its metadata according to delta-state sync-mode.
+func (bi *deltaStateBundleInfo) updateBundleInfo(newBundle bundle.Bundle, transportMetadata transport.BundleMetadata,
+	overwriteMetadataObject bool) error {
 	newDeltaBundle, ok := newBundle.(bundle.DeltaStateBundle)
 	if !ok {
 		return fmt.Errorf("%w - received type %s", errWrongBundleType, helpers.GetBundleType(newBundle))
 	}
 
-	if bi.bundle != nil && !bi.bundleStartsNewLine(newDeltaBundle) {
+	bundleStartsNewLine := bi.bundleStartsNewLine(bi.bundle, newDeltaBundle)
+
+	if err := bi.updateBundle(newDeltaBundle); err != nil {
+		return fmt.Errorf("failed to update bundle - %w", err)
+	}
+
+	bi.updateMetadata(helpers.GetBundleType(newDeltaBundle), newDeltaBundle.GetVersion(), transportMetadata,
+		overwriteMetadataObject)
+
+	// update transport metadata only if bundle starts a new line of deltas
+	if bundleStartsNewLine {
+		// update current line-version info
+		bi.deltaLineHeadBundleVersion = bi.metadata.bundleVersion
+		bi.metadata.transportBundleMetadata = transportMetadata
+	}
+
+	return nil
+}
+
+// updateBundle updates the wrapped bundle and metadata according to the sync mode.
+func (bi *deltaStateBundleInfo) updateBundle(newDeltaBundle bundle.DeltaStateBundle) error {
+	if bi.bundle != nil && !bi.bundleStartsNewLine(bi.bundle, newDeltaBundle) {
 		// update content of newBundle with the currently held info, since a delta bundle contains events as opposed to
 		// the full-state in CompleteState bundles.
 		if err := newDeltaBundle.InheritEvents(bi.bundle); err != nil {
@@ -106,14 +134,6 @@ func (bi *deltaStateBundleInfo) updateMetadata(bundleType string, version *statu
 	bi.metadata.bundleVersion = version
 	// update latest received transport metadata for committing later if needed
 	bi.lastReceivedTransportMetadata = transportMetadata
-
-	// update transport metadata only if bundle starts a new line of deltas
-	if bi.bundleStartsNewLine(bi.bundle) {
-		// update current line-version
-		bi.currentDeltaLineVersion = bi.bundle.GetDependencyVersion()
-		bi.deltaLineHeadBundleVersion = bi.metadata.bundleVersion
-		bi.metadata.transportBundleMetadata = transportMetadata
-	}
 }
 
 // handleFailure recovers from failure.
@@ -172,6 +192,7 @@ func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadat
 	bi.lastDispatchedDeltaBundleData.transportMetadata = nil
 }
 
-func (bi *deltaStateBundleInfo) bundleStartsNewLine(newDeltaBundle bundle.DeltaStateBundle) bool {
-	return newDeltaBundle.GetDependencyVersion().NewerThan(bi.currentDeltaLineVersion)
+func (bi *deltaStateBundleInfo) bundleStartsNewLine(currentDeltaBundle bundle.DeltaStateBundle,
+	newDeltaBundle bundle.DeltaStateBundle) bool {
+	return newDeltaBundle.GetDependencyVersion().NewerThan(currentDeltaBundle.GetDependencyVersion())
 }

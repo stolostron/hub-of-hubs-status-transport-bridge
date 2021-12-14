@@ -1,8 +1,8 @@
 package conflator
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
@@ -30,30 +30,26 @@ func (bi *completeStateBundleInfo) getMetadata() *BundleMetadata {
 	return bi.metadata
 }
 
-// updateBundle updates the wrapped bundle and metadata according to the complete-state sync mode.
-func (bi *completeStateBundleInfo) updateBundle(bundle bundle.Bundle) error {
+// updateBundleInfo updates the bundle and its metadata according to complete-state sync-mode.
+func (bi *completeStateBundleInfo) updateBundleInfo(bundle bundle.Bundle, transportMetadata transport.BundleMetadata,
+	overwriteMetadataObject bool) error {
 	bi.bundle = bundle
 
-	return nil
-}
-
-// updateMetadata updates the wrapped metadata according to the complete-state sync mode.
-// overwriteObject boolean sets whether to overwrite the current metadata or to create a new instance.
-func (bi *completeStateBundleInfo) updateMetadata(bundleType string, version *status.BundleVersion,
-	transportMetadata transport.BundleMetadata, overwriteObject bool) {
-	if !overwriteObject {
+	if !overwriteMetadataObject {
 		bi.metadata = &BundleMetadata{
-			bundleType:              bundleType,
-			bundleVersion:           version,
+			bundleType:              helpers.GetBundleType(bundle),
+			bundleVersion:           bundle.GetVersion(),
 			transportBundleMetadata: transportMetadata,
 		}
 
-		return
+		return nil
 	}
 
 	// update metadata
-	bi.metadata.bundleVersion = version
+	bi.metadata.bundleVersion = bundle.GetVersion()
 	bi.metadata.transportBundleMetadata = transportMetadata
+
+	return nil
 }
 
 // getTransportMetadataToCommit returns the wrapped bundle's transport metadata.

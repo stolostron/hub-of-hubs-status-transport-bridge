@@ -1,7 +1,6 @@
 package conflator
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
@@ -15,11 +14,8 @@ type bundleInfo interface {
 	getBundle() bundle.Bundle
 	// getMetadata returns the metadata to forward to processors.
 	getMetadata() *BundleMetadata
-	// updateBundle updates the bundle according to sync-mode.
-	updateBundle(bundle bundle.Bundle) error
-	// updateMetadata updates the metadata according to sync-mode.
-	updateMetadata(bundleType string, version *status.BundleVersion, transportMetadata transport.BundleMetadata,
-		overwriteObject bool)
+	// updateBundleInfo updates the bundle and its metadata according to sync-mode.
+	updateBundleInfo(bundle bundle.Bundle, metadata transport.BundleMetadata, overwriteMetadataObject bool) error
 	// getTransportMetadataToCommit returns the transport metadata for message committing purposes.
 	getTransportMetadataToCommit() transport.BundleMetadata
 	// markAsProcessed marks the bundle as processed.
