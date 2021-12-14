@@ -57,7 +57,7 @@ func (bi *deltaStateBundleInfo) getBundle() bundle.Bundle {
 
 // getMetadata returns the metadata to be forwarded to processors.
 func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
-	// save the dispatched bundle content before giving metadata, so that we can start a new line and recover
+	// save the dispatched bundle content before giving metadata, so that we can start a new pack and recover
 	// from failure if it happens
 	bi.lastDispatchedDeltaBundleData.bundle = bi.bundle
 	// lastDispatchedDeltaBundleData's transportMetadata will be used later in case the processing fails, therefore
