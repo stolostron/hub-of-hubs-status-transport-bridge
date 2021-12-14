@@ -13,8 +13,8 @@ type createBundleInfoFunc func(bundleType string) bundleInfo
 type bundleInfo interface {
 	// getBundle returns the bundle.
 	getBundle() bundle.Bundle
-	// getMetadata returns the metadata. If the call is to dispatch the metadata then toDispatch must be set to true.
-	getMetadata(toDispatch bool) *BundleMetadata
+	// getMetadata returns the metadata to forward to processors.
+	getMetadata() *BundleMetadata
 	// updateBundle updates the bundle according to sync-mode.
 	updateBundle(bundle bundle.Bundle) error
 	// updateMetadata updates the metadata according to sync-mode.

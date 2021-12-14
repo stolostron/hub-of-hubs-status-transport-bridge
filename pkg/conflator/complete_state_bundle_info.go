@@ -27,8 +27,8 @@ func (bi *completeStateBundleInfo) getBundle() bundle.Bundle {
 	return bi.bundle
 }
 
-// getMetadata returns the metadata.
-func (bi *completeStateBundleInfo) getMetadata(_ bool) *BundleMetadata {
+// getMetadata returns the metadata to be forwarded to processors.
+func (bi *completeStateBundleInfo) getMetadata() *BundleMetadata {
 	return bi.metadata
 }
 

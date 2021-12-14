@@ -50,12 +50,8 @@ func (bi *deltaStateBundleInfo) getBundle() bundle.Bundle {
 	return bi.bundle
 }
 
-// getMetadata returns the metadata.
-func (bi *deltaStateBundleInfo) getMetadata(toDispatch bool) *BundleMetadata {
-	if !toDispatch {
-		return bi.metadata
-	}
-
+// getMetadata returns the metadata to be forwarded to processors.
+func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
 	// save the dispatched bundle content before giving metadata, so that we can start a new line and recover
 	// from failure if it happens
 	bi.lastDispatchedDeltaBundleData.bundle = bi.bundle

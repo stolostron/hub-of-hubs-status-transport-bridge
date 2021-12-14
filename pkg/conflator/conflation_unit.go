@@ -132,7 +132,7 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
 	cu.statistics.StopConflationUnitMetrics(conflationElement.bundleInfo.getBundle())
 
-	return conflationElement.bundleInfo.getBundle(), conflationElement.bundleInfo.getMetadata(true),
+	return conflationElement.bundleInfo.getBundle(), conflationElement.bundleInfo.getMetadata(),
 		conflationElement.handlerFunction, nil
 }
 
@@ -244,8 +244,8 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	dependantBundle, ok := conflationElement.bundleInfo.getBundle().(bundle.DependantBundle)
 	if !ok { // this bundle declared it has a dependency but doesn't implement DependantBundle
 		cu.log.Error(errDependencyCannotBeEvaluated, "cannot evaluate bundle dependencies, not processing bundle",
-			"LeafHubName", conflationElement.bundleInfo.getBundle().GetLeafHubName(), "bundleType",
-			conflationElement.bundleInfo.getMetadata(false).bundleType)
+			"LeafHubName", conflationElement.bundleInfo.getBundle().GetLeafHubName(),
+			"bundleType", helpers.GetBundleType(conflationElement.bundleInfo.getBundle()))
 
 		return false
 	}
