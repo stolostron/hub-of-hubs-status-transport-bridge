@@ -2,6 +2,7 @@ package conflator
 
 import (
 	"fmt"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 
 	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
@@ -24,7 +25,8 @@ func (element *conflationElement) update(bundle bundle.Bundle, metadata transpor
 	}
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
-	element.bundleInfo.updateMetadata(bundle.GetVersion(), metadata, !element.isInProcess)
+	element.bundleInfo.updateMetadata(helpers.GetBundleType(bundle), bundle.GetVersion(), metadata,
+		!element.isInProcess)
 
 	return nil
 }
