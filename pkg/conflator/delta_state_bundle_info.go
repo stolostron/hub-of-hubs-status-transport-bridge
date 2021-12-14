@@ -105,7 +105,7 @@ func (bi *deltaStateBundleInfo) updateBundle(newDeltaBundle bundle.DeltaStateBun
 		// update content of newBundle with the currently held info, since a delta bundle contains events as opposed to
 		// the full-state in CompleteState bundles.
 		if err := newDeltaBundle.InheritEvents(bi.bundle); err != nil {
-			return fmt.Errorf("%w", err)
+			return fmt.Errorf("failed to merge bundles - %w", err)
 		}
 	}
 	// update bundle
