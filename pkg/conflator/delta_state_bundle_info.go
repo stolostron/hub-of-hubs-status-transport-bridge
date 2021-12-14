@@ -101,13 +101,13 @@ func (bi *deltaStateBundleInfo) update(newBundle bundle.Bundle, transportMetadat
 
 // updateBundle updates the wrapped bundle and metadata according to the sync mode.
 func (bi *deltaStateBundleInfo) updateBundle(newDeltaBundle bundle.DeltaStateBundle) error {
-	if bi.bundle != nil && !bi.bundleStartsNewLine(bi.bundle, newDeltaBundle) {
-		// update content of newBundle with the currently held info, since a delta bundle contains events as opposed to
-		// the full-state in CompleteState bundles.
-		if err := newDeltaBundle.InheritEvents(bi.bundle); err != nil {
-			return fmt.Errorf("failed to merge bundles - %w", err)
-		}
+	// update content of newBundle with the currently held info, since a delta bundle contains events as opposed to
+	// the full-state in CompleteState bundles.
+	// note: if the currently held info is irrelevant to the newDeltaBundle, InheritEvents handles it.
+	if err := newDeltaBundle.InheritEvents(bi.bundle); err != nil {
+		return fmt.Errorf("failed to merge bundles - %w", err)
 	}
+
 	// update bundle
 	bi.bundle = newDeltaBundle
 
