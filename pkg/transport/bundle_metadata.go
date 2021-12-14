@@ -6,15 +6,28 @@ type GetBundlesMetadataFunc func() []BundleMetadata
 // BundleMetadata may include metadata that relates to transport - e.g. commit offset.
 type BundleMetadata interface {
 	MarkAsProcessed()
+	Processed() bool
+}
+
+// NewBaseBundleMetadata returns a new instance of BaseBundleMetadata.
+func NewBaseBundleMetadata() *BaseBundleMetadata {
+	return &BaseBundleMetadata{
+		processed: false,
+	}
 }
 
 // BaseBundleMetadata wraps the shared data/functionality that the different transport BundleMetadata implementations-
 // can be based on.
 type BaseBundleMetadata struct {
-	Processed bool
+	processed bool
 }
 
 // MarkAsProcessed function that marks the metadata as processed.
 func (metadata *BaseBundleMetadata) MarkAsProcessed() {
-	metadata.Processed = true
+	metadata.processed = true
+}
+
+// Processed returns whether the bundle was processed or not.
+func (metadata *BaseBundleMetadata) Processed() bool {
+	return metadata.processed
 }

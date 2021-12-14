@@ -1,4 +1,4 @@
-package bundleinfo
+package conflator
 
 import (
 	"errors"
@@ -11,9 +11,9 @@ import (
 
 var errWrongBundleType = errors.New("received wrong bundle type, expecting DeltaStateBundle")
 
-// NewDeltaStateBundleInfo returns a new DeltaStateBundleInfo instance.
-func NewDeltaStateBundleInfo(bundleType string) BundleInfo {
-	return &DeltaStateBundleInfo{
+// newDeltaStateBundleInfo returns a new DeltaStateBundleInfo instance.
+func newDeltaStateBundleInfo(bundleType string) bundleInfo {
+	return &deltaStateBundleInfo{
 		bundle:     nil,
 		metadata:   nil,
 		bundleType: bundleType,
@@ -27,8 +27,8 @@ func NewDeltaStateBundleInfo(bundleType string) BundleInfo {
 	}
 }
 
-// DeltaStateBundleInfo wraps delta-state bundles and their metadata.
-type DeltaStateBundleInfo struct {
+// deltaStateBundleInfo wraps delta-state bundles and their metadata.
+type deltaStateBundleInfo struct {
 	bundle   bundle.DeltaStateBundle
 	metadata *BundleMetadata
 
@@ -45,13 +45,13 @@ type recoverableDeltaStateBundleData struct {
 	transportMetadata transport.BundleMetadata
 }
 
-// GetBundle returns the wrapped bundle.
-func (bi *DeltaStateBundleInfo) GetBundle() bundle.Bundle {
+// getBundle returns the wrapped bundle.
+func (bi *deltaStateBundleInfo) getBundle() bundle.Bundle {
 	return bi.bundle
 }
 
-// GetMetadata returns the metadata.
-func (bi *DeltaStateBundleInfo) GetMetadata(toDispatch bool) *BundleMetadata {
+// getMetadata returns the metadata.
+func (bi *deltaStateBundleInfo) getMetadata(toDispatch bool) *BundleMetadata {
 	if !toDispatch {
 		return bi.metadata
 	}
@@ -71,8 +71,8 @@ func (bi *DeltaStateBundleInfo) GetMetadata(toDispatch bool) *BundleMetadata {
 	return bi.metadata
 }
 
-// UpdateBundle updates the wrapped bundle and metadata according to the sync mode.
-func (bi *DeltaStateBundleInfo) UpdateBundle(newBundle bundle.Bundle) error {
+// updateBundle updates the wrapped bundle and metadata according to the sync mode.
+func (bi *deltaStateBundleInfo) updateBundle(newBundle bundle.Bundle) error {
 	newDeltaBundle, ok := newBundle.(bundle.DeltaStateBundle)
 	if !ok {
 		return fmt.Errorf("%w - received type %s", errWrongBundleType, bi.bundleType)
@@ -91,26 +91,26 @@ func (bi *DeltaStateBundleInfo) UpdateBundle(newBundle bundle.Bundle) error {
 	return nil
 }
 
-// UpdateMetadata updates the wrapped metadata according to the delta-state sync mode.
+// updateMetadata updates the wrapped metadata according to the delta-state sync mode.
 // createNewObjects boolean sets whether new (bundle/metadata) objects must be pointed to.
-func (bi *DeltaStateBundleInfo) UpdateMetadata(version *status.BundleVersion,
-	transportMetadata transport.BundleMetadata, createNewObject bool) {
+func (bi *deltaStateBundleInfo) updateMetadata(version *status.BundleVersion,
+	transportMetadata transport.BundleMetadata, overwriteObject bool) {
 	if bi.metadata == nil { // new metadata
 		bi.metadata = &BundleMetadata{
-			BundleType:              bi.bundleType,
-			BundleVersion:           version,
+			bundleType:              bi.bundleType,
+			bundleVersion:           version,
 			transportBundleMetadata: transportMetadata,
 		}
-	} else if createNewObject {
+	} else if !overwriteObject {
 		// create new metadata with identical info and plug it in
 		bi.metadata = &BundleMetadata{
-			BundleType:              bi.bundleType,
-			BundleVersion:           bi.metadata.BundleVersion,
+			bundleType:              bi.bundleType,
+			bundleVersion:           bi.metadata.bundleVersion,
 			transportBundleMetadata: bi.metadata.transportBundleMetadata, // preserve metadata of the earliest
 		}
 	}
 	// update version
-	bi.metadata.BundleVersion = version
+	bi.metadata.bundleVersion = version
 	// update latest received transport metadata for committing later if needed
 	bi.lastReceivedTransportMetadata = transportMetadata
 
@@ -118,22 +118,22 @@ func (bi *DeltaStateBundleInfo) UpdateMetadata(version *status.BundleVersion,
 	if bi.bundleStartsNewLine(bi.bundle) {
 		// update current line-version
 		bi.currentDeltaLineVersion = bi.bundle.GetDependencyVersion()
-		bi.deltaLineHeadBundleVersion = bi.metadata.BundleVersion
+		bi.deltaLineHeadBundleVersion = bi.metadata.bundleVersion
 		bi.metadata.transportBundleMetadata = transportMetadata
 	}
 }
 
-// HandleFailure recovers from failure.
+// handleFailure recovers from failure.
 // The failed bundle's content is re-merged (not as source of truth) into the current active bundle,
 // and the metadata is restored for safe committing (back to the first merged pending delta bundle's).
-func (bi *DeltaStateBundleInfo) HandleFailure(failedMetadata *BundleMetadata) {
+func (bi *deltaStateBundleInfo) handleFailure(failedMetadata *BundleMetadata) {
 	lastDispatchedDeltaBundle := bi.lastDispatchedDeltaBundleData.bundle
 	lastDispatchedTransportMetadata := bi.lastDispatchedDeltaBundleData.transportMetadata
 	// release currently saved data
 	bi.lastDispatchedDeltaBundleData.bundle = nil
 	bi.lastDispatchedDeltaBundleData.transportMetadata = nil
 
-	if bi.deltaLineHeadBundleVersion.NewerThan(failedMetadata.BundleVersion) {
+	if bi.deltaLineHeadBundleVersion.NewerThan(failedMetadata.bundleVersion) {
 		return // failed bundle's content is irrelevant since a covering baseline was received
 	} else if bi.bundle == nil {
 		// did not receive updates, restore content
@@ -151,8 +151,8 @@ func (bi *DeltaStateBundleInfo) HandleFailure(failedMetadata *BundleMetadata) {
 	bi.metadata.transportBundleMetadata = lastDispatchedTransportMetadata
 }
 
-// GetTransportMetadataToCommit returns the wrapped bundle's transport metadata.
-func (bi *DeltaStateBundleInfo) GetTransportMetadataToCommit() transport.BundleMetadata {
+// getTransportMetadataToCommit returns the wrapped bundle's transport metadata.
+func (bi *deltaStateBundleInfo) getTransportMetadataToCommit() transport.BundleMetadata {
 	if bi.metadata == nil {
 		return nil
 	}
@@ -160,9 +160,9 @@ func (bi *DeltaStateBundleInfo) GetTransportMetadataToCommit() transport.BundleM
 	return bi.metadata.transportBundleMetadata
 }
 
-// MarkAsProcessed releases the bundle content and marks transport metadata as processed.
-func (bi *DeltaStateBundleInfo) MarkAsProcessed(processedMetadata *BundleMetadata) {
-	if bi.metadata.BundleVersion.NewerThan(processedMetadata.BundleVersion) {
+// markAsProcessed releases the bundle content and marks transport metadata as processed.
+func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadata) {
+	if bi.metadata.bundleVersion.NewerThan(processedMetadata.bundleVersion) {
 		// release fail-recovery data
 		bi.lastDispatchedDeltaBundleData.bundle = nil
 		bi.lastDispatchedDeltaBundleData.transportMetadata = nil
@@ -179,6 +179,6 @@ func (bi *DeltaStateBundleInfo) MarkAsProcessed(processedMetadata *BundleMetadat
 	bi.lastDispatchedDeltaBundleData.transportMetadata = nil
 }
 
-func (bi *DeltaStateBundleInfo) bundleStartsNewLine(newDeltaBundle bundle.DeltaStateBundle) bool {
+func (bi *deltaStateBundleInfo) bundleStartsNewLine(newDeltaBundle bundle.DeltaStateBundle) bool {
 	return newDeltaBundle.GetDependencyVersion().NewerThan(bi.currentDeltaLineVersion)
 }

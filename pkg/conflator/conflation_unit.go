@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	bundleinfo "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/bundle-info"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
@@ -31,7 +30,7 @@ var (
 // bundles and invoking the handler functions using DB jobs.
 // (using this interfaces verifies no developer violates the design that was intended).
 type ResultReporter interface {
-	ReportResult(metadata *bundleinfo.BundleMetadata, err error)
+	ReportResult(metadata *BundleMetadata, err error)
 }
 
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
@@ -40,9 +39,9 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
-	createBundleInfoFuncMap := map[status.HybridSyncMode]bundleinfo.CreateBundleInfoFunc{
-		status.DeltaStateMode:    bundleinfo.NewDeltaStateBundleInfo,
-		status.CompleteStateMode: bundleinfo.NewCompleteStateBundleInfo,
+	createBundleInfoFuncMap := map[status.HybridSyncMode]createBundleInfoFunc{
+		status.DeltaStateMode:    newDeltaStateBundleInfo,
+		status.CompleteStateMode: newCompleteStateBundleInfo,
 	}
 
 	for _, registration := range registrations {
@@ -89,7 +88,7 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 	bundleType := helpers.GetBundleType(bundle)
 	priority := cu.bundleTypeToPriority[bundleType]
 	conflationElement := cu.priorityQueue[priority]
-	conflationElementBundle := conflationElement.bundleInfo.GetBundle()
+	conflationElementBundle := conflationElement.bundleInfo.getBundle()
 
 	if !bundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) {
 		return // we got old bundle, a newer (or equal) bundle was already processed.
@@ -104,24 +103,18 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 
 	// if we got here, we got bundle with newer version
 	// update the bundle in the priority queue.
-	if err := conflationElement.bundleInfo.UpdateBundle(bundle); err != nil {
+	if err := conflationElement.update(bundle, metadata); err != nil {
 		cu.log.Error(err, "failed to insert bundle")
 		return
 	}
-	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
-	// not changing bundles/metadata that were already given to DB workers for processing.
-	if conflationElement.bundleInfo.GetMetadata(false) != nil && !conflationElement.isInProcess {
-		conflationElement.bundleInfo.UpdateMetadata(bundle.GetVersion(), metadata, false)
-		cu.statistics.IncrementNumberOfConflations(bundle)
-	} else {
-		conflationElement.bundleInfo.UpdateMetadata(bundle.GetVersion(), metadata, true)
-	}
-
+	// TODO: fix conflation mechanism:
+	// - count correctly when a bundle is in processing but more than one bundle comes in
+	// - conflating delta bundles is different from conflating complete-state bundles, needs to be addressed.
 	cu.addCUToReadyQueueIfNeeded()
 }
 
 // GetNext returns the next ready to be processed bundle and its transport metadata.
-func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *bundleinfo.BundleMetadata,
+func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetadata,
 	handlerFunc BundleHandlerFunc, err error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
@@ -137,24 +130,24 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *bundleinfo.
 	conflationElement.isInProcess = true
 
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
-	cu.statistics.StopConflationUnitMetrics(conflationElement.bundleInfo.GetBundle())
+	cu.statistics.StopConflationUnitMetrics(conflationElement.bundleInfo.getBundle())
 
-	return conflationElement.bundleInfo.GetBundle(), conflationElement.bundleInfo.GetMetadata(true),
+	return conflationElement.bundleInfo.getBundle(), conflationElement.bundleInfo.getMetadata(true),
 		conflationElement.handlerFunction, nil
 }
 
 // ReportResult is used to report the result of bundle handling job.
-func (cu *ConflationUnit) ReportResult(metadata *bundleinfo.BundleMetadata, err error) {
+func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
-	priority := cu.bundleTypeToPriority[metadata.BundleType] // priority of the bundle that was processed
+	priority := cu.bundleTypeToPriority[metadata.bundleType] // priority of the bundle that was processed
 	conflationElement := cu.priorityQueue[priority]
 	conflationElement.isInProcess = false // finished processing bundle
 
 	if err != nil {
-		if deltaBundleInfo, ok := conflationElement.bundleInfo.(bundleinfo.DeltaBundleInfo); ok {
-			deltaBundleInfo.HandleFailure(metadata)
+		if deltaBundleInfo, ok := conflationElement.bundleInfo.(deltaBundleInfo); ok {
+			deltaBundleInfo.handleFailure(metadata)
 		}
 
 		cu.addCUToReadyQueueIfNeeded()
@@ -162,14 +155,14 @@ func (cu *ConflationUnit) ReportResult(metadata *bundleinfo.BundleMetadata, err 
 		return
 	}
 	// otherwise, err is nil, means bundle processing finished successfully
-	if metadata.BundleVersion.NewerThan(conflationElement.lastProcessedBundleVersion) {
-		conflationElement.lastProcessedBundleVersion = metadata.BundleVersion
+	if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedBundleVersion) {
+		conflationElement.lastProcessedBundleVersion = metadata.bundleVersion
 	}
 	// if bundle wasn't updated since GetNext was called - mark it as processed (bundle info logic handles releasing
 	// data). if bundle is already nil then nothing came in since dispatching to dbsyncer.
-	if conflationElement.bundleInfo.GetBundle() == nil ||
-		metadata.BundleVersion.Equals(conflationElement.bundleInfo.GetBundle().GetVersion()) {
-		conflationElement.bundleInfo.MarkAsProcessed(metadata)
+	if conflationElement.bundleInfo.getBundle() == nil ||
+		metadata.bundleVersion.Equals(conflationElement.bundleInfo.getBundle().GetVersion()) {
+		conflationElement.bundleInfo.markAsProcessed(metadata)
 	}
 
 	cu.addCUToReadyQueueIfNeeded()
@@ -200,7 +193,7 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 // returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
-		ceBundle := conflationElement.bundleInfo.GetBundle()
+		ceBundle := conflationElement.bundleInfo.getBundle()
 		if ceBundle != nil && ceBundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) &&
 			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
 			cu.checkDependency(conflationElement) {
@@ -219,7 +212,7 @@ func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
 	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
 
 	for _, element := range cu.priorityQueue {
-		if transportMetadata := element.bundleInfo.GetTransportMetadataToCommit(); transportMetadata != nil {
+		if transportMetadata := element.bundleInfo.getTransportMetadataToCommit(); transportMetadata != nil {
 			bundlesMetadata = append(bundlesMetadata, transportMetadata)
 		}
 	}
@@ -248,11 +241,11 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 		return true // bundle in this conflation element has no dependency
 	}
 
-	dependantBundle, ok := conflationElement.bundleInfo.GetBundle().(bundle.DependantBundle)
+	dependantBundle, ok := conflationElement.bundleInfo.getBundle().(bundle.DependantBundle)
 	if !ok { // this bundle declared it has a dependency but doesn't implement DependantBundle
 		cu.log.Error(errDependencyCannotBeEvaluated, "cannot evaluate bundle dependencies, not processing bundle",
-			"LeafHubName", conflationElement.bundleInfo.GetBundle().GetLeafHubName(), "BundleType",
-			conflationElement.bundleInfo.GetMetadata(false).BundleType)
+			"LeafHubName", conflationElement.bundleInfo.getBundle().GetLeafHubName(), "bundleType",
+			conflationElement.bundleInfo.getMetadata(false).bundleType)
 
 		return false
 	}

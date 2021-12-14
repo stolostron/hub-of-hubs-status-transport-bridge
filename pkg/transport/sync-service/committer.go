@@ -72,7 +72,7 @@ func (c *committer) commitMetadata(ctx context.Context) {
 					continue // shouldn't happen
 				}
 
-				if metadata.Processed {
+				if metadata.Processed() {
 					key := fmt.Sprintf("%s.%s", metadata.objectMetadata.ObjectID,
 						metadata.objectMetadata.ObjectType)
 					processedBundleMetadataToCommit[key] = metadata
