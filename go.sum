@@ -790,6 +790,8 @@ github.com/open-cluster-management/governance-policy-propagator v0.0.0-202105202
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26/go.mod h1:7gzDyC7PddcuInXS+kLrfYmto/ImSORibXwy8RGjNM8=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130123010-5b9fdb74b38e h1:z9I/8XUElURgKCJ6vtpXq4FTm4B+dSto+G0saRze6I4=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211130123010-5b9fdb74b38e/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211214080049-e298432bb399 h1:80znxLAyyh/xjk5v7BvKR/wGnkCoJzt7zOUgS62ioSA=
+github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3-0.20211214080049-e298432bb399/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025054627-da6a9c5f72af h1:X7p4Z04FpU5j5YIiz/8aGs2BOJhTt9i2FlUi8V+BBow=
 github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.1.1-0.20211025054627-da6a9c5f72af/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
 github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211201092145-1f7a72298d73 h1:B7IRxG/gd3KOCCTeoxSC/0WrGnAeeW3iLqIaH7Ayles=
