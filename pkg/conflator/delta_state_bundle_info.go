@@ -176,13 +176,9 @@ func (bi *deltaStateBundleInfo) getTransportMetadataToCommit() transport.BundleM
 
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
 func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadata) {
-	if !bi.metadata.bundleVersion.NewerThan(processedMetadata.bundleVersion) {
-		// no new delta pack started, mark the latest dispatched bundle transport-metadata as processed and make it-
-		// active.
-		// note: the transport metadata of non-processed delta bundles is that of the earliest (in pending state),
-		// therefore we need to swap it with that of the last dispatched.
-		bi.metadata.transportBundleMetadata = processedMetadata.transportBundleMetadata
-		bi.metadata.transportBundleMetadata.MarkAsProcessed()
+	if bi.metadata.bundleVersion.Equals(processedMetadata.bundleVersion) {
+		// no new delta pack started, mark the received transport-metadata as processed.
+		processedMetadata.transportBundleMetadata.MarkAsProcessed()
 	}
 
 	// release fail-recovery data
