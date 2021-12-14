@@ -3,6 +3,7 @@ package conflator
 import (
 	"context"
 
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
@@ -13,8 +14,9 @@ type BundleHandlerFunc func(context.Context, bundle.Bundle, db.StatusTransportBr
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
 func NewConflationRegistration(priority conflationPriority, bundleType string,
-	handlerFunction BundleHandlerFunc) *ConflationRegistration {
+	handlerFunction BundleHandlerFunc, syncMode status.HybridSyncMode) *ConflationRegistration {
 	return &ConflationRegistration{
+		syncMode:        syncMode,
 		priority:        priority,
 		bundleType:      bundleType,
 		handlerFunction: handlerFunction,
@@ -24,6 +26,7 @@ func NewConflationRegistration(priority conflationPriority, bundleType string,
 
 // ConflationRegistration is used to register a new conflated bundle type along with its priority and handler function.
 type ConflationRegistration struct {
+	syncMode        status.HybridSyncMode
 	priority        conflationPriority
 	bundleType      string
 	handlerFunction BundleHandlerFunc

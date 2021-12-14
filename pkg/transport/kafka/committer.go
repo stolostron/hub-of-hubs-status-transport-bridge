@@ -95,7 +95,7 @@ func (c *committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 			continue // shouldn't happen
 		}
 
-		if !metadata.Processed {
+		if !metadata.Processed() {
 			// this belongs to a pending bundle, update the lowest-offsets-map
 			lowestOffset, found := pendingLowestOffsetsMap[metadata.partition]
 			if found && metadata.offset >= lowestOffset {

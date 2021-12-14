@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
@@ -70,6 +70,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 		CreateBundleFunc: syncer.createMinimalComplianceStatusBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
+
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
@@ -100,14 +101,16 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
 		},
-	))
+		status.CompleteStateMode))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.CompleteComplianceStatusPriority,
 		helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)),
+		},
+		status.CompleteStateMode,
+	).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)),
 	) // compliance depends on clusters per policy. should be processed only when there is an exact match
 
 	conflationManager.Register(conflator.NewConflationRegistration(
@@ -116,14 +119,14 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleMinimalComplianceBundle(ctx, bundle, dbClient)
 		},
-	))
+		status.CompleteStateMode))
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalClustersPerPolicyPriority,
 		localClustersPerPolicyBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusSchema, db.ComplianceTable)
 		},
-	))
+		status.CompleteStateMode))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalCompleteComplianceStatusPriority,
@@ -131,7 +134,9 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
 				db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
+		},
+		status.CompleteStateMode,
+	).WithDependency(dependency.NewDependency(localClustersPerPolicyBundleType, dependency.ExactMatch)))
 }
 
 // if we got inside the handler function, then the bundle version is newer than what was already handled.
@@ -153,7 +158,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 	batchBuilder := dbClient.NewPoliciesBatchBuilder(dbSchema, dbTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
-		clustersPerPolicy, ok := object.(*statusbundle.PolicyGenericComplianceStatus)
+		clustersPerPolicy, ok := object.(*status.PolicyGenericComplianceStatus)
 		if !ok {
 			continue // do not handle objects other than PolicyGenericComplianceStatus
 		}
@@ -183,7 +188,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 }
 
 func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder db.PoliciesBatchBuilder,
-	clustersFromBundle *statusbundle.PolicyGenericComplianceStatus, clustersFromDB *db.PolicyClustersSets) {
+	clustersFromBundle *status.PolicyGenericComplianceStatus, clustersFromDB *db.PolicyClustersSets) {
 	allClustersFromDB := clustersFromDB.GetAllClusters()
 
 	// handle compliant clusters of the policy
@@ -249,7 +254,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 	batchBuilder := dbClient.NewPoliciesBatchBuilder(dbSchema, dbTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is policy compliance status
-		policyComplianceStatus, ok := object.(*statusbundle.PolicyCompleteComplianceStatus)
+		policyComplianceStatus, ok := object.(*status.PolicyCompleteComplianceStatus)
 		if !ok {
 			continue // do not handle objects other than PolicyComplianceStatus
 		}
@@ -280,7 +285,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 }
 
 func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilder db.PoliciesBatchBuilder,
-	policyComplianceStatus *statusbundle.PolicyCompleteComplianceStatus, nonCompliantClustersFromDB set.Set,
+	policyComplianceStatus *status.PolicyCompleteComplianceStatus, nonCompliantClustersFromDB set.Set,
 	unknownClustersFromDB set.Set) {
 	// put non compliant and unknown clusters in a single set.
 	// the clusters that will be left in this set, will be considered implicitly as compliant
@@ -327,7 +332,7 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 	}
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is minimal policy compliance status.
-		minPolicyCompliance, ok := object.(*statusbundle.MinimalPolicyComplianceStatus)
+		minPolicyCompliance, ok := object.(*status.MinimalPolicyComplianceStatus)
 		if !ok {
 			continue // do not handle objects other than MinimalPolicyComplianceStatus.
 		}
