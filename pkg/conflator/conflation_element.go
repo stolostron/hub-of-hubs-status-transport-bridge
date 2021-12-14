@@ -30,3 +30,10 @@ func (element *conflationElement) update(bundle bundle.Bundle, metadata transpor
 
 	return nil
 }
+
+// getBundleForProcessing function to return Bundle and BundleMetadata to forward to processors.
+func (element *conflationElement) getBundleForProcessing() (bundle.Bundle, *BundleMetadata) {
+	// getBundle must be called before getMetadata since getMetadata assumes that the bundle is being forwarded
+	// to processors, therefore it may release the bundle (set to nil) and apply other dispatch-related functionality.
+	return element.bundleInfo.getBundle(), element.bundleInfo.getMetadata()
+}

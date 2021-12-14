@@ -114,8 +114,7 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 }
 
 // GetNext returns the next ready to be processed bundle and its transport metadata.
-func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetadata, handlerFunc BundleHandlerFunc,
-	err error) {
+func (cu *ConflationUnit) GetNext() (bundle.Bundle, *BundleMetadata, BundleHandlerFunc, error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
@@ -132,8 +131,9 @@ func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetad
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
 	cu.statistics.StopConflationUnitMetrics(conflationElement.bundleInfo.getBundle())
 
-	return conflationElement.bundleInfo.getBundle(), conflationElement.bundleInfo.getMetadata(),
-		conflationElement.handlerFunction, nil
+	bundleToProcess, bundleMetadata := conflationElement.getBundleForProcessing()
+
+	return bundleToProcess, bundleMetadata, conflationElement.handlerFunction, nil
 }
 
 // ReportResult is used to report the result of bundle handling job.
