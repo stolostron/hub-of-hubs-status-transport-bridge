@@ -137,8 +137,8 @@ func (ps *policyStatus) appendNewClusters(policyGenericStatus *status.PolicyGene
 }
 
 func (ps *policyStatus) contains(cluster string) bool {
-	if ps.unknownClusters.Contains(cluster) || ps.compliantClusters.Contains(cluster) ||
-		ps.nonCompliantClusters.Contains(cluster) {
+	if ps.unknownClusters.Contains(cluster) || ps.nonCompliantClusters.Contains(cluster) ||
+		ps.compliantClusters.Contains(cluster) {
 		return true
 	}
 
