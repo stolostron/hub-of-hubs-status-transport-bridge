@@ -32,7 +32,7 @@ func (bi *completeStateBundleInfo) getMetadata() *BundleMetadata {
 	return bi.metadata
 }
 
-// updateBundle updates the wrapped bundle and metadata according to the sync mode. o.
+// updateBundle updates the wrapped bundle and metadata according to the sync mode.
 func (bi *completeStateBundleInfo) updateBundle(bundle bundle.Bundle) error {
 	bi.bundle = bundle
 
