@@ -5,7 +5,9 @@ type GetBundlesMetadataFunc func() []BundleMetadata
 
 // BundleMetadata may include metadata that relates to transport - e.g. commit offset.
 type BundleMetadata interface {
+	// MarkAsProcessed function that marks the metadata as processed.
 	MarkAsProcessed()
+	// Processed returns whether the bundle was processed or not.
 	Processed() bool
 }
 
