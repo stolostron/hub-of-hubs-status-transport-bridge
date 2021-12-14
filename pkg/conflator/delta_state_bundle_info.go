@@ -3,6 +3,7 @@ package conflator
 import (
 	"errors"
 	"fmt"
+	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 
 	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
@@ -12,11 +13,10 @@ import (
 var errWrongBundleType = errors.New("received wrong bundle type, expecting DeltaStateBundle")
 
 // newDeltaStateBundleInfo returns a new DeltaStateBundleInfo instance.
-func newDeltaStateBundleInfo(bundleType string) bundleInfo {
+func newDeltaStateBundleInfo() bundleInfo {
 	return &deltaStateBundleInfo{
-		bundle:     nil,
-		metadata:   nil,
-		bundleType: bundleType,
+		bundle:   nil,
+		metadata: nil,
 		lastDispatchedDeltaBundleData: recoverableDeltaStateBundleData{
 			bundle:            nil,
 			transportMetadata: nil,
@@ -32,7 +32,6 @@ type deltaStateBundleInfo struct {
 	bundle   bundle.DeltaStateBundle
 	metadata *BundleMetadata
 
-	bundleType                    string
 	lastDispatchedDeltaBundleData recoverableDeltaStateBundleData
 	lastReceivedTransportMetadata transport.BundleMetadata
 
@@ -71,7 +70,7 @@ func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
 func (bi *deltaStateBundleInfo) updateBundle(newBundle bundle.Bundle) error {
 	newDeltaBundle, ok := newBundle.(bundle.DeltaStateBundle)
 	if !ok {
-		return fmt.Errorf("%w - received type %s", errWrongBundleType, bi.bundleType)
+		return fmt.Errorf("%w - received type %s", errWrongBundleType, helpers.GetBundleType(newBundle))
 	}
 
 	if bi.bundle != nil && !bi.bundleStartsNewLine(newDeltaBundle) {
@@ -89,19 +88,17 @@ func (bi *deltaStateBundleInfo) updateBundle(newBundle bundle.Bundle) error {
 
 // updateMetadata updates the wrapped metadata according to the delta-state sync mode.
 // createNewObjects boolean sets whether new (bundle/metadata) objects must be pointed to.
-func (bi *deltaStateBundleInfo) updateMetadata(version *status.BundleVersion,
+func (bi *deltaStateBundleInfo) updateMetadata(bundleType string, version *status.BundleVersion,
 	transportMetadata transport.BundleMetadata, overwriteObject bool) {
 	if bi.metadata == nil { // new metadata
 		bi.metadata = &BundleMetadata{
-			bundleType:              bi.bundleType,
-			bundleVersion:           version,
+			bundleType:              bundleType,
 			transportBundleMetadata: transportMetadata,
 		}
 	} else if !overwriteObject {
 		// create new metadata with identical info and plug it in
 		bi.metadata = &BundleMetadata{
-			bundleType:              bi.bundleType,
-			bundleVersion:           bi.metadata.bundleVersion,
+			bundleType:              bundleType,
 			transportBundleMetadata: bi.metadata.transportBundleMetadata, // preserve metadata of the earliest
 		}
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 // createBundleInfoFunc function that specifies how to create a bundle-info.
-type createBundleInfoFunc func(bundleType string) bundleInfo
+type createBundleInfoFunc func() bundleInfo
 
 // bundleInfo abstracts the information/functionality of the two types of bundles (complete/delta state bundles).
 type bundleInfo interface {
@@ -18,7 +18,8 @@ type bundleInfo interface {
 	// updateBundle updates the bundle according to sync-mode.
 	updateBundle(bundle bundle.Bundle) error
 	// updateMetadata updates the metadata according to sync-mode.
-	updateMetadata(version *status.BundleVersion, transportMetadata transport.BundleMetadata, overwriteObject bool)
+	updateMetadata(bundleType string, version *status.BundleVersion, transportMetadata transport.BundleMetadata,
+		overwriteObject bool)
 	// getTransportMetadataToCommit returns the transport metadata for message committing purposes.
 	getTransportMetadataToCommit() transport.BundleMetadata
 	// markAsProcessed marks the bundle as processed.

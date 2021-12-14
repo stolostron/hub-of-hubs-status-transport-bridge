@@ -7,19 +7,17 @@ import (
 )
 
 // newCompleteStateBundleInfo returns a new DeltaStateBundleInfo instance.
-func newCompleteStateBundleInfo(bundleType string) bundleInfo {
+func newCompleteStateBundleInfo() bundleInfo {
 	return &completeStateBundleInfo{
-		bundle:     nil,
-		metadata:   nil,
-		bundleType: bundleType,
+		bundle:   nil,
+		metadata: nil,
 	}
 }
 
 // completeStateBundleInfo wraps complete-state bundles and their metadata.
 type completeStateBundleInfo struct {
-	bundle     bundle.Bundle
-	metadata   *BundleMetadata
-	bundleType string
+	bundle   bundle.Bundle
+	metadata *BundleMetadata
 }
 
 // getBundle returns the wrapped bundle.
@@ -41,11 +39,11 @@ func (bi *completeStateBundleInfo) updateBundle(bundle bundle.Bundle) error {
 
 // updateMetadata updates the wrapped metadata according to the complete-state sync mode.
 // createNewObjects boolean sets whether new metadata objects must be pointed to.
-func (bi *completeStateBundleInfo) updateMetadata(version *status.BundleVersion,
+func (bi *completeStateBundleInfo) updateMetadata(bundleType string, version *status.BundleVersion,
 	transportMetadata transport.BundleMetadata, overwriteObject bool) {
 	if !overwriteObject {
 		bi.metadata = &BundleMetadata{
-			bundleType:              bi.bundleType,
+			bundleType:              bundleType,
 			bundleVersion:           version,
 			transportBundleMetadata: transportMetadata,
 		}

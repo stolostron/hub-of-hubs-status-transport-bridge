@@ -46,7 +46,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 
 	for _, registration := range registrations {
 		priorityQueue[registration.priority] = &conflationElement{
-			bundleInfo:                 createBundleInfoFuncMap[registration.syncMode](registration.bundleType),
+			bundleInfo:                 createBundleInfoFuncMap[registration.syncMode](),
 			handlerFunction:            registration.handlerFunction,
 			dependency:                 registration.dependency, // nil if there is no dependency
 			isInProcess:                false,
