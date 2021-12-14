@@ -14,8 +14,8 @@ type bundleInfo interface {
 	getBundle() bundle.Bundle
 	// getMetadata returns the metadata to forward to processors.
 	getMetadata() *BundleMetadata
-	// updateBundleInfo updates the bundle and its metadata according to sync-mode.
-	updateBundleInfo(bundle bundle.Bundle, metadata transport.BundleMetadata, overwriteMetadataObject bool) error
+	// update function to update the bundle and its metadata according to sync-mode.
+	update(bundle bundle.Bundle, metadata transport.BundleMetadata, overwriteMetadataObject bool) error
 	// getTransportMetadataToCommit returns the transport metadata for message committing purposes.
 	getTransportMetadataToCommit() transport.BundleMetadata
 	// markAsProcessed marks the bundle as processed.

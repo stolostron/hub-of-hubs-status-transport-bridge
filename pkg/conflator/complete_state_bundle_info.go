@@ -30,8 +30,8 @@ func (bi *completeStateBundleInfo) getMetadata() *BundleMetadata {
 	return bi.metadata
 }
 
-// updateBundleInfo updates the bundle and its metadata according to complete-state sync-mode.
-func (bi *completeStateBundleInfo) updateBundleInfo(bundle bundle.Bundle, transportMetadata transport.BundleMetadata,
+// update function to update the bundle and its metadata according to complete-state sync-mode.
+func (bi *completeStateBundleInfo) update(bundle bundle.Bundle, transportMetadata transport.BundleMetadata,
 	overwriteMetadataObject bool) error {
 	bi.bundle = bundle
 

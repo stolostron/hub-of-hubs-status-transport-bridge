@@ -21,7 +21,7 @@ type conflationElement struct {
 func (element *conflationElement) update(bundle bundle.Bundle, metadata transport.BundleMetadata) error {
 	// NOTICE - if the bundle is in process, we replace pointers and not override the values inside the pointers for
 	// not changing bundles/metadata that were already given to DB workers for processing.
-	if err := element.bundleInfo.updateBundleInfo(bundle, metadata, !element.isInProcess); err != nil {
+	if err := element.bundleInfo.update(bundle, metadata, !element.isInProcess); err != nil {
 		return fmt.Errorf("failed to update bundle - %w", err)
 	}
 

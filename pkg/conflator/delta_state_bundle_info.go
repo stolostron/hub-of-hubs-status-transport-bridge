@@ -72,8 +72,8 @@ func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
 	return bi.metadata
 }
 
-// updateBundleInfo updates the bundle and its metadata according to delta-state sync-mode.
-func (bi *deltaStateBundleInfo) updateBundleInfo(newBundle bundle.Bundle, transportMetadata transport.BundleMetadata,
+// update function to update the bundle and its metadata according to delta-state sync-mode.
+func (bi *deltaStateBundleInfo) update(newBundle bundle.Bundle, transportMetadata transport.BundleMetadata,
 	overwriteMetadataObject bool) error {
 	newDeltaBundle, ok := newBundle.(bundle.DeltaStateBundle)
 	if !ok {
