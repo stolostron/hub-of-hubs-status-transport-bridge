@@ -148,16 +148,17 @@ func (bi *deltaStateBundleInfo) handleFailure(failedMetadata *BundleMetadata) {
 
 	if bi.deltaLineHeadBundleVersion.NewerThan(failedMetadata.bundleVersion) {
 		return // failed bundle's content is irrelevant since a covering baseline was received
-	} else if bi.bundle == nil {
-		// did not receive updates, restore content
-		bi.bundle = bi.lastDispatchedDeltaBundleData.bundle
-	} else if err := bi.bundle.InheritEvents(lastDispatchedDeltaBundle); err != nil {
+	}
+
+	if err := bi.bundle.InheritEvents(lastDispatchedDeltaBundle); err != nil {
 		// otherwise, the failed metadata is NOT from an older delta-line and its version is smaller than current-
 		// version (since bi.bundle is not nil, therefore a bundle got in after the last dispatch for sure).
 		// inherit content of the dispatched (failed) bundle, since content is flushed upon dispatching.
+		// note: if the currently held info is irrelevant to the newDeltaBundle, InheritEvents handles it.
 		//  -- the error should never happen but just for safety
 		return
 	}
+
 	// restore metadata
 	bi.metadata = failedMetadata
 	// restore transport metadata to that of the earliest contributor in the saved delta-pack
