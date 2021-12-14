@@ -18,8 +18,8 @@ func newDeltaStateBundleInfo() bundleInfo {
 		bundle:   nil,
 		metadata: nil,
 		lastDispatchedDeltaBundleData: recoverableDeltaStateBundleData{
-			bundle:            nil,
-			transportMetadata: nil,
+			bundle:                         nil,
+			lowestPendingTransportMetadata: nil,
 		},
 		lastReceivedTransportMetadata: nil,
 		deltaLineHeadBundleVersion:    nil,
@@ -46,8 +46,8 @@ type deltaStateBundleInfo struct {
 }
 
 type recoverableDeltaStateBundleData struct {
-	bundle            bundle.DeltaStateBundle
-	transportMetadata transport.BundleMetadata
+	bundle                         bundle.DeltaStateBundle
+	lowestPendingTransportMetadata transport.BundleMetadata
 }
 
 // getBundle returns the wrapped bundle.
@@ -60,9 +60,9 @@ func (bi *deltaStateBundleInfo) getMetadata() *BundleMetadata {
 	// save the dispatched bundle content before giving metadata, so that we can start a new line and recover
 	// from failure if it happens
 	bi.lastDispatchedDeltaBundleData.bundle = bi.bundle
-	// lastDispatchedDeltaBundleData.transportMetadata will be used later in case the processing fails, therefore
-	// it should point to the delta-bundle's earliest pending contributor's (current transport metadata)
-	bi.lastDispatchedDeltaBundleData.transportMetadata = bi.metadata.transportBundleMetadata
+	// lastDispatchedDeltaBundleData's transportMetadata will be used later in case the processing fails, therefore
+	// it should point to the delta-pack's earliest pending contributor's (current transport metadata)
+	bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata = bi.metadata.transportBundleMetadata
 	// the bundle's transport metadata will be used to mark as processed, therefore we should give out that of the
 	// latest pending contributing delta-bundle's
 	bi.metadata.transportBundleMetadata = bi.lastReceivedTransportMetadata
@@ -141,10 +141,10 @@ func (bi *deltaStateBundleInfo) updateMetadata(bundleType string, version *statu
 // and the metadata is restored for safe committing (back to the first merged pending delta bundle's).
 func (bi *deltaStateBundleInfo) handleFailure(failedMetadata *BundleMetadata) {
 	lastDispatchedDeltaBundle := bi.lastDispatchedDeltaBundleData.bundle
-	lastDispatchedTransportMetadata := bi.lastDispatchedDeltaBundleData.transportMetadata
+	lastDispatchedTransportMetadata := bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata
 	// release currently saved data
 	bi.lastDispatchedDeltaBundleData.bundle = nil
-	bi.lastDispatchedDeltaBundleData.transportMetadata = nil
+	bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata = nil
 
 	if bi.deltaLineHeadBundleVersion.NewerThan(failedMetadata.bundleVersion) {
 		return // failed bundle's content is irrelevant since a covering baseline was received
@@ -161,8 +161,6 @@ func (bi *deltaStateBundleInfo) handleFailure(failedMetadata *BundleMetadata) {
 		return
 	}
 
-	// restore metadata
-	bi.metadata = failedMetadata
 	// restore transport metadata to that of the earliest contributor in the saved delta-pack
 	bi.metadata.transportBundleMetadata = lastDispatchedTransportMetadata
 }
@@ -189,5 +187,5 @@ func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadat
 
 	// release fail-recovery data
 	bi.lastDispatchedDeltaBundleData.bundle = nil
-	bi.lastDispatchedDeltaBundleData.transportMetadata = nil
+	bi.lastDispatchedDeltaBundleData.lowestPendingTransportMetadata = nil
 }
