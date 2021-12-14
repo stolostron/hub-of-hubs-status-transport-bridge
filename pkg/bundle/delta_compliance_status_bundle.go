@@ -116,37 +116,37 @@ type policyStatus struct {
 // appendNewClusters gets a policy-status of an old bundle (inherited) and updates self's content with
 // clusters that are not mapped currently. (e.g. if a cluster is now compliant and in the old policy
 // received it is non-compliant, nothing happens).
-func (pi *policyStatus) appendNewClusters(policyGenericStatus *status.PolicyGenericComplianceStatus) {
+func (ps *policyStatus) appendNewClusters(policyGenericStatus *status.PolicyGenericComplianceStatus) {
 	for _, cluster := range policyGenericStatus.CompliantClusters {
-		if !pi.contains(cluster) {
-			pi.compliantClusters.Add(cluster)
+		if !ps.contains(cluster) {
+			ps.compliantClusters.Add(cluster)
 		}
 	}
 
 	for _, cluster := range policyGenericStatus.NonCompliantClusters {
-		if !pi.contains(cluster) {
-			pi.nonCompliantClusters.Add(cluster)
+		if !ps.contains(cluster) {
+			ps.nonCompliantClusters.Add(cluster)
 		}
 	}
 
 	for _, cluster := range policyGenericStatus.UnknownComplianceClusters {
-		if !pi.contains(cluster) {
-			pi.unknownClusters.Add(cluster)
+		if !ps.contains(cluster) {
+			ps.unknownClusters.Add(cluster)
 		}
 	}
 }
 
-func (pi *policyStatus) contains(cluster string) bool {
-	if pi.compliantClusters.Contains(cluster) || pi.unknownClusters.Contains(cluster) ||
-		pi.nonCompliantClusters.Contains(cluster) {
+func (ps *policyStatus) contains(cluster string) bool {
+	if ps.compliantClusters.Contains(cluster) || ps.unknownClusters.Contains(cluster) ||
+		ps.nonCompliantClusters.Contains(cluster) {
 		return true
 	}
 
 	return false
 }
 
-func (pi *policyStatus) toPolicyGenericComplianceStatus(policyGenericStatus *status.PolicyGenericComplianceStatus) {
-	policyGenericStatus.CompliantClusters = createSliceFromSet(pi.compliantClusters)
-	policyGenericStatus.NonCompliantClusters = createSliceFromSet(pi.nonCompliantClusters)
-	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(pi.unknownClusters)
+func (ps *policyStatus) toPolicyGenericComplianceStatus(policyGenericStatus *status.PolicyGenericComplianceStatus) {
+	policyGenericStatus.CompliantClusters = createSliceFromSet(ps.compliantClusters)
+	policyGenericStatus.NonCompliantClusters = createSliceFromSet(ps.nonCompliantClusters)
+	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(ps.unknownClusters)
 }
