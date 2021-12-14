@@ -80,7 +80,7 @@ func (bi *deltaStateBundleInfo) update(newBundle bundle.Bundle, transportMetadat
 		return fmt.Errorf("%w - received type %s", errWrongBundleType, helpers.GetBundleType(newBundle))
 	}
 
-	bundleStartsNewLine := bi.bundleStartsNewLine(bi.bundle, newDeltaBundle)
+	bundleStartsNewLine := newDeltaBundle.GetDependencyVersion().NewerThan(bi.bundle.GetDependencyVersion())
 
 	if err := bi.updateBundle(newDeltaBundle); err != nil {
 		return fmt.Errorf("failed to update bundle - %w", err)
@@ -187,9 +187,4 @@ func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadat
 	// release fail-recovery data
 	bi.lastDispatchedDeltaBundleData.bundle = nil
 	bi.lastDispatchedDeltaBundleData.transportMetadata = nil
-}
-
-func (bi *deltaStateBundleInfo) bundleStartsNewLine(currentDeltaBundle bundle.DeltaStateBundle,
-	newDeltaBundle bundle.DeltaStateBundle) bool {
-	return newDeltaBundle.GetDependencyVersion().NewerThan(currentDeltaBundle.GetDependencyVersion())
 }
