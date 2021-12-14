@@ -193,10 +193,8 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 // returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
-		ceBundle := conflationElement.bundleInfo.getBundle()
-		if ceBundle != nil && ceBundle.GetVersion().NewerThan(conflationElement.lastProcessedBundleVersion) &&
-			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
-			cu.checkDependency(conflationElement) {
+		if conflationElement.bundleInfo.getBundle() != nil &&
+			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) && cu.checkDependency(conflationElement) {
 			return priority // bundle in this priority is ready to be processed
 		}
 	}
