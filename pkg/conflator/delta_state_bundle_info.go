@@ -183,7 +183,7 @@ func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadat
 		// active.
 		// note: the transport metadata of non-processed delta bundles is that of the earliest (in pending state),
 		// therefore we need to swap it with that of the last dispatched.
-		bi.metadata.transportBundleMetadata = bi.lastDispatchedDeltaBundleData.transportMetadata
+		bi.metadata.transportBundleMetadata = processedMetadata.transportBundleMetadata
 		bi.metadata.transportBundleMetadata.MarkAsProcessed()
 	}
 
