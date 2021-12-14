@@ -114,8 +114,8 @@ func (cu *ConflationUnit) insert(bundle bundle.Bundle, metadata transport.Bundle
 }
 
 // GetNext returns the next ready to be processed bundle and its transport metadata.
-func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetadata,
-	handlerFunc BundleHandlerFunc, err error) {
+func (cu *ConflationUnit) GetNext() (bundle bundle.Bundle, metadata *BundleMetadata, handlerFunc BundleHandlerFunc,
+	err error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
