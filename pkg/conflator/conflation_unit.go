@@ -39,7 +39,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	priorityQueue := make([]*conflationElement, len(registrations))
 	bundleTypeToPriority := make(map[string]conflationPriority)
 
-	createBundleInfoFuncMap := map[status.HybridSyncMode]createBundleInfoFunc{
+	createBundleInfoFuncMap := map[status.BundleSyncMode]createBundleInfoFunc{
 		status.DeltaStateMode:    newDeltaStateBundleInfo,
 		status.CompleteStateMode: newCompleteStateBundleInfo,
 	}
