@@ -51,9 +51,7 @@ type PoliciesDBSyncer struct {
 func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	fullStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Minimal }
-	localPredicate := func() bool {
-		return syncer.config.Spec.AggregationLevel == configv1.Full && syncer.config.Spec.EnableLocalPolicies
-	}
+	localPredicate := func() bool { return fullStatusPredicate() && syncer.config.Spec.EnableLocalPolicies }
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.ClustersPerPolicyMsgKey,
@@ -92,7 +90,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	})
 }
 
-// RegisterBundleHandlerFunctions registers bundle handler functions within the dispatcher.
+// RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
 // handler functions need to do "diff" between objects received in the bundle and the objects in db.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.

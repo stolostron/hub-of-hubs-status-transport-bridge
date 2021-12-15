@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -34,7 +33,6 @@ func newCommitter(log logr.Logger, client *client.SyncServiceClient,
 		getBundlesMetadataFunc:        getBundlesMetadataFunc,
 		committedMetadataToVersionMap: make(map[string]string),
 		interval:                      committerInterval,
-		lock:                          sync.Mutex{},
 	}, nil
 }
 
@@ -45,7 +43,6 @@ type committer struct {
 	getBundlesMetadataFunc        transport.GetBundlesMetadataFunc
 	committedMetadataToVersionMap map[string]string
 	interval                      time.Duration
-	lock                          sync.Mutex
 }
 
 // start runs the Committer instance.
