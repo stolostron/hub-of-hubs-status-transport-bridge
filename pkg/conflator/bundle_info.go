@@ -18,8 +18,8 @@ type bundleInfo interface {
 	update(bundle bundle.Bundle, metadata transport.BundleMetadata, overwriteMetadataObject bool) error
 	// getTransportMetadataToCommit returns the transport metadata for message committing purposes.
 	getTransportMetadataToCommit() transport.BundleMetadata
-	// markAsProcessed marks the bundle as processed.
-	markAsProcessed(processedMetadata *BundleMetadata)
+	// markAsProcessed marks the given metadata as processed.
+	markAsProcessed(metadata *BundleMetadata)
 }
 
 // deltaBundleInfo extends BundleInfo with delta-bundle related functionalities.

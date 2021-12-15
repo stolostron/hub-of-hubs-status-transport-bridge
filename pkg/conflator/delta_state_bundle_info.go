@@ -175,8 +175,8 @@ func (bi *deltaStateBundleInfo) getTransportMetadataToCommit() transport.BundleM
 }
 
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
-func (bi *deltaStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadata) {
-	processedMetadata.transportBundleMetadata.MarkAsProcessed()
+func (bi *deltaStateBundleInfo) markAsProcessed(metadata *BundleMetadata) {
+	metadata.transportBundleMetadata.MarkAsProcessed()
 
 	// release fail-recovery data
 	bi.lastDispatchedDeltaBundleData.bundle = nil

@@ -62,13 +62,13 @@ func (bi *completeStateBundleInfo) getTransportMetadataToCommit() transport.Bund
 }
 
 // markAsProcessed releases the bundle content and marks transport metadata as processed.
-func (bi *completeStateBundleInfo) markAsProcessed(processedMetadata *BundleMetadata) {
-	processedMetadata.transportBundleMetadata.MarkAsProcessed()
+func (bi *completeStateBundleInfo) markAsProcessed(metadata *BundleMetadata) {
+	metadata.transportBundleMetadata.MarkAsProcessed()
 
-	if !processedMetadata.bundleVersion.Equals(bi.metadata.bundleVersion) {
+	if !metadata.bundleVersion.Equals(bi.metadata.bundleVersion) {
 		return
 	}
-	// if this is the same bundle that was processed then mark it as processed, otherwise leave
+	// if this is the same bundle that was processed then release bundle pointer, otherwise leave
 	// the current (newer one) as pending.
 	bi.bundle = nil
 }
