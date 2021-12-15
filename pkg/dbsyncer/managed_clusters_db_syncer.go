@@ -52,11 +52,12 @@ func (syncer *ManagedClustersDBSyncer) RegisterCreateBundleFunctions(transportIn
 func (syncer *ManagedClustersDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ManagedClustersPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleManagedClustersBundle(ctx, bundle, dbClient)
 		},
-		status.CompleteStateMode))
+	))
 }
 
 func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.Context, bundle bundle.Bundle,

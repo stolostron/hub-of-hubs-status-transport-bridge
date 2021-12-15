@@ -11,7 +11,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
-const logIntervalSeconds = 10
+const logIntervalSeconds = 300
 
 // NewStatistics creates a new instance of Statistics.
 func NewStatistics(log logr.Logger) *Statistics {
@@ -22,6 +22,7 @@ func NewStatistics(log logr.Logger) *Statistics {
 
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ClustersPerPolicyBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.CompleteComplianceStatusBundle{})] = newBundleMetrics()
+	statistics.bundleMetrics[helpers.GetBundleType(&bundle.DeltaComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ManagedClustersStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.MinimalComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ControlInfoBundle{})] = newBundleMetrics()
