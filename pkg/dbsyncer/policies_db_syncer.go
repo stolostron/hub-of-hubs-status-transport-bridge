@@ -114,7 +114,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.CompleteComplianceStatusPriority,
-		helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc()),
+		completeComplianceStatusBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
 		},
@@ -342,7 +342,9 @@ func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilde
 // if we got to the handler function, then the bundle pre-conditions were satisfied.
 func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle bundle.Bundle,
 	dbClient db.PoliciesStatusDB, dbSchema string, dbTableName string) error {
+	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
+
 	batchBuilder := dbClient.NewPoliciesBatchBuilder(dbSchema, dbTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is policy generic compliance status
