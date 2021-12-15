@@ -46,11 +46,12 @@ func (syncer *ControlInfoDBSyncer) RegisterBundleHandlerFunctions(
 	conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ControlInfoPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleControlInfoBundle(ctx, bundle, dbClient)
 		},
-		status.CompleteStateMode))
+	))
 }
 
 func (syncer *ControlInfoDBSyncer) handleControlInfoBundle(ctx context.Context, bundle bundle.Bundle,

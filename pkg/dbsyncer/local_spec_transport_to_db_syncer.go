@@ -67,15 +67,15 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.LocalPolicySpecTableName),
-		status.CompleteStateMode))
+		syncer.handleLocalObjectsBundleWrapper(db.LocalPolicySpecTableName)))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPlacementRulesSpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.LocalPlacementRulesTableName),
-		status.CompleteStateMode))
+		syncer.handleLocalObjectsBundleWrapper(db.LocalPlacementRulesTableName)))
 }
 
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
