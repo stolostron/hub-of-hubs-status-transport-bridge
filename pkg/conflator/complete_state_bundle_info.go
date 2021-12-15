@@ -68,6 +68,7 @@ func (bi *completeStateBundleInfo) markAsProcessed(processedMetadata *BundleMeta
 	if !processedMetadata.bundleVersion.Equals(bi.metadata.bundleVersion) {
 		return
 	}
-	// if the bundle was processed then release pointer.
+	// if this is the same bundle that was processed then mark it as processed, otherwise leave
+	// the current (newer one) as pending.
 	bi.bundle = nil
 }
