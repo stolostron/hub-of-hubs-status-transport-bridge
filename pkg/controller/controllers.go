@@ -68,8 +68,11 @@ func addConfigController(mgr ctrl.Manager) (*configv1.Config, error) {
 	config := &configv1.Config{}
 	config.Spec.AggregationLevel = configv1.Full // default value is full until the config is read from the CR
 
-	if err := configCtrl.AddConfigController(mgr, "hub-of-hubs-config", config); err != nil {
-		return nil, fmt.Errorf("failed to add controller: %w", err)
+	if err := configCtrl.AddConfigController(mgr,
+		ctrl.Log.WithName("hub-of-hubs-config"),
+		config,
+	); err != nil {
+		return nil, fmt.Errorf("failed to add config controller: %w", err)
 	}
 
 	return config, nil

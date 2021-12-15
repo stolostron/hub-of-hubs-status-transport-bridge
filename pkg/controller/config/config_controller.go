@@ -21,10 +21,10 @@ const (
 )
 
 // AddConfigController creates a new instance of config controller and adds it to the manager.
-func AddConfigController(mgr ctrl.Manager, logName string, config *configv1.Config) error {
+func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Config) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client: mgr.GetClient(),
-		log:    ctrl.Log.WithName(logName),
+		log:    log,
 		config: config,
 	}
 
