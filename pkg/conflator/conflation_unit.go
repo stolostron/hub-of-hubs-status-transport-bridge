@@ -158,13 +158,8 @@ func (cu *ConflationUnit) ReportResult(metadata *BundleMetadata, err error) {
 	if metadata.bundleVersion.NewerThan(conflationElement.lastProcessedBundleVersion) {
 		conflationElement.lastProcessedBundleVersion = metadata.bundleVersion
 	}
-	// if bundle wasn't updated since GetNext was called - mark it as processed (bundle info logic handles releasing
-	// data). if bundle is already nil then nothing came in since dispatching to dbsyncer.
-	if conflationElement.bundleInfo.getBundle() == nil ||
-		metadata.bundleVersion.Equals(conflationElement.bundleInfo.getBundle().GetVersion()) {
-		conflationElement.bundleInfo.markAsProcessed(metadata)
-	}
 
+	conflationElement.bundleInfo.markAsProcessed(metadata)
 	cu.addCUToReadyQueueIfNeeded()
 }
 
@@ -200,22 +195,6 @@ func (cu *ConflationUnit) getNextReadyBundlePriority() int {
 	}
 
 	return invalidPriority
-}
-
-// getBundlesMetadata provides collections of the CU's bundle transport-metadata.
-func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
-	cu.lock.Lock()
-	defer cu.lock.Unlock()
-
-	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
-
-	for _, element := range cu.priorityQueue {
-		if transportMetadata := element.bundleInfo.getTransportMetadataToCommit(); transportMetadata != nil {
-			bundlesMetadata = append(bundlesMetadata, transportMetadata)
-		}
-	}
-
-	return bundlesMetadata
 }
 
 // isCurrentOrAnyDependencyInProcess checks if current element or any dependency from dependency chain is in process.
@@ -269,4 +248,20 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 
 func noBundleVersion() *status.BundleVersion {
 	return status.NewBundleVersion(0, 0)
+}
+
+// getBundlesMetadata provides collections of the CU's bundle transport-metadata.
+func (cu *ConflationUnit) getBundlesMetadata() []transport.BundleMetadata {
+	cu.lock.Lock()
+	defer cu.lock.Unlock()
+
+	bundlesMetadata := make([]transport.BundleMetadata, 0, len(cu.priorityQueue))
+
+	for _, element := range cu.priorityQueue {
+		if transportMetadata := element.bundleInfo.getTransportMetadataToCommit(); transportMetadata != nil {
+			bundlesMetadata = append(bundlesMetadata, transportMetadata)
+		}
+	}
+
+	return bundlesMetadata
 }
