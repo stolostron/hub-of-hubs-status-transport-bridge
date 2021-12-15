@@ -69,5 +69,6 @@ func (bi *completeStateBundleInfo) markAsProcessed(processedMetadata *BundleMeta
 	// if this is the same bundle that was processed then mark it as processed, otherwise leave
 	// the current (newer one) as pending.
 	bi.bundle = nil
+
 	processedMetadata.transportBundleMetadata.MarkAsProcessed()
 }
