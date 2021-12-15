@@ -27,12 +27,12 @@ func (bundle *CompleteComplianceStatusBundle) GetObjects() []interface{} {
 	return result
 }
 
-// GetDependencyVersion returns the bundle dependency required version.
-func (bundle *CompleteComplianceStatusBundle) GetDependencyVersion() *status.BundleVersion {
-	return bundle.BaseBundleVersion
-}
-
 // GetVersion returns the bundle version.
 func (bundle *CompleteComplianceStatusBundle) GetVersion() *status.BundleVersion {
 	return bundle.BundleVersion
+}
+
+// GetDependencyVersion returns the bundle dependency required version.
+func (bundle *CompleteComplianceStatusBundle) GetDependencyVersion() *status.BundleVersion {
+	return bundle.BaseBundleVersion
 }

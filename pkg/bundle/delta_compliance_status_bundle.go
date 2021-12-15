@@ -20,27 +20,6 @@ type DeltaComplianceStatusBundle struct {
 	status.BaseDeltaComplianceStatusBundle
 }
 
-// InheritEvents updates the content of this bundle with that of another older one (this bundle is the source of truth).
-func (bundle *DeltaComplianceStatusBundle) InheritEvents(olderBundle Bundle) error {
-	if olderBundle == nil {
-		return nil
-	}
-
-	oldDeltaComplianceBundle, ok := olderBundle.(*DeltaComplianceStatusBundle)
-	if !ok {
-		return fmt.Errorf("%w - expecting %s", errWrongType, "DeltaComplianceStatusBundle")
-	}
-
-	if !oldDeltaComplianceBundle.GetDependencyVersion().Equals(bundle.GetDependencyVersion()) {
-		// if old bundle's dependency version is not equal then its content is covered by a complete-state baseline.
-		return nil
-	}
-
-	bundle.inheritObjects(oldDeltaComplianceBundle.Objects)
-
-	return nil
-}
-
 // GetLeafHubName returns the leaf hub name that sent the bundle.
 func (bundle *DeltaComplianceStatusBundle) GetLeafHubName() string {
 	return bundle.LeafHubName
@@ -65,6 +44,27 @@ func (bundle *DeltaComplianceStatusBundle) GetVersion() *status.BundleVersion {
 // GetDependencyVersion returns the bundle dependency required version.
 func (bundle *DeltaComplianceStatusBundle) GetDependencyVersion() *status.BundleVersion {
 	return bundle.BaseBundleVersion
+}
+
+// InheritEvents updates the content of this bundle with that of another older one (this bundle is the source of truth).
+func (bundle *DeltaComplianceStatusBundle) InheritEvents(olderBundle Bundle) error {
+	if olderBundle == nil {
+		return nil
+	}
+
+	oldDeltaComplianceBundle, ok := olderBundle.(*DeltaComplianceStatusBundle)
+	if !ok {
+		return fmt.Errorf("%w - expecting %s", errWrongType, "DeltaComplianceStatusBundle")
+	}
+
+	if !oldDeltaComplianceBundle.GetDependencyVersion().Equals(bundle.GetDependencyVersion()) {
+		// if old bundle's dependency version is not equal then its content is covered by a complete-state baseline.
+		return nil
+	}
+
+	bundle.inheritObjects(oldDeltaComplianceBundle.Objects)
+
+	return nil
 }
 
 func (bundle *DeltaComplianceStatusBundle) inheritObjects(oldObjects []*status.PolicyGenericComplianceStatus) {
