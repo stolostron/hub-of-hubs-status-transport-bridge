@@ -92,7 +92,7 @@ func (bundle *DeltaComplianceStatusBundle) inheritObjects(oldObjects []*status.P
 
 	// turn updated policy-info collections back into policy generic-statuses
 	for _, policyGenericStatus := range bundle.Objects {
-		policiesMap[policyGenericStatus.PolicyID].toPolicyGenericComplianceStatus(policyGenericStatus)
+		updatePolicyStatusInBundle(policyGenericStatus, policiesMap[policyGenericStatus.PolicyID])
 	}
 
 	// update bundle's objects with the surviving policies as-is
@@ -145,8 +145,9 @@ func (ps *policyStatus) contains(cluster string) bool {
 	return false
 }
 
-func (ps *policyStatus) toPolicyGenericComplianceStatus(policyGenericStatus *status.PolicyGenericComplianceStatus) {
-	policyGenericStatus.CompliantClusters = createSliceFromSet(ps.compliantClusters)
-	policyGenericStatus.NonCompliantClusters = createSliceFromSet(ps.nonCompliantClusters)
-	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(ps.unknownClusters)
+func updatePolicyStatusInBundle(policyGenericStatus *status.PolicyGenericComplianceStatus,
+	policyStatus *policyStatus) {
+	policyGenericStatus.CompliantClusters = createSliceFromSet(policyStatus.compliantClusters)
+	policyGenericStatus.NonCompliantClusters = createSliceFromSet(policyStatus.nonCompliantClusters)
+	policyGenericStatus.UnknownComplianceClusters = createSliceFromSet(policyStatus.unknownClusters)
 }
