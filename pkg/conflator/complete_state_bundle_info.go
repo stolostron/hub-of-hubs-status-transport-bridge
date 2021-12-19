@@ -35,7 +35,7 @@ func (bi *completeStateBundleInfo) update(bundle bundle.Bundle, transportMetadat
 	overwriteMetadataObject bool) error {
 	bi.bundle = bundle
 
-	if !overwriteMetadataObject {
+	if bi.metadata == nil || !overwriteMetadataObject {
 		bi.metadata = &BundleMetadata{
 			bundleType:              helpers.GetBundleType(bundle),
 			bundleVersion:           bundle.GetVersion(),
