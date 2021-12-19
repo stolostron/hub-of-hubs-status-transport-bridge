@@ -779,10 +779,10 @@ github.com/open-cluster-management/governance-policy-propagator v0.0.0-202105202
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20210520203318-a78632de1e26/go.mod h1:7gzDyC7PddcuInXS+kLrfYmto/ImSORibXwy8RGjNM8=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3 h1:SzaZe7XnwpRXRbfq5DQOzaEu7BsKJZwgGMGnVs2Lks0=
 github.com/open-cluster-management/hub-of-hubs-data-types v0.2.3/go.mod h1:rLtZFQ8YdGQ2XHHKJFBOtQwnP63UDxaalhlQG8anP90=
-github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.2.2 h1:t37hlsSxQ8rS3QGf//gLoA8/Mxm1SdtYqwUBbM5g1hI=
-github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.2.2/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
-github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211219104330-1ecd962ccc18 h1:HNlza2BpXWKlHSRrjVHYi2oJz6ojoyAgbW7G/LeGcGM=
-github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.0.0-20211219104330-1ecd962ccc18/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
+github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.2.3 h1:eaj61sBT/bbVkfFcS11j2hillt6l7rBHenFmkLzAouU=
+github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.2.3/go.mod h1:xpGxw+0si9vuDABvcJ9FxjznPw/uAbICzhaX+9JLLho=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.2.0 h1:xZcJwhNGAuaXimjQABZKMgW6AMI+6M7fW4Pj49DgH2c=
+github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.2.0/go.mod h1:Fhdc1zx1GwFuDn5p+KvWZ7fvhSvLet2Fr4cYdA3RUyI=
 github.com/open-cluster-management/hub-of-hubs-message-compression v0.2.0 h1:4hfoRKzamHU/JdwNdvMhUIbmyYprAMuNyMYfwCaphAo=
 github.com/open-cluster-management/hub-of-hubs-message-compression v0.2.0/go.mod h1:4n6jdPc/GDenlcLznm830bnlzM7ZWeHQFIoxwFxK+Bg=
 github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
