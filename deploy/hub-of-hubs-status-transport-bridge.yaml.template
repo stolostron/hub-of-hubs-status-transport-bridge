@@ -100,7 +100,7 @@ spec:
             - name: SYNC_SERVICE_POLLING_INTERVAL
               value: "5"
             - name: COMMITTER_INTERVAL
-              value: "30s"
+              value: "40s"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

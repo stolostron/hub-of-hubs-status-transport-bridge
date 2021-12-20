@@ -138,8 +138,8 @@ func (c *Consumer) Start() {
 func (c *Consumer) Stop() {
 	c.stopOnce.Do(func() {
 		c.cancelFunc()
-		close(c.msgChan)
 		c.kafkaConsumer.Close()
+		close(c.msgChan)
 	})
 }
 

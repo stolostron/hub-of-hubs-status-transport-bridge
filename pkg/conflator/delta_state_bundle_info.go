@@ -80,7 +80,8 @@ func (bi *deltaStateBundleInfo) update(newBundle bundle.Bundle, transportMetadat
 		return fmt.Errorf("%w - received type %s", errWrongBundleType, helpers.GetBundleType(newBundle))
 	}
 
-	bundleStartsNewLine := newDeltaBundle.GetDependencyVersion().NewerThan(bi.bundle.GetDependencyVersion())
+	bundleStartsNewLine := bi.bundle == nil ||
+		newDeltaBundle.GetDependencyVersion().NewerThan(bi.bundle.GetDependencyVersion())
 
 	if err := bi.updateBundle(newDeltaBundle); err != nil {
 		return fmt.Errorf("failed to update bundle - %w", err)
