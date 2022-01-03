@@ -28,7 +28,7 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Con
 	}
 
 	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == datatypes.HohSystemNamespace
+		return object.GetNamespace() == datatypes.HohSystemNamespace && object.GetName() == configName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).
@@ -38,22 +38,7 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Con
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
 	}
 
-	if err := readConfig(mgr, config); err != nil {
-		return fmt.Errorf("failed to read config - %w", err)
-	}
-
-	log.Info("config read")
-
-	return nil
-}
-
-func readConfig(mgr ctrl.Manager, config *configv1.Config) error {
-	k8sClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
-	if err != nil {
-		return fmt.Errorf("failed to start k8s client - %w", err)
-	}
-
-	if err := k8sClient.Get(context.Background(), client.ObjectKey{
+	if err := mgr.GetAPIReader().Get(context.Background(), client.ObjectKey{
 		Namespace: datatypes.HohSystemNamespace,
 		Name:      configName,
 	}, config); err != nil {
