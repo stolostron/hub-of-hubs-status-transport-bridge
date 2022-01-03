@@ -16,6 +16,7 @@ import (
 
 const (
 	requeuePeriodSeconds = 5
+	configName           = "hub-of-hubs-config"
 )
 
 // AddConfigController creates a new instance of config controller and adds it to the manager.
@@ -35,6 +36,28 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Con
 		WithEventFilter(hohNamespacePredicate).
 		Complete(hubOfHubsConfigCtrl); err != nil {
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
+	}
+
+	if err := readConfig(mgr, config); err != nil {
+		return fmt.Errorf("failed to read config - %w", err)
+	}
+
+	log.Info("config read")
+
+	return nil
+}
+
+func readConfig(mgr ctrl.Manager, config *configv1.Config) error {
+	k8sClient, err := client.New(mgr.GetConfig(), client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		return fmt.Errorf("failed to start k8s client - %w", err)
+	}
+
+	if err := k8sClient.Get(context.Background(), client.ObjectKey{
+		Namespace: datatypes.HohSystemNamespace,
+		Name:      configName,
+	}, config); err != nil {
+		return fmt.Errorf("failed to read Config - %w", err)
 	}
 
 	return nil
