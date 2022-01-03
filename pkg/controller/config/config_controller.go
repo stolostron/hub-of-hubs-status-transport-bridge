@@ -16,23 +16,31 @@ import (
 
 const (
 	requeuePeriodSeconds = 5
+	configName           = "hub-of-hubs-config"
 )
 
 // AddConfigController creates a new instance of config controller and adds it to the manager.
 func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Config) error {
+	if err := mgr.GetAPIReader().Get(context.Background(), client.ObjectKey{
+		Namespace: datatypes.HohSystemNamespace,
+		Name:      configName,
+	}, config); err != nil {
+		return fmt.Errorf("failed to read config - %w", err)
+	}
+
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client: mgr.GetClient(),
 		log:    log,
 		config: config,
 	}
 
-	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return object.GetNamespace() == datatypes.HohSystemNamespace
+	configPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return object.GetNamespace() == datatypes.HohSystemNamespace && object.GetName() == configName
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&configv1.Config{}).
-		WithEventFilter(hohNamespacePredicate).
+		WithEventFilter(configPredicate).
 		Complete(hubOfHubsConfigCtrl); err != nil {
 		return fmt.Errorf("failed to add config controller to manager - %w", err)
 	}
