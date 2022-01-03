@@ -4,6 +4,7 @@ linters:
     - nlreturn
     - exhaustivestruct
     - godox
+    - ireturn
 
 linters-settings:
   gomoddirectives:

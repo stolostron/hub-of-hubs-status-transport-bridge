@@ -1,7 +1,7 @@
 package bundle
 
 import (
-	placementrulesv1 "github.com/open-cluster-management/governance-policy-propagator/pkg/apis/apps/v1"
+	placementrulesv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 )
 
 // NewLocalPlacementRulesBundle creates a new instance of LocalPlacementRulesBundle.

@@ -18,7 +18,7 @@ metadata:
   name: hub-of-hubs-status-transport-bridge
 rules:
 - apiGroups:
-  - "hub-of-hubs.open-cluster-management.io"
+  - hub-of-hubs.open-cluster-management.io
   resources:
   - configs
   - configs/finalizers
@@ -40,6 +40,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
 ---
 
 apiVersion: v1

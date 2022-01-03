@@ -88,16 +88,13 @@ func (s *Statistics) AddDatabaseMetrics(bundle bundle.Bundle, duration time.Dura
 }
 
 // Start starts the statistics.
-func (s *Statistics) Start(stopChannel <-chan struct{}) error {
-	ctx, cancelContext := context.WithCancel(context.Background())
-	defer cancelContext()
-
-	s.log.Info("started statistics")
+func (s *Statistics) Start(ctx context.Context) error {
+	s.log.Info("starting statistics")
 
 	go s.run(ctx)
 
-	// blocking wait until getting stop event on the stop channel
-	<-stopChannel
+	// blocking wait until getting cancel context event
+	<-ctx.Done()
 	s.log.Info("stopped statistics")
 
 	return nil

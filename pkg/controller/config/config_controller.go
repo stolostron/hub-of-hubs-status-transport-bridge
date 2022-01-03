@@ -9,8 +9,6 @@ import (
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -28,8 +26,8 @@ func AddConfigController(mgr ctrl.Manager, log logr.Logger, config *configv1.Con
 		config: config,
 	}
 
-	hohNamespacePredicate := predicate.NewPredicateFuncs(func(meta metav1.Object, object runtime.Object) bool {
-		return meta.GetNamespace() == datatypes.HohSystemNamespace
+	hohNamespacePredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
+		return object.GetNamespace() == datatypes.HohSystemNamespace
 	})
 
 	if err := ctrl.NewControllerManagedBy(mgr).
@@ -48,10 +46,8 @@ type hubOfHubsConfigController struct {
 	config *configv1.Config
 }
 
-func (c *hubOfHubsConfigController) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
-	ctx := context.Background()
 
 	if err := c.client.Get(ctx, request.NamespacedName, c.config); apierrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
