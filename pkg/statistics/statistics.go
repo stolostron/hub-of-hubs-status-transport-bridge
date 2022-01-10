@@ -11,7 +11,7 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
-const logIntervalSeconds = 10
+const logIntervalSeconds = 300
 
 // NewStatistics creates a new instance of Statistics.
 func NewStatistics(log logr.Logger) *Statistics {
@@ -22,6 +22,7 @@ func NewStatistics(log logr.Logger) *Statistics {
 
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ClustersPerPolicyBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.CompleteComplianceStatusBundle{})] = newBundleMetrics()
+	statistics.bundleMetrics[helpers.GetBundleType(&bundle.DeltaComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ManagedClustersStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.MinimalComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ControlInfoBundle{})] = newBundleMetrics()
@@ -88,16 +89,13 @@ func (s *Statistics) AddDatabaseMetrics(bundle bundle.Bundle, duration time.Dura
 }
 
 // Start starts the statistics.
-func (s *Statistics) Start(stopChannel <-chan struct{}) error {
-	ctx, cancelContext := context.WithCancel(context.Background())
-	defer cancelContext()
-
-	s.log.Info("started statistics")
+func (s *Statistics) Start(ctx context.Context) error {
+	s.log.Info("starting statistics")
 
 	go s.run(ctx)
 
-	// blocking wait until getting stop event on the stop channel
-	<-stopChannel
+	// blocking wait until getting cancel context event
+	<-ctx.Done()
 	s.log.Info("stopped statistics")
 
 	return nil

@@ -27,13 +27,12 @@ type Dispatcher struct {
 }
 
 // Start starts the dispatcher.
-func (dispatcher *Dispatcher) Start(stopChannel <-chan struct{}) error {
-	ctx, cancelContext := context.WithCancel(context.Background())
-	defer cancelContext()
+func (dispatcher *Dispatcher) Start(ctx context.Context) error {
+	dispatcher.log.Info("starting dispatcher")
 
 	go dispatcher.dispatch(ctx)
 
-	<-stopChannel // blocking wait until getting stop event on the stop channel
+	<-ctx.Done() // blocking wait until getting context cancel event
 	dispatcher.log.Info("stopped dispatcher")
 
 	return nil

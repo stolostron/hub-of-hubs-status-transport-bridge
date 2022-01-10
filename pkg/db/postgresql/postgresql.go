@@ -97,9 +97,9 @@ func (p *PostgreSQL) GetManagedClustersByLeafHub(ctx context.Context, schema str
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'name',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
+	result, err := buildKeyValueMapFromRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("failed generating map from db - %w", err)
+		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
 	}
 
 	return result, nil
@@ -167,13 +167,13 @@ func (p *PostgreSQL) buildComplianceClustersSetsFromRows(rows pgx.Rows) (map[str
 // GetPolicyIDsByLeafHub returns policy IDs of a specific leaf hub.
 func (p *PostgreSQL) GetPolicyIDsByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string) (set.Set, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(policy_id) FROM %s.%s WHERE leaf_hub_name=$1`,
-		schema, tableName), leafHubName)
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT DISTINCT(id) FROM %s.%s WHERE leaf_hub_name=$1`, schema,
+		tableName), leafHubName)
 
 	result := set.NewSet()
 
 	for rows.Next() {
-		policyID := ""
+		var policyID string
 		if err := rows.Scan(&policyID); err != nil {
 			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
 		}
@@ -193,17 +193,17 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 		return fmt.Errorf("failed to read from database: %w", err)
 	}
 
-	if exists { // row for (policy_id,leaf hub) tuple exists, update to the db.
+	if exists { // row for (id,leaf hub) tuple exists, update to the db.
 		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s.%s SET applied_clusters=$1,non_compliant_clusters=$2
 			 WHERE leaf_hub_name=$3 AND id=$4`, schema, tableName), appliedClusters, nonCompliantClusters, leafHubName,
 			policyID); err != nil {
 			return fmt.Errorf("failed to update compliance row in database: %w", err)
 		}
-	} else { // row for (policy_id,leaf hub) tuple doesn't exist, insertRowsArgs to the db.
+	} else { // row for (id,leaf hub) tuple doesn't exist, insert to the db.
 		if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s.%s (id,leaf_hub_name,applied_clusters,
 			non_compliant_clusters) values($1, $2, $3, $4)`, schema, tableName), policyID, leafHubName,
 			appliedClusters, nonCompliantClusters); err != nil {
-			return fmt.Errorf("failed to insertRowsArgs into database: %w", err)
+			return fmt.Errorf("failed to insert into database: %w", err)
 		}
 	}
 
@@ -213,8 +213,8 @@ func (p *PostgreSQL) InsertOrUpdateAggregatedPolicyCompliance(ctx context.Contex
 // DeleteAllComplianceRows delete all compliance rows from the db by leaf hub and policy.
 func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string, tableName string, leafHubName string,
 	policyID string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s.%s WHERE leaf_hub_name=$1 AND policy_id=$2`,
-		schema, tableName), leafHubName, policyID); err != nil {
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s.%s WHERE leaf_hub_name=$1 AND id=$2`, schema,
+		tableName), leafHubName, policyID); err != nil {
 		return fmt.Errorf("failed to delete compliance rows from database: %w", err)
 	}
 
@@ -239,7 +239,7 @@ func (p *PostgreSQL) GetLocalDistinctIDAndVersion(ctx context.Context, schema st
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
+	result, err := buildKeyValueMapFromRows(rows)
 	if err != nil {
 		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
@@ -253,9 +253,9 @@ func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string,
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
-	result, err := buildKeyValueMapFromRows(rows, schema, tableName)
+	result, err := buildKeyValueMapFromRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("failed generating map from db - %w", err)
+		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
 	}
 
 	return result, nil
@@ -273,14 +273,14 @@ func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableNa
 	return nil
 }
 
-func buildKeyValueMapFromRows(rows pgx.Rows, schema, tableName string) (map[string]string, error) {
+func buildKeyValueMapFromRows(rows pgx.Rows) (map[string]string, error) {
 	result := make(map[string]string)
 
 	for rows.Next() {
 		var key, val string
 
 		if err := rows.Scan(&key, &val); err != nil {
-			return nil, fmt.Errorf("error reading from table %s.%s - %w", schema, tableName, err)
+			return nil, fmt.Errorf("error creating key value map from rows - %w", err)
 		}
 
 		result[key] = val

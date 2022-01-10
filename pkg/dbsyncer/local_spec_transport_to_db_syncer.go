@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
@@ -56,7 +57,7 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 	})
 }
 
-// RegisterBundleHandlerFunctions registers bundle handler functions within the dispatcher.
+// RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
 // handler functions need to do "diff" between objects received in the bundle and the objects in db.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.
@@ -66,11 +67,13 @@ func (syncer *LocalSpecDBSyncer) RegisterCreateBundleFunctions(transportInstance
 func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPolicySpecPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPolicySpecBundleFunc()),
 		syncer.handleLocalObjectsBundleWrapper(db.LocalPolicySpecTableName)))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalPlacementRulesSpecPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPlacementRulesSpecBundleFunc()),
 		syncer.handleLocalObjectsBundleWrapper(db.LocalPlacementRulesTableName)))
 }

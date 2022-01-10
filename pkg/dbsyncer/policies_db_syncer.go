@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
 	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	statusbundle "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
@@ -24,6 +24,7 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 		config:                                        config,
 		createClustersPerPolicyBundleFunc:             bundle.NewClustersPerPolicyBundle,
 		createCompleteComplianceStatusBundleFunc:      bundle.NewCompleteComplianceStatusBundle,
+		createDeltaComplianceStatusBundleFunc:         bundle.NewDeltaComplianceStatusBundle,
 		createMinimalComplianceStatusBundleFunc:       bundle.NewMinimalComplianceStatusBundle,
 		createLocalClustersPerPolicyBundleFunc:        bundle.NewLocalClustersPerPolicyBundle,
 		createLocalCompleteComplianceStatusBundleFunc: bundle.NewLocalCompleteComplianceStatusBundle,
@@ -40,6 +41,7 @@ type PoliciesDBSyncer struct {
 	config                                        *configv1.Config
 	createClustersPerPolicyBundleFunc             bundle.CreateBundleFunction
 	createCompleteComplianceStatusBundleFunc      bundle.CreateBundleFunction
+	createDeltaComplianceStatusBundleFunc         bundle.CreateBundleFunction
 	createMinimalComplianceStatusBundleFunc       bundle.CreateBundleFunction
 	createLocalClustersPerPolicyBundleFunc        bundle.CreateBundleFunction
 	createLocalCompleteComplianceStatusBundleFunc bundle.CreateBundleFunction
@@ -49,9 +51,7 @@ type PoliciesDBSyncer struct {
 func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	fullStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Full }
 	minimalStatusPredicate := func() bool { return syncer.config.Spec.AggregationLevel == configv1.Minimal }
-	localPredicate := func() bool {
-		return syncer.config.Spec.AggregationLevel == configv1.Full && syncer.config.Spec.EnableLocalPolicies
-	}
+	localPredicate := func() bool { return fullStatusPredicate() && syncer.config.Spec.EnableLocalPolicies }
 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.ClustersPerPolicyMsgKey,
@@ -66,10 +66,17 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	})
 
 	transportInstance.Register(&transport.BundleRegistration{
+		MsgID:            datatypes.PolicyDeltaComplianceMsgKey,
+		CreateBundleFunc: syncer.createDeltaComplianceStatusBundleFunc,
+		Predicate:        fullStatusPredicate,
+	})
+
+	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.MinimalPolicyComplianceMsgKey,
 		CreateBundleFunc: syncer.createMinimalComplianceStatusBundleFunc,
 		Predicate:        minimalStatusPredicate,
 	})
+
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.LocalClustersPerPolicyMsgKey,
 		CreateBundleFunc: syncer.createLocalClustersPerPolicyBundleFunc,
@@ -83,7 +90,7 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	})
 }
 
-// RegisterBundleHandlerFunctions registers bundle handler functions within the dispatcher.
+// RegisterBundleHandlerFunctions registers bundle handler functions within the conflation manager.
 // handler functions need to do "diff" between objects received in the bundle and the objects in db.
 // leaf hub sends only the current existing objects, and status transport bridge should understand implicitly which
 // objects were deleted.
@@ -92,10 +99,12 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 // and if the object was changed, update the db with the current object.
 func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	clustersPerPolicyBundleType := helpers.GetBundleType(syncer.createClustersPerPolicyBundleFunc())
+	completeComplianceStatusBundleType := helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc())
 	localClustersPerPolicyBundleType := helpers.GetBundleType(syncer.createLocalClustersPerPolicyBundleFunc())
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.ClustersPerPolicyPriority,
+		status.CompleteStateMode,
 		clustersPerPolicyBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
@@ -104,21 +113,34 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.CompleteComplianceStatusPriority,
-		helpers.GetBundleType(syncer.createCompleteComplianceStatusBundleFunc()),
+		status.CompleteStateMode,
+		completeComplianceStatusBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
-		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)),
-	) // compliance depends on clusters per policy. should be processed only when there is an exact match
+		}).WithDependency(dependency.NewDependency(clustersPerPolicyBundleType, dependency.ExactMatch)))
+	// compliance depends on clusters per policy. should be processed only when there is an exact match
+
+	conflationManager.Register(conflator.NewConflationRegistration(
+		conflator.DeltaComplianceStatusPriority,
+		status.DeltaStateMode,
+		helpers.GetBundleType(syncer.createDeltaComplianceStatusBundleFunc()),
+		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			return syncer.handleDeltaComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTable)
+		}).WithDependency(dependency.NewDependency(completeComplianceStatusBundleType, dependency.ExactMatch)))
+	// delta compliance depends on complete compliance. should be processed only when there is an exact match
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.MinimalComplianceStatusPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createMinimalComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleMinimalComplianceBundle(ctx, bundle, dbClient)
 		},
 	))
+
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalClustersPerPolicyPriority,
+		status.CompleteStateMode,
 		localClustersPerPolicyBundleType,
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleClustersPerPolicyBundle(ctx, bundle, dbClient, db.LocalStatusSchema, db.ComplianceTable)
@@ -127,6 +149,7 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.LocalCompleteComplianceStatusPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalCompleteComplianceStatusBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 			return syncer.handleCompleteComplianceBundle(ctx, bundle, dbClient, db.LocalStatusSchema,
@@ -153,7 +176,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 	batchBuilder := dbClient.NewPoliciesBatchBuilder(dbSchema, dbTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() { // every object is clusters list per policy with full state
-		clustersPerPolicy, ok := object.(*statusbundle.PolicyGenericComplianceStatus)
+		clustersPerPolicy, ok := object.(*status.PolicyGenericComplianceStatus)
 		if !ok {
 			continue // do not handle objects other than PolicyGenericComplianceStatus
 		}
@@ -183,7 +206,7 @@ func (syncer *PoliciesDBSyncer) handleClustersPerPolicyBundle(ctx context.Contex
 }
 
 func (syncer *PoliciesDBSyncer) handleClusterPerPolicy(batchBuilder db.PoliciesBatchBuilder,
-	clustersFromBundle *statusbundle.PolicyGenericComplianceStatus, clustersFromDB *db.PolicyClustersSets) {
+	clustersFromBundle *status.PolicyGenericComplianceStatus, clustersFromDB *db.PolicyClustersSets) {
 	allClustersFromDB := clustersFromDB.GetAllClusters()
 
 	// handle compliant clusters of the policy
@@ -249,7 +272,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 	batchBuilder := dbClient.NewPoliciesBatchBuilder(dbSchema, dbTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is policy compliance status
-		policyComplianceStatus, ok := object.(*statusbundle.PolicyCompleteComplianceStatus)
+		policyComplianceStatus, ok := object.(*status.PolicyCompleteComplianceStatus)
 		if !ok {
 			continue // do not handle objects other than PolicyComplianceStatus
 		}
@@ -280,7 +303,7 @@ func (syncer *PoliciesDBSyncer) handleCompleteComplianceBundle(ctx context.Conte
 }
 
 func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilder db.PoliciesBatchBuilder,
-	policyComplianceStatus *statusbundle.PolicyCompleteComplianceStatus, nonCompliantClustersFromDB set.Set,
+	policyComplianceStatus *status.PolicyCompleteComplianceStatus, nonCompliantClustersFromDB set.Set,
 	unknownClustersFromDB set.Set) {
 	// put non compliant and unknown clusters in a single set.
 	// the clusters that will be left in this set, will be considered implicitly as compliant
@@ -315,7 +338,49 @@ func (syncer *PoliciesDBSyncer) handlePolicyCompleteComplianceStatus(batchBuilde
 	})
 }
 
-// if we got the the handler function, then the bundle pre-conditions are satisfied.
+// if we got to the handler function, then the bundle pre-conditions were satisfied.
+func (syncer *PoliciesDBSyncer) handleDeltaComplianceBundle(ctx context.Context, bundle bundle.Bundle,
+	dbClient db.PoliciesStatusDB, dbSchema string, dbTableName string) error {
+	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
+	leafHubName := bundle.GetLeafHubName()
+
+	batchBuilder := dbClient.NewPoliciesBatchBuilder(dbSchema, dbTableName, leafHubName)
+
+	for _, object := range bundle.GetObjects() { // every object in bundle is policy generic compliance status
+		policyGenericComplianceStatus, ok := object.(*status.PolicyGenericComplianceStatus)
+		if !ok {
+			continue // do not handle objects other than PolicyComplianceStatus
+		}
+
+		syncer.handleDeltaPolicyComplianceStatus(batchBuilder, policyGenericComplianceStatus)
+	}
+	// batch may contain up to the number of compliance status rows per leaf hub, that is (num_of_policies * num_of_MCs)
+	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
+		return fmt.Errorf("failed to perform batch - %w", err)
+	}
+
+	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
+
+	return nil
+}
+
+// handleDeltaPolicyComplianceStatus updates db with leaf hub's given clusters with the given status as-is.
+func (syncer *PoliciesDBSyncer) handleDeltaPolicyComplianceStatus(batchBuilder db.PoliciesBatchBuilder,
+	policyComplianceStatus *status.PolicyGenericComplianceStatus) {
+	for _, cluster := range policyComplianceStatus.CompliantClusters {
+		batchBuilder.UpdateClusterCompliance(policyComplianceStatus.PolicyID, cluster, db.Compliant)
+	}
+
+	for _, cluster := range policyComplianceStatus.NonCompliantClusters {
+		batchBuilder.UpdateClusterCompliance(policyComplianceStatus.PolicyID, cluster, db.NonCompliant)
+	}
+
+	for _, cluster := range policyComplianceStatus.UnknownComplianceClusters {
+		batchBuilder.UpdateClusterCompliance(policyComplianceStatus.PolicyID, cluster, db.Unknown)
+	}
+}
+
+// if we got to the handler function, then the bundle pre-conditions are satisfied.
 func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Context, bundle bundle.Bundle,
 	dbClient db.AggregatedPoliciesStatusDB) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
@@ -327,7 +392,7 @@ func (syncer *PoliciesDBSyncer) handleMinimalComplianceBundle(ctx context.Contex
 	}
 
 	for _, object := range bundle.GetObjects() { // every object in bundle is minimal policy compliance status.
-		minPolicyCompliance, ok := object.(*statusbundle.MinimalPolicyComplianceStatus)
+		minPolicyCompliance, ok := object.(*status.MinimalPolicyComplianceStatus)
 		if !ok {
 			continue // do not handle objects other than MinimalPolicyComplianceStatus.
 		}

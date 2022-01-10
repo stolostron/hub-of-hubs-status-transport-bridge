@@ -18,7 +18,7 @@ metadata:
   name: hub-of-hubs-status-transport-bridge
 rules:
 - apiGroups:
-  - "hub-of-hubs.open-cluster-management.io"
+  - hub-of-hubs.open-cluster-management.io
   resources:
   - configs
   - configs/finalizers
@@ -26,7 +26,6 @@ rules:
   - get
   - list
   - watch
-  - update
 - apiGroups:
   - ""
   resources:
@@ -41,6 +40,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+  - delete
 ---
 
 apiVersion: v1
@@ -100,7 +108,7 @@ spec:
             - name: SYNC_SERVICE_POLLING_INTERVAL
               value: "5"
             - name: COMMITTER_INTERVAL
-              value: "30s"
+              value: "40s"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
+	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
@@ -50,7 +51,7 @@ func (syncer *ApplicationDBSyncer) RegisterCreateBundleFunctions(transportInstan
 // and if the object was changed, update the db with the current object.
 func (syncer *ApplicationDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.SubscriptionStatusPriority,
+		conflator.SubscriptionStatusPriority, status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createSubscriptionBundleFunc()),
 		syncer.handleObjectsBundleWrapper(db.SubscriptionTableName)))
 }

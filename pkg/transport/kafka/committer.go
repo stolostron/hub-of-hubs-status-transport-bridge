@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -36,7 +35,6 @@ func newCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaCons
 		getBundlesMetadataFunc: getBundlesMetadataFunc,
 		commitsMap:             make(map[int32]kafka.Offset),
 		interval:               committerInterval,
-		lock:                   sync.Mutex{},
 	}, nil
 }
 
@@ -48,15 +46,14 @@ type committer struct {
 	getBundlesMetadataFunc transport.GetBundlesMetadataFunc
 	commitsMap             map[int32]kafka.Offset // map of partition -> offset
 	interval               time.Duration
-	lock                   sync.Mutex
 }
 
-// start runs the Committer instance.
+// start runs the committer instance.
 func (c *committer) start(ctx context.Context) {
-	go c.commitOffsets(ctx)
+	go c.periodicCommit(ctx)
 }
 
-func (c *committer) commitOffsets(ctx context.Context) {
+func (c *committer) periodicCommit(ctx context.Context) {
 	ticker := time.NewTicker(c.interval)
 
 	for {
@@ -65,7 +62,7 @@ func (c *committer) commitOffsets(ctx context.Context) {
 			return
 
 		case <-ticker.C: // wait for next time interval
-			// get metadata (pending and non-pending)
+			// get metadata (both pending and processed)
 			bundlesMetadata := c.getBundlesMetadataFunc()
 			// extract the lowest per partition in the pending bundles, the highest per partition in the
 			// processed bundles
@@ -76,8 +73,8 @@ func (c *committer) commitOffsets(ctx context.Context) {
 				processedOffsetsToCommit[partition] = offset
 			}
 
-			if err := c.commitPositions(processedOffsetsToCommit); err != nil {
-				c.log.Error(err, "committer failed")
+			if err := c.commitOffsets(processedOffsetsToCommit); err != nil {
+				c.log.Error(err, "commit offsets failed")
 			}
 		}
 	}
@@ -95,7 +92,7 @@ func (c *committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 			continue // shouldn't happen
 		}
 
-		if !metadata.Processed {
+		if !metadata.Processed() {
 			// this belongs to a pending bundle, update the lowest-offsets-map
 			lowestOffset, found := pendingLowestOffsetsMap[metadata.partition]
 			if found && metadata.offset >= lowestOffset {
@@ -122,9 +119,8 @@ func (c *committer) filterMetadataPerPartition(metadataArray []transport.BundleM
 	return pendingLowestOffsetsMap, processedHighestOffsetsMap
 }
 
-// commitPositions commits the given offsets per partition mapped.
-func (c *committer) commitPositions(offsets map[int32]kafka.Offset) error {
-	// go over positions and commit
+// commitOffsets commits the given offsets per partition mapped.
+func (c *committer) commitOffsets(offsets map[int32]kafka.Offset) error {
 	for partition, offset := range offsets {
 		// skip request if already committed this offset
 		if committedOffset, found := c.commitsMap[partition]; found {
@@ -145,8 +141,6 @@ func (c *committer) commitPositions(offsets map[int32]kafka.Offset) error {
 
 		// update commitsMap
 		c.commitsMap[partition] = offset
-
-		c.log.Info("committed offset", "topic", c.topic, "partition", partition, "offset", offset)
 	}
 
 	return nil

@@ -23,3 +23,11 @@ type DependantBundle interface {
 	// GetDependencyVersion returns the bundle dependency required version.
 	GetDependencyVersion() *status.BundleVersion
 }
+
+// DeltaStateBundle abstracts the functionality required from a Bundle to be used as Delta-State bundle.
+type DeltaStateBundle interface {
+	DependantBundle
+	// InheritEvents inherits the events in an older delta-bundle into the receiver (in-case of conflict, the receiver
+	// is the source of truth).
+	InheritEvents(olderBundle Bundle) error
+}

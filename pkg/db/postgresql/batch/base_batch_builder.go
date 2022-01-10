@@ -146,15 +146,15 @@ func (builder *baseBatchBuilder) generateInsertOrUpdateArgs(rowsCount int, colum
 func (builder *baseBatchBuilder) generateArgsList(argsCount int, startingIndex int, specialArgs map[int]string) string {
 	var stringBuilder strings.Builder
 
-	for i := 0; i < argsCount; i++ {
+	for index := 0; index < argsCount; index++ {
 		stringBuilder.WriteString("$")
-		stringBuilder.WriteString(strconv.Itoa(i + startingIndex))
+		stringBuilder.WriteString(strconv.Itoa(index + startingIndex))
 		// if a column contains definition for special column (e.g. jsonb type, uuid type)
-		if columnSpecialType, found := specialArgs[i+1]; found {
+		if columnSpecialType, found := specialArgs[index+1]; found {
 			stringBuilder.WriteString(fmt.Sprintf("::%s", columnSpecialType))
 		}
 
-		if i < argsCount-1 {
+		if index < argsCount-1 {
 			stringBuilder.WriteString(", ")
 		}
 	}
