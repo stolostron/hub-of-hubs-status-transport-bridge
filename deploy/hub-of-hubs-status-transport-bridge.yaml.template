@@ -109,6 +109,8 @@ spec:
               value: "5"
             - name: COMMITTER_INTERVAL
               value: "40s"
+            - name: STATISTICS_LOG_INTERVAL_SECONDS
+              value: "0"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

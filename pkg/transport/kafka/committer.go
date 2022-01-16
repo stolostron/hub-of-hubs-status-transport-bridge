@@ -24,8 +24,7 @@ func newCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaCons
 
 	committerInterval, err := time.ParseDuration(committerIntervalString)
 	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not valid duration - %w",
-			committerIntervalString, err)
+		return nil, fmt.Errorf("the environment var %s is not valid duration - %w", envVarCommitterInterval, err)
 	}
 
 	return &committer{

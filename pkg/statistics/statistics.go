@@ -2,7 +2,10 @@ package statistics
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,13 +14,28 @@ import (
 	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
 )
 
-const logIntervalSeconds = 300
+const (
+	envVarLogInterval = "STATISTICS_LOG_INTERVAL_SECONDS"
+)
+
+var errEnvVarNotFound = errors.New("environment variable not found")
 
 // NewStatistics creates a new instance of Statistics.
-func NewStatistics(log logr.Logger) *Statistics {
+func NewStatistics(log logr.Logger) (*Statistics, error) {
+	logIntervalString, found := os.LookupEnv(envVarLogInterval)
+	if !found {
+		return nil, fmt.Errorf("%w: %s", errEnvVarNotFound, envVarLogInterval)
+	}
+
+	logInterval, err := strconv.Atoi(logIntervalString)
+	if err != nil {
+		return nil, fmt.Errorf("the environment var %s is not valid interval - %w", envVarLogInterval, err)
+	}
+
 	statistics := &Statistics{
 		log:           log,
 		bundleMetrics: make(map[string]*bundleMetrics),
+		logInterval:   logInterval,
 	}
 
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ClustersPerPolicyBundle{})] = newBundleMetrics()
@@ -31,7 +49,7 @@ func NewStatistics(log logr.Logger) *Statistics {
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalPolicySpecBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.LocalPlacementRulesBundle{})] = newBundleMetrics()
 
-	return statistics
+	return statistics, nil
 }
 
 // Statistics aggregates different statistics.
@@ -40,6 +58,7 @@ type Statistics struct {
 	numOfAvailableDBWorkers  int
 	conflationReadyQueueSize int
 	bundleMetrics            map[string]*bundleMetrics
+	logInterval              int
 }
 
 // IncrementNumberOfReceivedBundles increments total number of received bundles of the specific type via transport.
@@ -101,7 +120,11 @@ func (s *Statistics) Start(ctx context.Context) error {
 }
 
 func (s *Statistics) run(ctx context.Context) {
-	ticker := time.NewTicker(logIntervalSeconds * time.Second)
+	if s.logInterval <= 0 {
+		return // if log interval is set to 0 or negative value, statistics log is disabled.
+	}
+
+	ticker := time.NewTicker(time.Duration(s.logInterval) * time.Second)
 
 	for {
 		select {

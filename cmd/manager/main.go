@@ -97,7 +97,11 @@ func doMain() int {
 	}
 
 	// create statistics
-	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+	if err != nil {
+		log.Error(err, "initialization error")
+		return 1
+	}
 
 	transportType, found := os.LookupEnv(envVarTransportType)
 	if !found {
