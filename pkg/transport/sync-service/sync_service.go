@@ -12,14 +12,14 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	compressor "github.com/open-cluster-management/hub-of-hubs-message-compression"
-	"github.com/open-cluster-management/hub-of-hubs-message-compression/compressors"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	compressor "github.com/stolostron/hub-of-hubs-message-compression"
+	"github.com/stolostron/hub-of-hubs-message-compression/compressors"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/statistics"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 const (

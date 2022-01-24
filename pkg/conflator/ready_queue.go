@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/statistics"
 )
 
 // NewConflationReadyQueue creates a new instance of ConflationReadyQueue.

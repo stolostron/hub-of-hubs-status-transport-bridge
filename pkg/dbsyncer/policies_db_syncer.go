@@ -6,15 +6,15 @@ import (
 
 	set "github.com/deckarep/golang-set"
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	configv1 "github.com/open-cluster-management/hub-of-hubs-data-types/apis/config/v1"
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	configv1 "github.com/stolostron/hub-of-hubs-data-types/apis/config/v1"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 // NewPoliciesDBSyncer creates a new instance of PoliciesDBSyncer.

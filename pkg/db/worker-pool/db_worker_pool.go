@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db/postgresql"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/statistics"
 )
 
 // NewDBWorkerPool returns a new db workers pool dispatcher.

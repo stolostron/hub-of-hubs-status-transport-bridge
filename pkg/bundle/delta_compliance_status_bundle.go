@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	set "github.com/deckarep/golang-set"
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 )
 
 var errWrongType = errors.New("received invalid type")

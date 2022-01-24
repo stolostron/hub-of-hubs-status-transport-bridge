@@ -1,8 +1,8 @@
 package syncservice
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
 	"github.com/open-horizon/edge-sync-service-client/client"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 // newBundleMetadata returns a new instance of BundleMetadata.

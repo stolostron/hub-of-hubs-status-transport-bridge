@@ -10,8 +10,8 @@ import (
 	set "github.com/deckarep/golang-set"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/postgresql/batch"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db/postgresql/batch"
 )
 
 const (
