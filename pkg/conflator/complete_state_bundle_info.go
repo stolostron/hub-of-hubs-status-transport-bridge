@@ -1,9 +1,9 @@
 package conflator
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 // newCompleteStateBundleInfo returns a new completeStateBundleInfo instance.

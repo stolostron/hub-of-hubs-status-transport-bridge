@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	workerpool "github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
 )
 
 // NewDispatcher creates a new instance of Dispatcher.

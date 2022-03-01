@@ -8,8 +8,8 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/go-logr/logr"
-	kafkaconsumer "github.com/open-cluster-management/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	kafkaconsumer "github.com/stolostron/hub-of-hubs-kafka-transport/kafka-client/kafka-consumer"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 const envVarCommitterInterval = "COMMITTER_INTERVAL"
@@ -24,8 +24,7 @@ func newCommitter(log logr.Logger, topic string, client *kafkaconsumer.KafkaCons
 
 	committerInterval, err := time.ParseDuration(committerIntervalString)
 	if err != nil {
-		return nil, fmt.Errorf("the environment var %s is not valid duration - %w",
-			committerIntervalString, err)
+		return nil, fmt.Errorf("the environment var %s is not valid duration - %w", envVarCommitterInterval, err)
 	}
 
 	return &committer{

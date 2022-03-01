@@ -1,4 +1,4 @@
-module github.com/open-cluster-management/hub-of-hubs-status-transport-bridge
+module github.com/stolostron/hub-of-hubs-status-transport-bridge
 
 go 1.17
 
@@ -9,12 +9,13 @@ require (
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc
-	github.com/open-cluster-management/hub-of-hubs-data-types v0.3.1-0.20220104120147-a86dbe9ef352
-	github.com/open-cluster-management/hub-of-hubs-data-types/apis/config v0.2.2
-	github.com/open-cluster-management/hub-of-hubs-kafka-transport v0.3.0
-	github.com/open-cluster-management/hub-of-hubs-message-compression v0.3.0
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5
 	github.com/open-cluster-management/multicloud-operators-subscription v1.2.2-2-20201130-59f96
+	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
+	github.com/operator-framework/operator-sdk v0.19.4
+	github.com/spf13/pflag v1.0.5
+	github.com/stolostron/hub-of-hubs-kafka-transport v0.3.1
+	github.com/stolostron/hub-of-hubs-message-compression v0.3.1
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
 	k8s.io/apimachinery v0.21.3
 	k8s.io/client-go v12.0.0+incompatible
@@ -22,9 +23,8 @@ require (
 )
 
 require (
-	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
-	github.com/operator-framework/operator-sdk v0.18.0
-	github.com/spf13/pflag v1.0.5
+	github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220213115909-0fb9a5f78467
+	github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1
 )
 
 require (

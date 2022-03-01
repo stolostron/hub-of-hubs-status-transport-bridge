@@ -3,10 +3,10 @@ package conflator
 import (
 	"context"
 
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator/dependency"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
 )
 
 // BundleHandlerFunc is a function for handling a bundle.

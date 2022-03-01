@@ -8,16 +8,16 @@ import (
 	"runtime"
 
 	"github.com/go-logr/logr"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/controller"
-	workerpool "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/statistics"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/kafka"
-	syncservice "github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/controller"
+	workerpool "github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db/worker-pool"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/statistics"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport/kafka"
+	syncservice "github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport/sync-service"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -97,7 +97,11 @@ func doMain() int {
 	}
 
 	// create statistics
-	stats := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+	stats, err := statistics.NewStatistics(ctrl.Log.WithName("statistics"))
+	if err != nil {
+		log.Error(err, "initialization error")
+		return 1
+	}
 
 	transportType, found := os.LookupEnv(envVarTransportType)
 	if !found {

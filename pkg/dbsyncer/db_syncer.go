@@ -1,8 +1,8 @@
 package dbsyncer
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 )
 
 // DBSyncer interface for registering business logic needed for handling bundles.

@@ -1,6 +1,6 @@
 package bundle
 
-import "github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
+import "github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 
 type baseBundle struct {
 	LeafHubName   string                `json:"leafHubName"`

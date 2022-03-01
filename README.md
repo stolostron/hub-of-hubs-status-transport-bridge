@@ -2,11 +2,11 @@
 
 # Hub-of-Hubs Status Transport Bridge
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)](https://goreportcard.com/report/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
-[![Go Reference](https://pkg.go.dev/badge/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge.svg)](https://pkg.go.dev/github.com/open-cluster-management/hub-of-hubs-status-transport-bridge)
-[![License](https://img.shields.io/github/license/open-cluster-management/hub-of-hubs-status-transport-bridge)](/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stolostron/hub-of-hubs-status-transport-bridge)](https://goreportcard.com/report/github.com/stolostron/hub-of-hubs-status-transport-bridge)
+[![Go Reference](https://pkg.go.dev/badge/github.com/stolostron/hub-of-hubs-status-transport-bridge.svg)](https://pkg.go.dev/github.com/stolostron/hub-of-hubs-status-transport-bridge)
+[![License](https://img.shields.io/github/license/stolostron/hub-of-hubs-status-transport-bridge)](/LICENSE)
 
-The status transport bridge component of [Hub-of-Hubs](https://github.com/open-cluster-management/hub-of-hubs).
+The status transport bridge component of [Hub-of-Hubs](https://github.com/stolostron/hub-of-hubs).
 
 Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 

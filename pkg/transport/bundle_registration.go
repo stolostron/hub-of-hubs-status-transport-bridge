@@ -1,7 +1,7 @@
 package transport
 
 import (
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
 )
 
 // BundleRegistration abstract the registration for bundles according to bundle key in transport layer.
