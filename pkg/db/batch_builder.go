@@ -43,6 +43,7 @@ type GenericLocalBatchBuilder interface {
 	Delete(id string)
 }
 
+// GenericBatchBuilder is a generic interface for building a batch to update global objects information in db.
 type GenericBatchBuilder interface {
 	BatchBuilder
 	// Insert adds the given payload to the batch to be inserted to the db.

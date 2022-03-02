@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
 )
 
 const (

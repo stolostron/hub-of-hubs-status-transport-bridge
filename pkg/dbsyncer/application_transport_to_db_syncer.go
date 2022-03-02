@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/open-cluster-management/hub-of-hubs-data-types"
-	"github.com/open-cluster-management/hub-of-hubs-data-types/bundle/status"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/bundle"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/conflator"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/db"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/helpers"
-	"github.com/open-cluster-management/hub-of-hubs-status-transport-bridge/pkg/transport"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
+	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/helpers"
+	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
