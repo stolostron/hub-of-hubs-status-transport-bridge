@@ -10,7 +10,6 @@ require (
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5
-	github.com/open-cluster-management/multicloud-operators-subscription v1.2.2-2-20201130-59f96
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/spf13/pflag v1.0.5
@@ -19,6 +18,7 @@ require (
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	k8s.io/apimachinery v0.21.3
 	k8s.io/client-go v12.0.0+incompatible
+	open-cluster-management.io/multicloud-operators-subscription v0.6.0
 	sigs.k8s.io/controller-runtime v0.9.2
 )
 
@@ -105,6 +105,7 @@ require (
 	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7 // indirect
 	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b // indirect
+	open-cluster-management.io/multicloud-operators-channel v0.5.1-0.20211122200432-da1610291798 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )

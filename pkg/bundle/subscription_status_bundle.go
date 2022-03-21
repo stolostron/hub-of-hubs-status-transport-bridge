@@ -1,7 +1,7 @@
 package bundle
 
 import (
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // NewSubscriptionBundle returns a new empty localPlacementRule bundle.
