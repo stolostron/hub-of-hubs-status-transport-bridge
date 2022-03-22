@@ -90,7 +90,7 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName strin
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.LocalPoliciesStatusDB, schema string, tableName string, ) error {
+	dbClient db.LocalPoliciesStatusDB, schema string, tableName string) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 

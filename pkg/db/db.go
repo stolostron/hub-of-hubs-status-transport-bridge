@@ -13,8 +13,8 @@ type StatusTransportBridgeDB interface {
 
 	ManagedClustersStatusDB
 	PoliciesStatusDB
-	SubscriptionsStatusDB
 	AggregatedPoliciesStatusDB
+	SubscriptionsStatusDB
 	LocalPoliciesStatusDB
 	ControlInfoDB
 }

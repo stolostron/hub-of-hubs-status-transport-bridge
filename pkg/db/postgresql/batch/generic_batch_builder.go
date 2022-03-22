@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	genericUUIDColumnIndex = 1
+	genericUUIDColumnIndex  = 1
 	genericJsonbColumnIndex = 3
 	genericDeleteRowKey     = "id"
 )
