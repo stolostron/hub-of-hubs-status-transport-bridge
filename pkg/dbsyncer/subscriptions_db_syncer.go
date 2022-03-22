@@ -61,7 +61,7 @@ func (syncer *SubscriptionsDBSyncer) RegisterBundleHandlerFunctions(conflationMa
 }
 
 func (syncer *SubscriptionsDBSyncer) handleSubscriptionsStatusBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.ApplicationStatusDB, schema string, tableName string, ) error {
+	dbClient db.SubscriptionsStatusDB, schema string, tableName string, ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
