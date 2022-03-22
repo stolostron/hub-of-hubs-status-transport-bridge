@@ -221,21 +221,41 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 	return nil
 }
 
+// NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
+func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
+	leafHubName string) db.GenericBatchBuilder {
+	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
+}
+
+// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,
+		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
+
+	result, err := buildKeyValueMapFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
+	}
+
+	return result, nil
+}
+
 // NewGenericLocalBatchBuilder creates a new instance of GenericLocalBatchBuilder.
 func (p *PostgreSQL) NewGenericLocalBatchBuilder(schema string, tableName string,
 	leafHubName string) db.GenericLocalBatchBuilder {
 	return batch.NewGenericLocalBatchBuilder(schema, tableName, leafHubName)
 }
 
-// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
-func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+// GetLocalDistinctIDAndVersion returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetLocalDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
 	leafHubName string) (map[string]string, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
 
 	result, err := buildKeyValueMapFromRows(rows)
 	if err != nil {
-		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
+		return nil, fmt.Errorf("failed generating map from db - %w", err)
 	}
 
 	return result, nil

@@ -15,7 +15,7 @@ func NewDeltaComplianceStatusBundle() Bundle {
 	return &DeltaComplianceStatusBundle{}
 }
 
-// DeltaComplianceStatusBundle abstracts management of compliance status bundle.
+// DeltaComplianceStatusBundle abstracts management of delta compliance status bundle.
 type DeltaComplianceStatusBundle struct {
 	status.BaseDeltaComplianceStatusBundle
 }

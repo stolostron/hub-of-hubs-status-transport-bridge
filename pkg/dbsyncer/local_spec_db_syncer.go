@@ -81,7 +81,7 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,
 	bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
 	return func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-		return syncer.handleLocalObjectsBundle(ctx, bundle, db.LocalSpecSchema, tableName, dbClient)
+		return syncer.handleLocalObjectsBundle(ctx, bundle, dbClient, db.LocalSpecSchema, tableName)
 	}
 }
 
@@ -89,12 +89,12 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName strin
 // if the row doesn't exist then add it.
 // if the row exists then update it.
 // if the row isn't in the bundle then delete it.
-func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, bundle bundle.Bundle, schema string,
-	tableName string, dbClient db.LocalPoliciesStatusDB) error {
+func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, bundle bundle.Bundle,
+	dbClient db.LocalPoliciesStatusDB, schema string, tableName string) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	resourceIDToVersionMapFromDB, err := dbClient.GetDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
+	resourceIDToVersionMapFromDB, err := dbClient.GetLocalDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", schema, tableName, err)
 	}

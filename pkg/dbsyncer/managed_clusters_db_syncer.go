@@ -65,13 +65,13 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	clustersFromDB, err := dbClient.GetManagedClustersByLeafHub(ctx, db.StatusSchema, db.ManagedClustersTable,
+	clustersFromDB, err := dbClient.GetManagedClustersByLeafHub(ctx, db.StatusSchema, db.ManagedClustersTableName,
 		leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
 	// batch is per leaf hub, therefore no need to specify leafHubName in Insert/Update/Delete
-	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema, db.ManagedClustersTable, leafHubName)
+	batchBuilder := dbClient.NewManagedClustersBatchBuilder(db.StatusSchema, db.ManagedClustersTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
 		cluster, ok := object.(*managedclustersv1.ManagedCluster)

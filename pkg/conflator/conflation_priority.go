@@ -9,9 +9,10 @@ const (
 	CompleteComplianceStatusPriority      conflationPriority = iota // CompleteComplianceStatus = 2
 	DeltaComplianceStatusPriority         conflationPriority = iota // DeltaComplianceStatus = 3
 	MinimalComplianceStatusPriority       conflationPriority = iota // MinimalComplianceStatus = 4
-	ControlInfoPriority                   conflationPriority = iota // ControlInfo = 5
-	LocalPolicySpecPriority               conflationPriority = iota // LocalPolicySpec = 6
-	LocalClustersPerPolicyPriority        conflationPriority = iota // LocalClustersPerPolicy = 7
-	LocalCompleteComplianceStatusPriority conflationPriority = iota // LocalCompleteComplianceStatus = 8
-	LocalPlacementRulesSpecPriority       conflationPriority = iota // LocalPlacementRulesSpec = 9
+	SubscriptionsStatusPriority           conflationPriority = iota // SubscriptionsStatus = 5
+	ControlInfoPriority                   conflationPriority = iota // ControlInfo = 6
+	LocalPolicySpecPriority               conflationPriority = iota // LocalPolicySpec = 7
+	LocalClustersPerPolicyPriority        conflationPriority = iota // LocalClustersPerPolicy = 8
+	LocalCompleteComplianceStatusPriority conflationPriority = iota // LocalCompleteComplianceStatus = 9
+	LocalPlacementRulesSpecPriority       conflationPriority = iota // LocalPlacementRulesSpec = 10
 )

@@ -14,6 +14,7 @@ type StatusTransportBridgeDB interface {
 	ManagedClustersStatusDB
 	PoliciesStatusDB
 	AggregatedPoliciesStatusDB
+	SubscriptionsStatusDB
 	LocalPoliciesStatusDB
 	ControlInfoDB
 }
@@ -55,11 +56,20 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// LocalPoliciesStatusDB is the db interface required by status bridge to manage local policies.
-type LocalPoliciesStatusDB interface {
+// SubscriptionsStatusDB is the db interface required by status transport bridge to manage subscriptions status.
+type SubscriptionsStatusDB interface {
 	BatchSenderDB
 	// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
 	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+		leafHubName string) (map[string]string, error)
+	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
+}
+
+// LocalPoliciesStatusDB is the db interface required by status bridge to manage local policies.
+type LocalPoliciesStatusDB interface {
+	BatchSenderDB
+	// GetLocalDistinctIDAndVersion returns a map from resource id to its resourceVersion.
+	GetLocalDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
 	// NewGenericLocalBatchBuilder returns generic local batch builder.
 	NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName string) GenericLocalBatchBuilder
