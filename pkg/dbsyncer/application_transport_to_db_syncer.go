@@ -51,7 +51,7 @@ func (syncer *ApplicationDBSyncer) RegisterCreateBundleFunctions(transportInstan
 // and if the object was changed, update the db with the current object.
 func (syncer *ApplicationDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.SubscriptionStatusPriority, status.CompleteStateMode,
+		conflator.SubscriptionsStatusPriority, status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createSubscriptionBundleFunc()),
 		syncer.handleObjectsBundleWrapper(db.SubscriptionTableName)))
 }
