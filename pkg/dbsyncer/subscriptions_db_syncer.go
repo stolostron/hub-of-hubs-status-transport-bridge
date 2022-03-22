@@ -15,26 +15,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// NewApplicationDBSyncer creates a new instance of ManagedClustersDBSyncer.
-func NewApplicationDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &ApplicationDBSyncer{
+// NewSubscriptionsDBSyncer creates a new instance of SubscriptionsDBSyncer.
+func NewSubscriptionsDBSyncer(log logr.Logger) DBSyncer {
+	dbSyncer := &SubscriptionsDBSyncer{
 		log:                          log,
 		createSubscriptionBundleFunc: bundle.NewSubscriptionsStatusBundle,
 	}
 
-	log.Info("initialized application db syncer")
+	log.Info("initialized subscriptions db syncer")
 
 	return dbSyncer
 }
 
-// ApplicationDBSyncer implements managed clusters db sync business logic.
-type ApplicationDBSyncer struct {
+// SubscriptionsDBSyncer implements subscriptions db sync business logic.
+type SubscriptionsDBSyncer struct {
 	log                          logr.Logger
 	createSubscriptionBundleFunc func() bundle.Bundle
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *ApplicationDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
+func (syncer *SubscriptionsDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.SubscriptionStatusMsgKey,
 		CreateBundleFunc: syncer.createSubscriptionBundleFunc,
@@ -49,22 +49,19 @@ func (syncer *ApplicationDBSyncer) RegisterCreateBundleFunctions(transportInstan
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *ApplicationDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+func (syncer *SubscriptionsDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.SubscriptionsStatusPriority, status.CompleteStateMode,
+		conflator.SubscriptionsStatusPriority,
+		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createSubscriptionBundleFunc()),
-		syncer.handleObjectsBundleWrapper(db.SubscriptionTableName)))
+		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
+			return syncer.handleSubscriptionsStatusBundle(ctx, bundle, dbClient, db.StatusSchema, db.SubscriptionTableName)
+		},
+	))
 }
 
-func (syncer *ApplicationDBSyncer) handleObjectsBundleWrapper(tableName string) func(ctx context.Context,
-	bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-	return func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-		return syncer.handleObjectsBundle(ctx, bundle, db.StatusSchema, tableName, dbClient)
-	}
-}
-
-func (syncer *ApplicationDBSyncer) handleObjectsBundle(ctx context.Context, bundle bundle.Bundle, schema string,
-	tableName string, dbClient db.ApplicationStatusDB) error {
+func (syncer *SubscriptionsDBSyncer) handleSubscriptionsStatusBundle(ctx context.Context, bundle bundle.Bundle,
+	dbClient db.ApplicationStatusDB, schema string, tableName string, ) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
@@ -82,9 +79,9 @@ func (syncer *ApplicationDBSyncer) handleObjectsBundle(ctx context.Context, bund
 		}
 
 		uid := string(specificObj.GetUID())
-		resourceVersionFromDB, objInDB := idToVersionMapFromDB[uid]
+		resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
 
-		if !objInDB { // object not found in the db table
+		if !objExistsInDB { // object not found in the db table
 			batchBuilder.Insert(uid, object)
 			continue
 		}
