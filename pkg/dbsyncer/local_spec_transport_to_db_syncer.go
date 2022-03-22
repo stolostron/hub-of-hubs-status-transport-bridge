@@ -94,7 +94,7 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, b
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetLocalDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
+	resourceIDToVersionMapFromDB, err := dbClient.GetLocalDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
 	if err != nil {
 		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", schema, tableName, err)
 	}
@@ -108,14 +108,14 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, b
 		}
 
 		uid := string(specificObj.GetUID())
-		resourceVersionFromDB, objInDB := idToVersionMapFromDB[uid]
+		resourceVersionFromDB, objInDB := resourceIDToVersionMapFromDB[uid]
 
 		if !objInDB { // object not found in the db table
 			batchBuilder.Insert(object)
 			continue
 		}
 
-		delete(idToVersionMapFromDB, uid)
+		delete(resourceIDToVersionMapFromDB, uid)
 
 		if specificObj.GetResourceVersion() == resourceVersionFromDB {
 			continue // update object in db only if what we got is a different (newer) version of the resource.
@@ -125,7 +125,7 @@ func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundle(ctx context.Context, b
 	}
 
 	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	for uid := range idToVersionMapFromDB {
+	for uid := range resourceIDToVersionMapFromDB {
 		batchBuilder.Delete(uid)
 	}
 
