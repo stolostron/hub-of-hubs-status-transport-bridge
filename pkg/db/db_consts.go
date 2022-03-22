@@ -12,20 +12,20 @@ const (
 
 // table names.
 const (
-	// ManagedClustersTable table name of managed clusters.
-	ManagedClustersTable = "managed_clusters"
-	// ComplianceTable table name of policy compliance status.
-	ComplianceTable = "compliance"
+	// ManagedClustersTableName table name of managed clusters.
+	ManagedClustersTableName = "managed_clusters"
+	// ComplianceTableName table name of policy compliance status.
+	ComplianceTableName = "compliance"
 	// MinimalComplianceTable table name of minimal policy compliance status.
 	MinimalComplianceTable = "aggregated_compliance"
+	// SubscriptionTableName table name of subscriptions.
+	SubscriptionTableName = "subscriptions"
 	// LocalPolicySpecTableName table name of local policy spec.
 	LocalPolicySpecTableName = "policies"
 	// LocalPlacementRulesTableName table name of local placement rules.
 	LocalPlacementRulesTableName = "placementrules"
 	// LeafHubHeartbeatsTableName table name for LH heartbeats.
 	LeafHubHeartbeatsTableName = "leaf_hub_heartbeats"
-	// SubscriptionTableName table name of the subscriptions table.
-	SubscriptionTableName = "subscriptions"
 )
 
 // default values.
