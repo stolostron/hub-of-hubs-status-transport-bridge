@@ -289,15 +289,6 @@ func buildKeyValueMapFromRows(rows pgx.Rows) (map[string]string, error) {
 	return result, nil
 }
 
-// DeleteTableContent deletes the content of a table.
-func (p *PostgreSQL) DeleteTableContent(ctx context.Context, tableName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s`, tableName)); err != nil {
-		return fmt.Errorf("failed deleting table '%s' content from database: %w", tableName, err)
-	}
-
-	return nil
-}
-
 // GetDistinctIDsFromLH this function returns distinct id entries in the local_spec schema.
 func (p *PostgreSQL) GetDistinctIDsFromLH(ctx context.Context, tableName string, leafHubName string) ([]string, error) {
 	result := make([]string, 0)
@@ -314,62 +305,4 @@ func (p *PostgreSQL) GetDistinctIDsFromLH(ctx context.Context, tableName string,
 	}
 
 	return result, nil
-}
-
-// InsertIntoSpecSchema inserts into one spec. table a row with id name IDType.
-func (p *PostgreSQL) InsertIntoSpecSchema(ctx context.Context, id string, tableName string,
-	leafHubName string, payload interface{}) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (id,leaf_hub_name,payload) 
-										values($1, $2, $3::jsonb)`, tableName), id, leafHubName, payload); err != nil {
-		return fmt.Errorf("failed inserting %s into %s database: %w", id, tableName, err)
-	}
-
-	return nil
-}
-
-// DeleteSingleSpecRow this function receives an idType (the name of the id column in table tableName) and deletes the
-// row that contains id.
-func (p *PostgreSQL) DeleteSingleSpecRow(ctx context.Context, leafHubName string, tableName string,
-	id string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE id=$1 AND 
-			leaf_hub_name=$2`, tableName), id, leafHubName); err != nil {
-		return fmt.Errorf("failed to delete spec row from database: %w", err)
-	}
-
-	return nil
-}
-
-// InsertNewSubscriptionRow inserts a new subscription to the db.
-func (p *PostgreSQL) InsertNewSubscriptionRow(ctx context.Context, id string, leafHubName string, payload interface{},
-	propagationState string, version string, tableName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %s (id,leaf_hub_name,
-			payloaD, propagation_state,resource_version) values($1, $2, $3, $4, $5)`, tableName), id,
-		leafHubName, payload, propagationState, version); err != nil {
-		return fmt.Errorf("failed to insert into database: %w", err)
-	}
-
-	return nil
-}
-
-// DeleteSingleSubscriptionRow deletes a single status.subscription row.
-func (p *PostgreSQL) DeleteSingleSubscriptionRow(ctx context.Context, leafHubName string, id string,
-	tableName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`DELETE from %s WHERE id=$1 AND 
-			leaf_hub_name=$2`, tableName), id, leafHubName); err != nil {
-		return fmt.Errorf("failed to delete subscription row from database: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateSingleSubscriptionRow Updates a single subscription row according to its id.
-func (p *PostgreSQL) UpdateSingleSubscriptionRow(ctx context.Context, tableName string, id string, leafHubName string,
-	propagationState string, payload interface{}, version string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`UPDATE %s SET payload=$1, propagation_state=$2, 
-											resource_version=$3 WHERE id=$4 AND leaf_hub_name=$5`, tableName),
-		payload, propagationState, version, id, leafHubName); err != nil {
-		return fmt.Errorf("failed to update row with id %s in table %s in database: %w", id, tableName, err)
-	}
-
-	return nil
 }
