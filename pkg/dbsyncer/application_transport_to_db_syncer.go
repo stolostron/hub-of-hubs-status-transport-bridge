@@ -19,7 +19,7 @@ import (
 func NewApplicationDBSyncer(log logr.Logger) DBSyncer {
 	dbSyncer := &ApplicationDBSyncer{
 		log:                          log,
-		createSubscriptionBundleFunc: func() bundle.Bundle { return bundle.NewSubscriptionBundle() },
+		createSubscriptionBundleFunc: bundle.NewSubscriptionsStatusBundle,
 	}
 
 	log.Info("initialized application db syncer")
