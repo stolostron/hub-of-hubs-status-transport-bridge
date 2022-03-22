@@ -100,8 +100,8 @@ github.com/open-cluster-management/governance-policy-propagator v0.0.0-202112091
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc/go.mod h1:BeU1IeeQCcmHK1CGlNBkea8VDoh0CpPxwGTY7u4h+0o=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5 h1:u5Du//c1Gzv9liDsHLVJefQ9zwGSEcwSeOIv6jJjTOI=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5/go.mod h1:qB8YBquVYtr/h/U7DTGL+GwXPxuIinX4OpLW3s86xGY=
-github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232 h1:o8xR9o4h5ein7qGmHkLjL5/XJDV0GVE50l3BIAeWhoA=
-github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232/go.mod h1:rKW01VtqwtwaUQ+zkJ80X5EeGqsTblQE4J9HxPUtTAQ=
+github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2 h1:ZmX/tuCgFVbe07pqObNWf14cAYpHN8gVRSkWnbtSUW4=
+github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2/go.mod h1:rKW01VtqwtwaUQ+zkJ80X5EeGqsTblQE4J9HxPUtTAQ=
 github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152 h1:YEvNOMo3ANOQ3AwsU0cCcBA4nKHDLUlyUCRWk5rBf68=
 github.com/open-horizon/edge-utilities v0.0.0-20190711093331-0908b45a7152/go.mod h1:YCsJWhuG0VERquI0geFKoneCSOVAyMdSmylGz5OlZdE=
 github.com/operator-framework/operator-sdk v0.19.4 h1:QI6k+WBDAXagx2OunEajQLa8LZwmRXu+x/SwmVZ/CCw=

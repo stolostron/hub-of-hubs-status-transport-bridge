@@ -10,21 +10,17 @@ require (
 	github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1
 	github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5
-	github.com/open-horizon/edge-sync-service-client v0.0.0-20211025140051-714c20915232
+	github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/spf13/pflag v1.0.5
+	github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220213115909-0fb9a5f78467
+	github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1
 	github.com/stolostron/hub-of-hubs-kafka-transport v0.3.1
 	github.com/stolostron/hub-of-hubs-message-compression v0.3.1
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	k8s.io/apimachinery v0.21.3
 	k8s.io/client-go v12.0.0+incompatible
 	open-cluster-management.io/multicloud-operators-subscription v0.6.0
 	sigs.k8s.io/controller-runtime v0.9.2
-)
-
-require (
-	github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220213115909-0fb9a5f78467
-	github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1
 )
 
 require (
@@ -86,6 +82,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
