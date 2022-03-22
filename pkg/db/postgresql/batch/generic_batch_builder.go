@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	genericUUIDColumnIndex = 1
 	genericJsonbColumnIndex = 3
 	genericDeleteRowKey     = "id"
 )
@@ -15,8 +16,8 @@ const (
 // NewGenericBatchBuilder creates a new instance of PostgreSQL GenericBatchBuilder.
 func NewGenericBatchBuilder(schema string, tableName string, leafHubName string) *GenericBatchBuilder {
 	tableSpecialColumns := make(map[int]string)
+	tableSpecialColumns[genericUUIDColumnIndex] = db.UUID
 	tableSpecialColumns[genericJsonbColumnIndex] = db.Jsonb
-	tableSpecialColumns[policyUUIDColumnIndex] = db.UUID
 	builder := &GenericBatchBuilder{
 		baseBatchBuilder: newBaseBatchBuilder(schema, tableName, tableSpecialColumns, leafHubName,
 			genericDeleteRowKey),
@@ -32,12 +33,12 @@ type GenericBatchBuilder struct {
 	*baseBatchBuilder
 }
 
-// Insert adds the given payload and id to the batch to be inserted to the db.
+// Insert adds the given (id, payload) to the batch to be inserted to the db.
 func (builder *GenericBatchBuilder) Insert(id string, payload interface{}) {
 	builder.insert(id, builder.leafHubName, payload)
 }
 
-// Update adds the given payload to the batch to be updated in the db.
+// Update adds the given (id, payload) to the batch to be updated in the db.
 func (builder *GenericBatchBuilder) Update(id string, payload interface{}) {
 	builder.update(id, builder.leafHubName, payload)
 }
