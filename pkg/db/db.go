@@ -13,6 +13,7 @@ type StatusTransportBridgeDB interface {
 
 	ManagedClustersStatusDB
 	PoliciesStatusDB
+	PoliciesPlacementStatusDB
 	AggregatedPoliciesStatusDB
 	SubscriptionsStatusDB
 	LocalPoliciesStatusDB
@@ -24,7 +25,7 @@ type BatchSenderDB interface {
 	SendBatch(ctx context.Context, batch interface{}) error
 }
 
-// ManagedClustersStatusDB is the db interface required by status transport bridge to manage managed clusters status.
+// ManagedClustersStatusDB is the db interface required to manage managed clusters status.
 type ManagedClustersStatusDB interface {
 	BatchSenderDB
 	// GetManagedClustersByLeafHub returns a map from clusterName to its resourceVersion.
@@ -34,7 +35,7 @@ type ManagedClustersStatusDB interface {
 	NewManagedClustersBatchBuilder(schema string, tableName string, leafHubName string) ManagedClustersBatchBuilder
 }
 
-// PoliciesStatusDB is the db interface required by status transport bridge to manage policies status.
+// PoliciesStatusDB is the db interface required to manage policies status.
 type PoliciesStatusDB interface {
 	BatchSenderDB
 	// GetComplianceStatusByLeafHub returns a map of policies, each maps to a set of clusters.
@@ -47,7 +48,17 @@ type PoliciesStatusDB interface {
 	NewPoliciesBatchBuilder(schema string, tableName string, leafHubName string) PoliciesBatchBuilder
 }
 
-// AggregatedPoliciesStatusDB is the db interface required by status transport bridge to manage aggregated policy info.
+// PoliciesPlacementStatusDB is the db interface required to manage policies placement status.
+type PoliciesPlacementStatusDB interface {
+	BatchSenderDB
+	// GetPoliciesPlacementByLeafHub returns a map from policyID to its resourceVersion.
+	GetPoliciesPlacementByLeafHub(ctx context.Context, schema string, tableName string,
+		leafHubName string) (map[string]string, error)
+	// NewPoliciesPlacementBatchBuilder returns policies placement batch builder.
+	NewPoliciesPlacementBatchBuilder(schema string, tableName string, leafHubName string) PoliciesPlacementBatchBuilder
+}
+
+// AggregatedPoliciesStatusDB is the db interface required to manage aggregated policy info.
 type AggregatedPoliciesStatusDB interface {
 	GetPolicyIDsByLeafHub(ctx context.Context, schema string, tableName string, leafHubName string) (set.Set, error)
 	InsertOrUpdateAggregatedPolicyCompliance(ctx context.Context, schema string, tableName string, leafHubName string,
@@ -56,7 +67,7 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// SubscriptionsStatusDB is the db interface required by status transport bridge to manage subscriptions status.
+// SubscriptionsStatusDB is the db interface required to manage subscriptions status.
 type SubscriptionsStatusDB interface {
 	BatchSenderDB
 	// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
@@ -65,7 +76,7 @@ type SubscriptionsStatusDB interface {
 	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
 }
 
-// LocalPoliciesStatusDB is the db interface required by status bridge to manage local policies.
+// LocalPoliciesStatusDB is the db interface required to manage local policies.
 type LocalPoliciesStatusDB interface {
 	BatchSenderDB
 	// GetLocalDistinctIDAndVersion returns a map from resource id to its resourceVersion.
@@ -75,7 +86,7 @@ type LocalPoliciesStatusDB interface {
 	NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName string) GenericLocalBatchBuilder
 }
 
-// ControlInfoDB is the db interface required by status transport bridge to manage control info status.
+// ControlInfoDB is the db interface required to manage control info status.
 type ControlInfoDB interface {
 	// UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
 	UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error

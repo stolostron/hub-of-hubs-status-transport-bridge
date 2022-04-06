@@ -13,7 +13,7 @@ require (
 	github.com/open-horizon/edge-sync-service-client v0.0.0-20190711093406-dc3a19905da2
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/spf13/pflag v1.0.5
-	github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220213115909-0fb9a5f78467
+	github.com/stolostron/hub-of-hubs-data-types v0.3.2-0.20220331152652-e2a4c584cb62
 	github.com/stolostron/hub-of-hubs-data-types/apis/config v0.3.1
 	github.com/stolostron/hub-of-hubs-kafka-transport v0.3.1
 	github.com/stolostron/hub-of-hubs-message-compression v0.3.1

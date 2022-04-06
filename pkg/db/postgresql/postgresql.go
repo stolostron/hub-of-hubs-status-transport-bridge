@@ -221,6 +221,26 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 	return nil
 }
 
+// NewPoliciesPlacementBatchBuilder creates a new instance of NewPoliciesPlacementBatchBuilder.
+func (p *PostgreSQL) NewPoliciesPlacementBatchBuilder(schema string, tableName string,
+	leafHubName string) db.PoliciesPlacementBatchBuilder {
+	return batch.NewPoliciesPlacementBatchBuilder(schema, tableName, leafHubName)
+}
+
+// GetPoliciesPlacementByLeafHub returns a map from policyID to its resourceVersion.
+func (p *PostgreSQL) GetPoliciesPlacementByLeafHub(ctx context.Context, schema string, tableName string,
+	leafHubName string) (map[string]string, error) {
+	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,resource_version FROM %s.%s WHERE leaf_hub_name=$1`,
+		schema, tableName), leafHubName)
+
+	result, err := buildKeyValueMapFromRows(rows)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
+	}
+
+	return result, nil
+}
+
 // NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
 func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
 	leafHubName string) db.GenericBatchBuilder {
@@ -263,9 +283,9 @@ func (p *PostgreSQL) GetLocalDistinctIDAndVersion(ctx context.Context, schema st
 
 // UpdateHeartbeat inserts or updates heartbeat for a leaf hub.
 func (p *PostgreSQL) UpdateHeartbeat(ctx context.Context, schema string, tableName string, leafHubName string) error {
-	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %[1]s.%[2]s (name, last_timestamp) 
-		values($1, (now() at time zone 'utc')) ON CONFLICT (name) DO UPDATE SET last_timestamp = (now() at time zone 'utc') 
-        WHERE %[1]s.%[2]s.name = $1`, schema, tableName),
+	if _, err := p.conn.Exec(ctx, fmt.Sprintf(`INSERT INTO %[1]s.%[2]s (leaf_hub_name, last_timestamp) 
+		values($1, (now() at time zone 'utc')) ON CONFLICT (leaf_hub_name) DO UPDATE SET last_timestamp = (now() 
+		at time zone 'utc') WHERE %[1]s.%[2]s.leaf_hub_name = $1`, schema, tableName),
 		leafHubName); err != nil {
 		return fmt.Errorf("failed upsert into database: %w", err)
 	}

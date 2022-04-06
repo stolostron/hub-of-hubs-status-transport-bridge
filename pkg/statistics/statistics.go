@@ -42,6 +42,7 @@ func NewStatistics(log logr.Logger) (*Statistics, error) {
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ClustersPerPolicyBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.CompleteComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.DeltaComplianceStatusBundle{})] = newBundleMetrics()
+	statistics.bundleMetrics[helpers.GetBundleType(&bundle.PoliciesPlacementBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.MinimalComplianceStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.SubscriptionsStatusBundle{})] = newBundleMetrics()
 	statistics.bundleMetrics[helpers.GetBundleType(&bundle.ControlInfoBundle{})] = newBundleMetrics()
