@@ -17,7 +17,7 @@ type Bundle interface {
 
 // DependantBundle is a bundle that depends on a different bundle.
 // to support bundles dependencies additional function is required - GetDependencyVersion, in order to start
-// processing the dependant bundle only after it's required dependency (with required version) was processed.
+// processing the dependant bundle only after its required dependency (with required version) was processed.
 type DependantBundle interface {
 	Bundle
 	// GetDependencyVersion returns the bundle dependency required version.
