@@ -54,10 +54,10 @@ const (
 
 // unique db types.
 const (
-	// uuid unique type.
+	// UUID unique type.
 	UUID = "uuid"
-	// jsonb unique type.
+	// Jsonb unique type.
 	Jsonb = "jsonb"
-	// compliance type unique type.
-	StatusComplianceType = "status.compliance_type"
+	// ComplianceType unique type.
+	ComplianceType = "compliance_type"
 )
