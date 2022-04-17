@@ -112,7 +112,8 @@ func (builder *PoliciesBatchBuilder) generateUpdatePolicyComplianceStatement() s
 
 	specialColumns := make(map[int]string)
 	specialColumns[policyUUIDColumnIndex] = db.UUID
-	specialColumns[updatePolicyComplianceTypeColumnIndex] = db.StatusComplianceType // compliance column index
+	specialColumns[updatePolicyComplianceTypeColumnIndex] = fmt.Sprintf("%s.%s", builder.schema,
+		db.ComplianceType) // compliance column index
 
 	numberOfColumns := len(builder.updateArgs) / builder.updateRowsCount // total num of args divided by num of rows
 	stringBuilder.WriteString(builder.generateInsertOrUpdateArgs(builder.updateRowsCount, numberOfColumns,
@@ -132,7 +133,8 @@ func (builder *PoliciesBatchBuilder) generateUpdateClusterComplianceStatement() 
 
 	specialColumns := make(map[int]string)
 	specialColumns[policyUUIDColumnIndex] = db.UUID
-	specialColumns[updateClusterComplianceTypeColumnIndex] = db.StatusComplianceType // compliance column index
+	specialColumns[updateClusterComplianceTypeColumnIndex] = fmt.Sprintf("%s.%s", builder.schema,
+		db.ComplianceType) // compliance column index
 
 	// num of columns is total num of args divided by num of rows
 	columnCount := len(builder.updateClusterComplianceArgs) / builder.updateClusterComplianceRowsCount
