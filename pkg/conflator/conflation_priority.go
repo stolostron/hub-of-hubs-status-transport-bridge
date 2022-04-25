@@ -1,6 +1,6 @@
 package conflator
 
-// ConflationPriority sets priority of processing for the conflators.
+// ConflationPriority sets processing priorities of bundles.
 type ConflationPriority uint8
 
 // priority list of conflation unit.
@@ -9,7 +9,6 @@ const (
 	ClustersPerPolicyPriority             ConflationPriority = iota
 	CompleteComplianceStatusPriority      ConflationPriority = iota
 	DeltaComplianceStatusPriority         ConflationPriority = iota
-	PoliciesPlacementPriority             ConflationPriority = iota
 	MinimalComplianceStatusPriority       ConflationPriority = iota
 	PlacementRulePriority                 ConflationPriority = iota
 	PlacementPriority                     ConflationPriority = iota

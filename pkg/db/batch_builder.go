@@ -32,17 +32,6 @@ type PoliciesBatchBuilder interface {
 	DeleteClusterStatus(policyID string, clusterName string)
 }
 
-// PoliciesPlacementBatchBuilder is an interface for building a batch to update policies placement information in db.
-type PoliciesPlacementBatchBuilder interface {
-	BatchBuilder
-	// Insert adds the given (policyID, placement, resourceVersion) to the batch to be inserted to the db.
-	Insert(policyID string, placement interface{}, resourceVersion string)
-	// Update adds the given (policyID, placement, resourceVersion) to the batch to be updated to the db.
-	Update(policyID string, placement interface{}, resourceVersion string)
-	// Delete adds delete statement to the batch to delete the given policy from db.
-	Delete(policyID string)
-}
-
 // GenericBatchBuilder is a generic interface for building a batch to update global objects information in db.
 type GenericBatchBuilder interface {
 	BatchBuilder

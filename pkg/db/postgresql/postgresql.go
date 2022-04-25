@@ -221,26 +221,6 @@ func (p *PostgreSQL) DeleteAllComplianceRows(ctx context.Context, schema string,
 	return nil
 }
 
-// NewPoliciesPlacementBatchBuilder creates a new instance of NewPoliciesPlacementBatchBuilder.
-func (p *PostgreSQL) NewPoliciesPlacementBatchBuilder(schema string, tableName string,
-	leafHubName string) db.PoliciesPlacementBatchBuilder {
-	return batch.NewPoliciesPlacementBatchBuilder(schema, tableName, leafHubName)
-}
-
-// GetPoliciesPlacementByLeafHub returns a map from policyID to its resourceVersion.
-func (p *PostgreSQL) GetPoliciesPlacementByLeafHub(ctx context.Context, schema string, tableName string,
-	leafHubName string) (map[string]string, error) {
-	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,resource_version FROM %s.%s WHERE leaf_hub_name=$1`,
-		schema, tableName), leafHubName)
-
-	result, err := buildKeyValueMapFromRows(rows)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading from table %s.%s - %w", schema, tableName, err)
-	}
-
-	return result, nil
-}
-
 // NewGenericBatchBuilder creates a new instance of GenericBatchBuilder.
 func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
 	leafHubName string) db.GenericBatchBuilder {

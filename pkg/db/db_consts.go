@@ -17,19 +17,16 @@ const (
 
 	// ComplianceTableName table name of policy compliance status.
 	ComplianceTableName = "compliance"
-	// PoliciesPlacementTableName table name of policies placement.
-	PoliciesPlacementTableName = "policies_placement"
 	// MinimalComplianceTable table name of minimal policy compliance status.
 	MinimalComplianceTable = "aggregated_compliance"
 	// LocalPolicySpecTableName table name of local policy spec.
 	LocalPolicySpecTableName = "policies"
-	// LocalPlacementRulesTableName table name of local placement rules.
-	LocalPlacementRulesTableName = "placementrules"
 
 	// SubscriptionStatusesTableName table name of subscription-statuses.
 	SubscriptionStatusesTableName = "subscription_statuses"
 	// SubscriptionReportsTableName table name of subscription-reports.
 	SubscriptionReportsTableName = "subscription_reports"
+
 	// PlacementRulesTableName table name of placement-rules.
 	PlacementRulesTableName = "placementrules"
 	// PlacementsTableName table name of placements.

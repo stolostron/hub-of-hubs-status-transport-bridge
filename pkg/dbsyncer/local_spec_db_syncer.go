@@ -75,7 +75,7 @@ func (syncer *LocalSpecDBSyncer) RegisterBundleHandlerFunctions(conflationManage
 		conflator.LocalPlacementRulesSpecPriority,
 		status.CompleteStateMode,
 		helpers.GetBundleType(syncer.createLocalPlacementRulesSpecBundleFunc()),
-		syncer.handleLocalObjectsBundleWrapper(db.LocalPlacementRulesTableName)))
+		syncer.handleLocalObjectsBundleWrapper(db.PlacementRulesTableName)))
 }
 
 func (syncer *LocalSpecDBSyncer) handleLocalObjectsBundleWrapper(tableName string) func(ctx context.Context,

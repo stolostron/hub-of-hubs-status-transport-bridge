@@ -25,7 +25,6 @@ func NewPoliciesDBSyncer(log logr.Logger, config *configv1.Config) DBSyncer {
 		createClustersPerPolicyBundleFunc:             bundle.NewClustersPerPolicyBundle,
 		createCompleteComplianceStatusBundleFunc:      bundle.NewCompleteComplianceStatusBundle,
 		createDeltaComplianceStatusBundleFunc:         bundle.NewDeltaComplianceStatusBundle,
-		createPoliciesPlacementBundleFunc:             bundle.NewPoliciesPlacementBundle,
 		createMinimalComplianceStatusBundleFunc:       bundle.NewMinimalComplianceStatusBundle,
 		createLocalClustersPerPolicyBundleFunc:        bundle.NewLocalClustersPerPolicyBundle,
 		createLocalCompleteComplianceStatusBundleFunc: bundle.NewLocalCompleteComplianceStatusBundle,
@@ -43,7 +42,6 @@ type PoliciesDBSyncer struct {
 	createClustersPerPolicyBundleFunc             bundle.CreateBundleFunction
 	createCompleteComplianceStatusBundleFunc      bundle.CreateBundleFunction
 	createDeltaComplianceStatusBundleFunc         bundle.CreateBundleFunction
-	createPoliciesPlacementBundleFunc             bundle.CreateBundleFunction
 	createMinimalComplianceStatusBundleFunc       bundle.CreateBundleFunction
 	createLocalClustersPerPolicyBundleFunc        bundle.CreateBundleFunction
 	createLocalCompleteComplianceStatusBundleFunc bundle.CreateBundleFunction
@@ -70,12 +68,6 @@ func (syncer *PoliciesDBSyncer) RegisterCreateBundleFunctions(transportInstance 
 	transportInstance.Register(&transport.BundleRegistration{
 		MsgID:            datatypes.PolicyDeltaComplianceMsgKey,
 		CreateBundleFunc: syncer.createDeltaComplianceStatusBundleFunc,
-		Predicate:        fullStatusPredicate,
-	})
-
-	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.PolicyPlacementMsgKey,
-		CreateBundleFunc: syncer.createPoliciesPlacementBundleFunc,
 		Predicate:        fullStatusPredicate,
 	})
 
@@ -131,15 +123,6 @@ func (syncer *PoliciesDBSyncer) RegisterBundleHandlerFunctions(conflationManager
 			return syncer.handleDeltaComplianceBundle(ctx, bundle, dbClient, db.StatusSchema, db.ComplianceTableName)
 		}).WithDependency(dependency.NewDependency(completeComplianceStatusBundleType, dependency.ExactMatch)))
 	// delta compliance depends on complete compliance. should be processed only when there is an exact match
-
-	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.PoliciesPlacementPriority, status.CompleteStateMode,
-		helpers.GetBundleType(syncer.createPoliciesPlacementBundleFunc()),
-		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handlePoliciesPlacementBundle(ctx, bundle, dbClient, db.StatusSchema,
-				db.PoliciesPlacementTableName)
-		},
-	))
 
 	conflationManager.Register(conflator.NewConflationRegistration(
 		conflator.MinimalComplianceStatusPriority, status.CompleteStateMode,
@@ -387,53 +370,6 @@ func (syncer *PoliciesDBSyncer) handleDeltaPolicyComplianceStatus(batchBuilder d
 	for _, cluster := range policyComplianceStatus.UnknownComplianceClusters {
 		batchBuilder.UpdateClusterCompliance(policyComplianceStatus.PolicyID, cluster, db.Unknown)
 	}
-}
-
-func (syncer *PoliciesDBSyncer) handlePoliciesPlacementBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.PoliciesPlacementStatusDB, dbSchema string, dbTableName string) error {
-	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
-	leafHubName := bundle.GetLeafHubName()
-
-	policiesPlacementFromDB, err := dbClient.GetPoliciesPlacementByLeafHub(ctx, dbSchema, dbTableName, leafHubName)
-	if err != nil {
-		return fmt.Errorf("failed fetching policies placement by leaf hub from db - %w", err)
-	}
-	// batch is per leaf hub, therefore no need to specify leafHubName in Insert/Update/Delete
-	batchBuilder := dbClient.NewPoliciesPlacementBatchBuilder(dbSchema, dbTableName, leafHubName)
-
-	for _, object := range bundle.GetObjects() {
-		placementStatus, ok := object.(*status.PolicyPlacementStatus)
-		if !ok {
-			continue // do not handle objects other than PolicyPlacementStatus
-		}
-
-		resourceVersionFromDB, policyPlacementExistsInDB := policiesPlacementFromDB[placementStatus.PolicyID]
-		if !policyPlacementExistsInDB { // policy placement not found in the db table
-			batchBuilder.Insert(placementStatus.PolicyID, placementStatus.Placement, placementStatus.ResourceVersion)
-			continue
-		}
-
-		// if we got here, policy placement exists both in db and in received bundle.
-		delete(policiesPlacementFromDB, placementStatus.PolicyID)
-
-		if placementStatus.ResourceVersion == resourceVersionFromDB {
-			continue // update placement in db only if what we got is a different (newer) version of the resource
-		}
-
-		batchBuilder.Update(placementStatus.PolicyID, placementStatus.Placement, placementStatus.ResourceVersion)
-	}
-	// delete placements in the db that were not sent in the bundle (leaf hub sends only living resources).
-	for policyID := range policiesPlacementFromDB {
-		batchBuilder.Delete(policyID)
-	}
-	// batch contains at most number of statements as the number of policies per LH
-	if err := dbClient.SendBatch(ctx, batchBuilder.Build()); err != nil {
-		return fmt.Errorf("failed to perform batch - %w", err)
-	}
-
-	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
-
-	return nil
 }
 
 // if we got to the handler function, then the bundle pre-conditions are satisfied.
