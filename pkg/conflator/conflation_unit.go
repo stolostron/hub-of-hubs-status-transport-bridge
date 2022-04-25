@@ -37,7 +37,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	registrations []*ConflationRegistration, requireInitialDependencyChecks bool,
 	statistics *statistics.Statistics) *ConflationUnit {
 	priorityQueue := make([]*conflationElement, len(registrations))
-	bundleTypeToPriority := make(map[string]conflationPriority)
+	bundleTypeToPriority := make(map[string]ConflationPriority)
 
 	createBundleInfoFuncMap := map[status.BundleSyncMode]createBundleInfoFunc{
 		status.DeltaStateMode:    newDeltaStateBundleInfo,
@@ -72,7 +72,7 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 type ConflationUnit struct {
 	log                            logr.Logger
 	priorityQueue                  []*conflationElement
-	bundleTypeToPriority           map[string]conflationPriority
+	bundleTypeToPriority           map[string]ConflationPriority
 	readyQueue                     *ConflationReadyQueue
 	requireInitialDependencyChecks bool
 	isInReadyQueue                 bool

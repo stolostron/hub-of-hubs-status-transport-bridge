@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
@@ -15,30 +14,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// NewSubscriptionsDBSyncer creates a new instance of SubscriptionsDBSyncer.
-func NewSubscriptionsDBSyncer(log logr.Logger) DBSyncer {
-	dbSyncer := &SubscriptionsDBSyncer{
-		log:                          log,
-		createSubscriptionBundleFunc: bundle.NewSubscriptionsStatusBundle,
-	}
+// genericDBSyncer implements generic status resource db sync business logic.
+type genericDBSyncer struct {
+	log             logr.Logger
+	transportMsgKey string
 
-	log.Info("initialized subscriptions db syncer")
+	dbSchema    string
+	dbTableName string
 
-	return dbSyncer
-}
-
-// SubscriptionsDBSyncer implements subscriptions db sync business logic.
-type SubscriptionsDBSyncer struct {
-	log                          logr.Logger
-	createSubscriptionBundleFunc func() bundle.Bundle
+	createBundleFunc func() bundle.Bundle
+	bundlePriority   conflator.ConflationPriority
+	bundleSyncMode   status.BundleSyncMode
 }
 
 // RegisterCreateBundleFunctions registers create bundle functions within the transport instance.
-func (syncer *SubscriptionsDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
+func (syncer *genericDBSyncer) RegisterCreateBundleFunctions(transportInstance transport.Transport) {
 	transportInstance.Register(&transport.BundleRegistration{
-		MsgID:            datatypes.SubscriptionStatusMsgKey,
-		CreateBundleFunc: syncer.createSubscriptionBundleFunc,
-		Predicate:        func() bool { return true }, // always get subscription status
+		MsgID:            syncer.transportMsgKey,
+		CreateBundleFunc: syncer.createBundleFunc,
+		Predicate:        func() bool { return true }, // always get generic status resources
 	})
 }
 
@@ -49,28 +43,28 @@ func (syncer *SubscriptionsDBSyncer) RegisterCreateBundleFunctions(transportInst
 // therefore, whatever is in the db and cannot be found in the bundle has to be deleted from the db.
 // for the objects that appear in both, need to check if something has changed using resourceVersion field comparison
 // and if the object was changed, update the db with the current object.
-func (syncer *SubscriptionsDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
+func (syncer *genericDBSyncer) RegisterBundleHandlerFunctions(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
-		conflator.SubscriptionsStatusPriority,
-		status.CompleteStateMode,
-		helpers.GetBundleType(syncer.createSubscriptionBundleFunc()),
+		syncer.bundlePriority,
+		syncer.bundleSyncMode,
+		helpers.GetBundleType(syncer.createBundleFunc()),
 		func(ctx context.Context, bundle bundle.Bundle, dbClient db.StatusTransportBridgeDB) error {
-			return syncer.handleSubscriptionsStatusBundle(ctx, bundle, dbClient, db.StatusSchema, db.SubscriptionTableName)
+			return syncer.handleResourcesBundle(ctx, bundle, dbClient)
 		},
 	))
 }
 
-func (syncer *SubscriptionsDBSyncer) handleSubscriptionsStatusBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.SubscriptionsStatusDB, schema string, tableName string) error {
+func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle bundle.Bundle,
+	dbClient db.StatusTransportBridgeDB) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
-	idToVersionMapFromDB, err := dbClient.GetDistinctIDAndVersion(ctx, schema, tableName, leafHubName)
+	idToVersionMapFromDB, err := dbClient.GetDistinctIDAndVersion(ctx, syncer.dbSchema, syncer.dbTableName, leafHubName)
 	if err != nil {
-		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", schema, tableName, err)
+		return fmt.Errorf("failed fetching leaf hub '%s.%s' IDs from db - %w", syncer.dbSchema, syncer.dbTableName, err)
 	}
 
-	batchBuilder := dbClient.NewGenericBatchBuilder(schema, tableName, leafHubName)
+	batchBuilder := dbClient.NewGenericBatchBuilder(syncer.dbSchema, syncer.dbTableName, leafHubName)
 
 	for _, object := range bundle.GetObjects() {
 		specificObj, ok := object.(metav1.Object)

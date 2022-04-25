@@ -10,6 +10,7 @@ linters-settings:
   gomoddirectives:
     replace-allow-list:
       - k8s.io/client-go # Kuberentes client specific issue. See https://maelvls.dev/client-go-transitive-hell/.
+      - k8s.io/kube-openapi # conflict issue. See https://github.com/tektoncd/pipeline/issues/4320 for example.
 
 run:
   skip-dirs:

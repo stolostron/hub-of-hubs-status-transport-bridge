@@ -1,19 +1,24 @@
 package conflator
 
-type conflationPriority uint8
+// ConflationPriority sets priority of processing for the conflators.
+type ConflationPriority uint8
 
 // priority list of conflation unit.
 const (
-	ManagedClustersPriority               conflationPriority = iota // ManagedClusters = 0
-	ClustersPerPolicyPriority             conflationPriority = iota // ClustersPerPolicy = 1
-	CompleteComplianceStatusPriority      conflationPriority = iota // CompleteComplianceStatus = 2
-	DeltaComplianceStatusPriority         conflationPriority = iota // DeltaComplianceStatus = 3
-	PoliciesPlacementPriority             conflationPriority = iota // PoliciesPlacement = 4
-	MinimalComplianceStatusPriority       conflationPriority = iota // MinimalComplianceStatus = 5
-	SubscriptionsStatusPriority           conflationPriority = iota // SubscriptionsStatus = 6
-	ControlInfoPriority                   conflationPriority = iota // ControlInfo = 7
-	LocalPolicySpecPriority               conflationPriority = iota // LocalPolicySpec = 8
-	LocalClustersPerPolicyPriority        conflationPriority = iota // LocalClustersPerPolicy = 9
-	LocalCompleteComplianceStatusPriority conflationPriority = iota // LocalCompleteComplianceStatus = 10
-	LocalPlacementRulesSpecPriority       conflationPriority = iota // LocalPlacementRulesSpec = 11
+	ManagedClustersPriority               ConflationPriority = iota
+	ClustersPerPolicyPriority             ConflationPriority = iota
+	CompleteComplianceStatusPriority      ConflationPriority = iota
+	DeltaComplianceStatusPriority         ConflationPriority = iota
+	PoliciesPlacementPriority             ConflationPriority = iota
+	MinimalComplianceStatusPriority       ConflationPriority = iota
+	PlacementRulePriority                 ConflationPriority = iota
+	PlacementPriority                     ConflationPriority = iota
+	PlacementDecisionPriority             ConflationPriority = iota
+	SubscriptionStatusPriority            ConflationPriority = iota
+	SubscriptionReportPriority            ConflationPriority = iota
+	ControlInfoPriority                   ConflationPriority = iota
+	LocalPolicySpecPriority               ConflationPriority = iota
+	LocalClustersPerPolicyPriority        ConflationPriority = iota
+	LocalCompleteComplianceStatusPriority ConflationPriority = iota
+	LocalPlacementRulesSpecPriority       ConflationPriority = iota
 )
