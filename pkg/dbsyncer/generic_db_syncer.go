@@ -55,7 +55,7 @@ func (syncer *genericDBSyncer) RegisterBundleHandlerFunctions(conflationManager 
 }
 
 func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle bundle.Bundle,
-	dbClient db.StatusTransportBridgeDB) error {
+	dbClient db.GenericStatusResourceDB) error {
 	logBundleHandlingMessage(syncer.log, bundle, startBundleHandlingMessage)
 	leafHubName := bundle.GetLeafHubName()
 
