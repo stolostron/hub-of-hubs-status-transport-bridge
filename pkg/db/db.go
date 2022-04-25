@@ -15,7 +15,7 @@ type StatusTransportBridgeDB interface {
 	PoliciesStatusDB
 	PoliciesPlacementStatusDB
 	AggregatedPoliciesStatusDB
-	SubscriptionsStatusDB
+	GenericStatusResourceDB
 	LocalPoliciesStatusDB
 	ControlInfoDB
 }
@@ -67,8 +67,8 @@ type AggregatedPoliciesStatusDB interface {
 		policyID string) error
 }
 
-// SubscriptionsStatusDB is the db interface required to manage subscriptions status.
-type SubscriptionsStatusDB interface {
+// GenericStatusResourceDB is the db interface required to manage generic status resources.
+type GenericStatusResourceDB interface {
 	BatchSenderDB
 	// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
 	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,

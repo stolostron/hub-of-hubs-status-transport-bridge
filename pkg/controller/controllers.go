@@ -52,7 +52,11 @@ func Setup(mgr ctrl.Manager, dbWorkerPool *workerpool.DBWorkerPool, conflationMa
 	dbSyncers := []dbsyncer.DBSyncer{
 		dbsyncer.NewManagedClustersDBSyncer(ctrl.Log.WithName("managed-clusters-db-syncer")),
 		dbsyncer.NewPoliciesDBSyncer(ctrl.Log.WithName("policies-db-syncer"), config),
-		dbsyncer.NewSubscriptionsDBSyncer(ctrl.Log.WithName("subscriptions-db-syncer")),
+		dbsyncer.NewPlacementRulesDBSyncer(ctrl.Log.WithName("placement-rules-db-syncer")),
+		dbsyncer.NewPlacementsDBSyncer(ctrl.Log.WithName("placements-db-syncer")),
+		dbsyncer.NewPlacementDecisionsDBSyncer(ctrl.Log.WithName("placement-decisions-db-syncer")),
+		dbsyncer.NewSubscriptionStatusesDBSyncer(ctrl.Log.WithName("subscription-statuses-db-syncer")),
+		dbsyncer.NewSubscriptionReportsDBSyncer(ctrl.Log.WithName("subscription-reports-db-syncer")),
 		dbsyncer.NewLocalSpecDBSyncer(ctrl.Log.WithName("local-spec-db-syncer"), config),
 		dbsyncer.NewControlInfoDBSyncer(ctrl.Log.WithName("control-info-db-syncer")),
 	}

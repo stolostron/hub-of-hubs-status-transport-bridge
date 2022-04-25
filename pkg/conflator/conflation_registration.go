@@ -13,7 +13,7 @@ import (
 type BundleHandlerFunc func(context.Context, bundle.Bundle, db.StatusTransportBridgeDB) error
 
 // NewConflationRegistration creates a new instance of ConflationRegistration.
-func NewConflationRegistration(priority conflationPriority, syncMode status.BundleSyncMode, bundleType string,
+func NewConflationRegistration(priority ConflationPriority, syncMode status.BundleSyncMode, bundleType string,
 	handlerFunction BundleHandlerFunc) *ConflationRegistration {
 	return &ConflationRegistration{
 		priority:        priority,
@@ -26,7 +26,7 @@ func NewConflationRegistration(priority conflationPriority, syncMode status.Bund
 
 // ConflationRegistration is used to register a new conflated bundle type along with its priority and handler function.
 type ConflationRegistration struct {
-	priority        conflationPriority
+	priority        ConflationPriority
 	syncMode        status.BundleSyncMode
 	bundleType      string
 	handlerFunction BundleHandlerFunc
