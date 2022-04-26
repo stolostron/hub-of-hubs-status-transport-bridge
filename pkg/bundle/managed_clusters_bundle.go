@@ -1,7 +1,7 @@
 package bundle
 
 import (
-	clustersv1 "github.com/open-cluster-management/api/cluster/v1"
+	clustersv1 "open-cluster-management.io/api/cluster/v1"
 )
 
 // NewManagedClustersStatusBundle creates a new instance of ManagedClustersStatusBundle.

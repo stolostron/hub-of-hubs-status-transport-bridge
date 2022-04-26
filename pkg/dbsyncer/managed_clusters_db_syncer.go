@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	managedclustersv1 "github.com/open-cluster-management/api/cluster/v1"
 	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
@@ -13,6 +12,7 @@ import (
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/db"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/helpers"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/transport"
+	managedclustersv1 "open-cluster-management.io/api/cluster/v1"
 )
 
 // NewManagedClustersDBSyncer creates a new instance of ManagedClustersDBSyncer.

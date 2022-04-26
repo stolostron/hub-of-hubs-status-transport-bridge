@@ -94,8 +94,6 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
-github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1 h1:AaFycHD9YOfFXe9C5VsYxKf4LKCXKSLZgK2DnFdHY4M=
-github.com/open-cluster-management/api v0.0.0-20210527013639-a6845f2ebcb1/go.mod h1:ot+A1DWq+v1IV+e1S7nhIteYAmNByFgtazvzpoeAfRQ=
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc h1:572R5lrxb1KDWTDmLb9b/7uPrRqDHeLkgYbqnwFEGsY=
 github.com/open-cluster-management/governance-policy-propagator v0.0.0-20211209195740-297c4b4e4fbc/go.mod h1:BeU1IeeQCcmHK1CGlNBkea8VDoh0CpPxwGTY7u4h+0o=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5 h1:u5Du//c1Gzv9liDsHLVJefQ9zwGSEcwSeOIv6jJjTOI=
