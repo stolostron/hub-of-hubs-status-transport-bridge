@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	datatypes "github.com/stolostron/hub-of-hubs-data-types"
 	"github.com/stolostron/hub-of-hubs-data-types/bundle/status"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/bundle"
 	"github.com/stolostron/hub-of-hubs-status-transport-bridge/pkg/conflator"
@@ -72,7 +73,7 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 			continue
 		}
 
-		uid := string(specificObj.GetUID())
+		uid := getGenericResourceUID(specificObj)
 		resourceVersionFromDB, objExistsInDB := idToVersionMapFromDB[uid]
 
 		if !objExistsInDB { // object not found in the db table
@@ -101,4 +102,13 @@ func (syncer *genericDBSyncer) handleResourcesBundle(ctx context.Context, bundle
 	logBundleHandlingMessage(syncer.log, bundle, finishBundleHandlingMessage)
 
 	return nil
+}
+
+func getGenericResourceUID(resourceObject metav1.Object) string {
+	if originOwnerReference, found := resourceObject.GetAnnotations()[datatypes.OriginOwnerReferenceAnnotation]; found {
+		// safe if GetAnnotations() returns nil
+		return originOwnerReference
+	}
+
+	return string(resourceObject.GetUID())
 }
