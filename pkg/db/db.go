@@ -21,6 +21,7 @@ type StatusTransportBridgeDB interface {
 
 // BatchSenderDB is the db interface required for sending batch updates.
 type BatchSenderDB interface {
+	// SendBatch sends a batch operation to the db and returns list of errors if there were any.
 	SendBatch(ctx context.Context, batch interface{}) error
 }
 
@@ -59,17 +60,18 @@ type AggregatedPoliciesStatusDB interface {
 // GenericStatusResourceDB is the db interface required to manage generic status resources.
 type GenericStatusResourceDB interface {
 	BatchSenderDB
-	// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
-	GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	// GetResourceIDToVersionByLeafHub returns a map from resource id to its resourceVersion.
+	GetResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
+	// NewGenericBatchBuilder returns generic batch builder.
 	NewGenericBatchBuilder(schema string, tableName string, leafHubName string) GenericBatchBuilder
 }
 
 // LocalPoliciesStatusDB is the db interface required to manage local policies.
 type LocalPoliciesStatusDB interface {
 	BatchSenderDB
-	// GetLocalDistinctIDAndVersion returns a map from resource id to its resourceVersion.
-	GetLocalDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+	// GetLocalResourceIDToVersionByLeafHub returns a map from local resource id to its resourceVersion.
+	GetLocalResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
 		leafHubName string) (map[string]string, error)
 	// NewGenericLocalBatchBuilder returns generic local batch builder.
 	NewGenericLocalBatchBuilder(schema string, tableName string, leafHubName string) GenericLocalBatchBuilder

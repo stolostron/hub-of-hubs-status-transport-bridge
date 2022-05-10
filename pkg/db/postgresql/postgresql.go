@@ -227,8 +227,8 @@ func (p *PostgreSQL) NewGenericBatchBuilder(schema string, tableName string,
 	return batch.NewGenericBatchBuilder(schema, tableName, leafHubName)
 }
 
-// GetDistinctIDAndVersion returns a map from resource id to its resourceVersion.
-func (p *PostgreSQL) GetDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+// GetResourceIDToVersionByLeafHub returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string) (map[string]string, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT id,
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
@@ -247,8 +247,8 @@ func (p *PostgreSQL) NewGenericLocalBatchBuilder(schema string, tableName string
 	return batch.NewGenericLocalBatchBuilder(schema, tableName, leafHubName)
 }
 
-// GetLocalDistinctIDAndVersion returns a map from resource id to its resourceVersion.
-func (p *PostgreSQL) GetLocalDistinctIDAndVersion(ctx context.Context, schema string, tableName string,
+// GetLocalResourceIDToVersionByLeafHub returns a map from resource id to its resourceVersion.
+func (p *PostgreSQL) GetLocalResourceIDToVersionByLeafHub(ctx context.Context, schema string, tableName string,
 	leafHubName string) (map[string]string, error) {
 	rows, _ := p.conn.Query(ctx, fmt.Sprintf(`SELECT payload->'metadata'->>'uid',
 		payload->'metadata'->>'resourceVersion' FROM %s.%s WHERE leaf_hub_name=$1`, schema, tableName), leafHubName)
